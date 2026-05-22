@@ -35,6 +35,7 @@ FEATURE_COLS = [
     "xg_avg_against",
     "travel_distance_home",
     "travel_distance_away",
+    "ranking_diff",
 ]
 
 

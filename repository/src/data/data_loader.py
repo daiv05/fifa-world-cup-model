@@ -3,6 +3,7 @@ Carga y limpieza de datasets históricos de fútbol internacional.
 Fuentes: martj42/international_results (GitHub), Kaggle WC datasets, openfootball/worldcup.
 """
 
+import bisect
 import pandas as pd
 from pathlib import Path
 
@@ -55,7 +56,7 @@ RELEVANT_TOURNAMENTS = {
 
 
 def standardize_team_names(df: pd.DataFrame) -> pd.DataFrame:
-    for col in ("home_team", "away_team"):
+    for col in ("home_team", "away_team", "team"):
         if col in df.columns:
             df[col] = df[col].replace(TEAM_NAME_ALIASES)
     return df
@@ -99,12 +100,59 @@ def load_fifa_ranking(path: str | Path | None = None) -> pd.DataFrame:
     """
     Lee el dataset FIFA World Ranking 1993-2023 de Kaggle.
     Descarga manual requerida: guardar en data/raw/fifa_ranking.csv
+
+    Devuelve DataFrame con columnas: team, rank, total_points, rank_date.
+    Renombra 'country_full' → 'team' y aplica TEAM_NAME_ALIASES.
     """
     if path is None:
         path = RAW_DIR / "fifa_ranking.csv"
-    df = pd.read_csv(path, parse_dates=["rank_date"] if "rank_date" in pd.read_csv(path, nrows=0).columns else False)
-    df = standardize_team_names(df)
-    return df
+    df = pd.read_csv(path)
+    df["rank_date"] = pd.to_datetime(df["rank_date"])
+    df = df.rename(columns={"country_full": "team"})
+    df = standardize_team_names(df)          # ahora actúa sobre columna "team"
+    return df[["team", "rank", "total_points", "rank_date"]]
+
+
+def build_ranking_dict(ranking_df: pd.DataFrame) -> dict[str, list[tuple]]:
+    """
+    Pre-computa {team: [(rank_date, rank), ...]} ordenado por fecha para
+    lookups O(log n) con bisect_right.
+
+    Parámetros
+    ----------
+    ranking_df : salida de load_fifa_ranking() con columnas [team, rank, rank_date]
+    """
+    result: dict[str, list[tuple]] = {}
+    for team, grp in ranking_df.groupby("team"):
+        sorted_grp = grp.dropna(subset=["rank"]).sort_values("rank_date")
+        if sorted_grp.empty:
+            continue
+        result[team] = list(zip(sorted_grp["rank_date"], sorted_grp["rank"].astype(int)))
+    return result
+
+
+def get_ranking_at_date(
+    ranking_dict: dict,
+    team: str,
+    date: pd.Timestamp,
+    default_rank: int = 78,
+) -> int:
+    """
+    Devuelve el ranking FIFA (posición ordinal) más reciente anterior o igual a `date`.
+
+    Parámetros
+    ----------
+    ranking_dict : salida de build_ranking_dict()
+    team         : nombre canónico del equipo
+    date         : fecha del partido
+    default_rank : rank por defecto si no hay datos (78 ≈ mediana de 156 equipos)
+    """
+    entries = ranking_dict.get(team, [])
+    if not entries:
+        return default_rank
+    # bisect_right sobre tuplas (rank_date, inf) devuelve el primer índice > date
+    idx = bisect.bisect_right(entries, (date, float("inf"))) - 1
+    return entries[idx][1] if idx >= 0 else default_rank
 
 
 def load_wc2026_fixture(path: str | Path | None = None) -> pd.DataFrame:

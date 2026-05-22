@@ -6,22 +6,27 @@ Llaves eliminatorias de 32 hasta la final.
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from itertools import combinations
 
-GROUPS_2026: dict[str, list[str]] = {
-    "A": ["Mexico", "South Africa", "South Korea", "Czech Republic"],
-    "B": ["Canada", "Bosnia & Herzegovina", "Qatar", "Switzerland"],
-    "C": ["Brazil", "Morocco", "Haiti", "Scotland"],
-    "D": ["United States", "Paraguay", "Australia", "Turkey"],
-    "E": ["Germany", "Curacao", "Ivory Coast", "Ecuador"],
-    "F": ["Netherlands", "Japan", "Sweden", "Tunisia"],
-    "G": ["Belgium", "Egypt", "Iran", "New Zealand"],
-    "H": ["Spain", "Cape Verde", "Saudi Arabia", "Uruguay"],
-    "I": ["France", "Senegal", "Iraq", "Norway"],
-    "J": ["Argentina", "Algeria", "Austria", "Jordan"],
-    "K": ["Portugal", "DR Congo", "Uzbekistan", "Colombia"],
-    "L": ["England", "Croatia", "Ghana", "Panama"],
-}
+_FIXTURE_CSV = Path(__file__).parents[2] / "data" / "raw" / "wc2026_fixture.csv"
+
+
+def _load_groups(fixture_path: Path) -> dict[str, list[str]]:
+    """
+    Carga los grupos del fixture CSV y aplica estandarización de nombres de equipo.
+    Los nombres pasan por TEAM_NAME_ALIASES ("USA" → "United States", etc.).
+    Para actualizar el torneo: reemplaza data/raw/wc2026_fixture.csv y re-ejecuta.
+    """
+    from src.data.data_loader import load_wc2026_fixture
+    df = load_wc2026_fixture(fixture_path)
+    groups: dict[str, list[str]] = {}
+    for _, row in df.iterrows():
+        groups.setdefault(row["group"], []).append(row["team"])
+    return groups
+
+
+GROUPS_2026: dict[str, list[str]] = _load_groups(_FIXTURE_CSV)
 
 ALL_TEAMS: list[str] = [team for teams in GROUPS_2026.values() for team in teams]
 

@@ -22,6 +22,7 @@ FEATURE_COLS = [
     "xg_avg_against",
     "travel_distance_home",
     "travel_distance_away",
+    "ranking_diff",
 ]
 
 CLASS_NAMES = {0: "Away Win", 1: "Draw", 2: "Home Win"}
@@ -130,21 +131,47 @@ def shap_analysis(model, X_train: np.ndarray, feature_names: list[str] | None = 
 
 
 def validate_wc2022(
-    matches_df: pd.DataFrame,
+    wc_matches_df: pd.DataFrame | None,
     features_df: pd.DataFrame,
     model,
 ) -> pd.DataFrame:
     """
-    Validación histórica: evalúa el modelo sobre los partidos del Mundial 2022
-    usando solo datos de entrenamiento previos a 2022.
+    Validación histórica: evalúa el modelo sobre los partidos del Mundial 2022.
 
-    Devuelve DataFrame con [home_team, away_team, pred_class, true_class, correct].
+    Si wc_matches_df no es None: hace inner join exacto (date, home_team, away_team)
+    para aislar los partidos reales del WC 2022 dentro de features_df, descartando
+    amistosos, clasificatorias y otras competiciones del mismo año.
+
+    Uso recomendado en __main__:
+        all_matches = load_international_results()
+        wc22_actual = all_matches[
+            (all_matches["tournament"] == "FIFA World Cup")
+            & (all_matches["date"].astype(str).str.startswith("2022"))
+        ]
+        validate_wc2022(wc22_actual, df, model)
+
+    Si wc_matches_df es None: fallback a filtrar todos los partidos del año 2022.
+
+    Devuelve DataFrame con [date, home_team, away_team, pred_class, true_class,
+    correct, confidence].
     """
-    # Filtra partidos de 2022 que sean del Mundial (o clasificatorias recientes).
-    # features_df no contiene columna tournament, así que usamos el año como proxy;
-    # la validación histórica toma todos los partidos del año 2022 del dataset filtrado.
-    date_mask = features_df["date"].astype(str).str.startswith("2022")
-    wc22 = features_df[date_mask].copy()
+    if wc_matches_df is not None and not wc_matches_df.empty:
+        wc22_raw = wc_matches_df[
+            wc_matches_df["date"].astype(str).str.startswith("2022")
+        ][["date", "home_team", "away_team"]].copy()
+        wc22_raw["_date_str"] = wc22_raw["date"].astype(str).str[:10]
+        features_copy = features_df.copy()
+        features_copy["_date_str"] = features_copy["date"].astype(str).str[:10]
+        wc22 = features_copy.merge(
+            wc22_raw[["_date_str", "home_team", "away_team"]],
+            on=["_date_str", "home_team", "away_team"],
+            how="inner",
+        ).drop(columns="_date_str")
+        print(f"  Partidos WC 2022 encontrados por join exacto: {len(wc22)}")
+    else:
+        date_mask = features_df["date"].astype(str).str.startswith("2022")
+        wc22 = features_df[date_mask].copy()
+        print(f"  Partidos 2022 (fallback por año): {len(wc22)}")
 
     if wc22.empty:
         print("No hay datos del año 2022 en el dataset de features.")
@@ -198,5 +225,15 @@ if __name__ == "__main__":
     shap_analysis(xgb_raw, X[:split])
 
     print("\n=== Validación WC2022 ===")
-    wc22_results = validate_wc2022(None, df, models["XGBoost"])
+    # Carga los 64 partidos reales del Mundial 2022 desde international_results
+    # (filtrado por tournament="FIFA World Cup" + año 2022) para hacer join exacto.
+    # wc_matches_1974_2022.csv tiene datos incorrectos para 2022, no se usa aquí.
+    from src.data.data_loader import load_international_results
+    all_matches = load_international_results()
+    wc22_actual = all_matches[
+        (all_matches["tournament"] == "FIFA World Cup")
+        & (all_matches["date"].astype(str).str.startswith("2022"))
+    ].copy()
+    print(f"  Partidos del Mundial 2022 (fuente: international_results): {len(wc22_actual)}")
+    wc22_results = validate_wc2022(wc22_actual, df, models["XGBoost"])
     print(wc22_results.head(10).to_string(index=False))

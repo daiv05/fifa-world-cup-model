@@ -1,7 +1,7 @@
 """
 Pipeline de ingeniería de características.
-Combina ELO, time decay, valor de plantilla, xG y distancia geográfica
-en un único DataFrame listo para entrenamiento.
+Combina ELO, time decay, valor de plantilla, xG, distancia geográfica
+y ranking FIFA en un único DataFrame listo para entrenamiento.
 """
 
 import sys
@@ -93,6 +93,7 @@ def build_match_features(
     matches_df: pd.DataFrame,
     xg_df: pd.DataFrame | None = None,
     squad_df: pd.DataFrame | None = None,
+    ranking_df: pd.DataFrame | None = None,
     lambda_decay: float = 0.002,
     year_cutoff: int = 1993,
 ) -> pd.DataFrame:
@@ -101,7 +102,7 @@ def build_match_features(
 
     Columnas de salida:
       elo_diff, squad_value_diff (log), xg_avg_for, xg_avg_against,
-      travel_distance_home, travel_distance_away, time_weight, target
+      travel_distance_home, travel_distance_away, ranking_diff, time_weight, target
 
     Parámetros
     ----------
@@ -109,6 +110,8 @@ def build_match_features(
                    home_score, away_score, tournament)
     xg_df        : xG promedio por equipo (team, xg_for, xg_against)
     squad_df     : valor de plantilla (team, squad_value_eur)
+    ranking_df   : ranking FIFA histórico; salida de load_fifa_ranking()
+                   (team, rank, rank_date). Si None, ranking_diff = 0.
     lambda_decay : tasa de decaimiento temporal
     year_cutoff  : año mínimo de partidos a incluir
     """
@@ -161,6 +164,20 @@ def build_match_features(
     else:
         df["squad_value_diff"] = 0.0
 
+    if ranking_df is not None and not ranking_df.empty:
+        from src.data.data_loader import build_ranking_dict, get_ranking_at_date
+        ranking_dict = build_ranking_dict(ranking_df)
+
+        def _rank_diff(row):
+            h = get_ranking_at_date(ranking_dict, row["home_team"], row["date"])
+            a = get_ranking_at_date(ranking_dict, row["away_team"], row["date"])
+            return a - h   # positivo = local mejor rankeado (menor número = mejor)
+
+        print("Calculando ranking_diff...")
+        df["ranking_diff"] = df.apply(_rank_diff, axis=1)
+    else:
+        df["ranking_diff"] = 0.0
+
     print("Calculando distancias de viaje...")
     coords_cache: dict = {}
     all_teams = set(df["home_team"].unique()) | set(df["away_team"].unique())
@@ -181,6 +198,7 @@ def build_match_features(
         "elo_diff", "squad_value_diff",
         "xg_avg_for", "xg_avg_against",
         "travel_distance_home", "travel_distance_away",
+        "ranking_diff",
         "time_weight", "target",
     ]
     result = df[[c for c in feature_cols if c in df.columns]]
@@ -191,11 +209,12 @@ def build_team_features_for_simulation(
     matches_df: pd.DataFrame,
     xg_df: pd.DataFrame | None = None,
     squad_df: pd.DataFrame | None = None,
+    ranking_df: pd.DataFrame | None = None,
     teams: list[str] | None = None,
 ) -> pd.DataFrame:
     """
     Builds a per-team feature row for the Monte Carlo simulation.
-    Columns: team, elo, squad_value_eur, xg_for, xg_against, travel_distance
+    Columns: team, elo, squad_value_eur, xg_for, xg_against, travel_distance, rank
     """
     matches_df = matches_df.copy()
     matches_df["date"] = pd.to_datetime(matches_df["date"])
@@ -223,6 +242,14 @@ def build_team_features_for_simulation(
         else {}
     )
 
+    # Ranking FIFA: usar la posición más reciente disponible (hasta fecha WC kickoff)
+    if ranking_df is not None and not ranking_df.empty:
+        from src.data.data_loader import build_ranking_dict, get_ranking_at_date
+        ranking_dict = build_ranking_dict(ranking_df)
+        get_rank = lambda team: get_ranking_at_date(ranking_dict, team, ref_date)
+    else:
+        get_rank = lambda team: 78  # mediana de 156 equipos
+
     coords_cache: dict = {}
     records = []
     for team in all_teams:
@@ -233,6 +260,7 @@ def build_team_features_for_simulation(
             "xg_for": xg_for_map.get(team, 1.2),
             "xg_against": xg_against_map.get(team, 1.2),
             "travel_distance": compute_travel_distance(team, coords_cache),
+            "rank": get_rank(team),
         })
 
     return pd.DataFrame(records)
@@ -246,7 +274,9 @@ def save_features(df: pd.DataFrame, filename: str = "features.csv") -> Path:
 
 
 if __name__ == "__main__":
-    from src.data.data_loader import load_international_results, filter_relevant_matches
+    from src.data.data_loader import (
+        load_international_results, filter_relevant_matches, load_fifa_ranking,
+    )
     from src.data.scraper import get_statsbomb_xg_by_team, get_squad_values
 
     print("Cargando datos históricos...")
@@ -255,9 +285,14 @@ if __name__ == "__main__":
 
     xg_df = get_statsbomb_xg_by_team()
     squad_df = get_squad_values()
+    ranking_df = load_fifa_ranking()
+    print(f"  Ranking FIFA cargado: {len(ranking_df):,} filas, "
+          f"{ranking_df['team'].nunique()} equipos únicos")
 
     print("Construyendo features...")
-    features = build_match_features(matches, xg_df=xg_df, squad_df=squad_df)
+    features = build_match_features(
+        matches, xg_df=xg_df, squad_df=squad_df, ranking_df=ranking_df,
+    )
     print(f"  Partidos con features: {len(features):,}")
     print(f"  Distribución del target:\n{features['target'].value_counts()}")
     save_features(features)
@@ -265,6 +300,8 @@ if __name__ == "__main__":
     from src.simulation.tournament import GROUPS_2026
     wc_teams = [t for ts in GROUPS_2026.values() for t in ts]
     print("Construyendo team_features para simulación...")
-    team_feats = build_team_features_for_simulation(matches, xg_df=xg_df, squad_df=squad_df, teams=wc_teams)
+    team_feats = build_team_features_for_simulation(
+        matches, xg_df=xg_df, squad_df=squad_df, ranking_df=ranking_df, teams=wc_teams,
+    )
     save_features(team_feats, "team_features.csv")
     print(team_feats.to_string(index=False))

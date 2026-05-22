@@ -46,12 +46,14 @@ def build_predict_fn(model, team_features: pd.DataFrame):
             h.get("xg_against", 1.2) - a.get("xg_against", 1.2),
             h.get("travel_distance", 5000.0),
             a.get("travel_distance", 5000.0),
+            a.get("rank", 78) - h.get("rank", 78),   # ranking_diff: positivo = local mejor rankeado
         ])
 
     # Usar DataFrame con nombres de columna para evitar el UserWarning de LightGBM
     # "X does not have valid feature names, but LGBMClassifier was fitted with feature names"
     _FEATURE_COLS = ["elo_diff", "squad_value_diff", "xg_avg_for",
-                     "xg_avg_against", "travel_distance_home", "travel_distance_away"]
+                     "xg_avg_against", "travel_distance_home", "travel_distance_away",
+                     "ranking_diff"]
     X_all = pd.DataFrame(rows, columns=_FEATURE_COLS).astype(np.float32)
 
     # Model returns [p_away, p_draw, p_home] (class order 0,1,2).
