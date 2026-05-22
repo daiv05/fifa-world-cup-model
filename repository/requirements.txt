@@ -1,0 +1,38 @@
+# Data
+pandas>=2.0
+numpy>=1.26
+soccerdata>=1.6
+statsbombpy>=1.1
+requests-cache>=1.2
+
+# Feature Engineering
+scikit-learn>=1.4
+scipy>=1.12
+geopy>=2.4
+
+# Modeling
+xgboost>=2.0
+lightgbm>=4.3
+imbalanced-learn>=0.12
+optuna>=3.6
+shap>=0.45
+
+# Optimization
+numba>=0.59
+joblib>=1.4
+tqdm>=4.66
+
+# Visualization & Dashboard
+matplotlib>=3.8
+seaborn>=0.13
+plotly>=5.20
+streamlit>=1.35
+ydata-profiling>=4.18
+
+# Testing & Validation
+pytest>=8.0
+great-expectations>=0.18
+
+# Utils
+python-dotenv>=1.0
+jupyter>=1.0
