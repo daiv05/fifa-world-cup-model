@@ -55,9 +55,22 @@ def get_statsbomb_matches() -> pd.DataFrame:
 
 def get_statsbomb_xg_by_team() -> pd.DataFrame:
     """
-    Agrega xG a favor y en contra por equipo a partir de los partidos de StatsBomb.
+    Agrega xG a favor y en contra por equipo a partir de los eventos de tiro
+    de StatsBomb Open Data (campo `shot_statsbomb_xg`).
+
+    Estrategia por partido:
+      1. Carga eventos con sb.events(match_id) y filtra type == "Shot"
+      2. Suma shot_statsbomb_xg por equipo → h_xg / a_xg reales
+      3. Fallback a home_score / away_score si los eventos no están disponibles
+         o no tienen la columna xG (p.ej. competiciones con datos limitados)
+
+    Primer run: ~15-30 min descargando ~464 archivos JSON de GitHub.
+    Runs siguientes: instantáneo (statsbombpy cachea los eventos localmente).
+    Resultado cacheado en data/raw/statsbomb_xg_by_team.csv.
     Devuelve: team, xg_for, xg_against, n_matches
     """
+    import statsbombpy.sb as sb
+
     cache_path = RAW_DIR / "statsbomb_xg_by_team.csv"
     if cache_path.exists():
         return pd.read_csv(cache_path)
@@ -66,27 +79,70 @@ def get_statsbomb_xg_by_team() -> pd.DataFrame:
     if matches.empty:
         return pd.DataFrame()
 
-    xg_cols = {"home_xg", "away_xg"}
-
     # statsbombpy puede devolver 'home_team' o 'home_team_name' según la versión
     home_col = next((c for c in ("home_team_name", "home_team") if c in matches.columns), None)
     away_col = next((c for c in ("away_team_name", "away_team") if c in matches.columns), None)
     if not home_col or not away_col or "home_score" not in matches.columns:
         return pd.DataFrame()
 
-    has_xg = xg_cols.issubset(matches.columns)
-
     records = []
-    for _, row in matches.iterrows():
-        h_xg = row.get("home_xg", row["home_score"]) if has_xg else row["home_score"]
-        a_xg = row.get("away_xg", row["away_score"]) if has_xg else row["away_score"]
-        records.append({"team": row[home_col], "xg_for": h_xg, "xg_against": a_xg})
-        records.append({"team": row[away_col], "xg_for": a_xg, "xg_against": h_xg})
+    n_total = len(matches)
+    n_event_ok = 0
+
+    for i, (_, row) in enumerate(matches.iterrows(), 1):
+        match_id = row["match_id"]
+        home_team = row[home_col]
+        away_team = row[away_col]
+
+        if i % 50 == 0:
+            print(f"  StatsBomb eventos: {i}/{n_total} partidos procesados "
+                  f"({n_event_ok} con xG real)...")
+
+        try:
+            events = sb.events(match_id=match_id)
+            shots = events[events["type"] == "Shot"].copy()
+
+            if shots.empty or "shot_statsbomb_xg" not in shots.columns:
+                raise ValueError("sin datos xG")
+
+            # statsbombpy puede devolver la columna "team" como dict o como str
+            if (shots["team"].dtype == object
+                    and len(shots) > 0
+                    and isinstance(shots["team"].iloc[0], dict)):
+                shots["team"] = shots["team"].apply(
+                    lambda t: t.get("name", "") if isinstance(t, dict) else t
+                )
+
+            xg_map = shots.groupby("team")["shot_statsbomb_xg"].sum().to_dict()
+
+            # Si el nombre del equipo en los eventos no coincide exactamente con
+            # el de la tabla de partidos, caer en el fallback de scores
+            h_xg = xg_map.get(home_team)
+            a_xg = xg_map.get(away_team)
+            if h_xg is None or a_xg is None:
+                raise ValueError(f"equipo no encontrado en eventos: "
+                                 f"{home_team!r} / {away_team!r} vs {list(xg_map)[:4]}")
+
+            n_event_ok += 1
+        except Exception:
+            # Fallback: usar goles como proxy (comportamiento anterior)
+            h_xg = row.get("home_score", 1.0)
+            a_xg = row.get("away_score", 1.0)
+
+        records.append({"team": home_team, "xg_for": h_xg, "xg_against": a_xg})
+        records.append({"team": away_team, "xg_for": a_xg, "xg_against": h_xg})
+
+    print(f"  StatsBomb: {n_event_ok}/{n_total} partidos con xG real de eventos "
+          f"({n_total - n_event_ok} con fallback a goles)")
 
     df = pd.DataFrame(records)
     agg = (
         df.groupby("team")
-        .agg(xg_for=("xg_for", "mean"), xg_against=("xg_against", "mean"), n_matches=("xg_for", "count"))
+        .agg(
+            xg_for=("xg_for", "mean"),
+            xg_against=("xg_against", "mean"),
+            n_matches=("xg_for", "count"),
+        )
         .reset_index()
     )
     agg.to_csv(cache_path, index=False)

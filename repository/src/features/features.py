@@ -27,6 +27,72 @@ WC2026_HOST_CITIES = {
 }
 DEFAULT_HOST_COORDS = (34.0, -100.0)
 
+# Coordenadas de las capitales (o ciudades principales) de los 48 selecciones
+# clasificadas al Mundial 2026. Lookup instantáneo; evita dependencia de Nominatim
+# para los equipos del torneo, donde geocoding fallaba en ~98 % de los casos.
+WC_TEAM_CAPITAL_COORDS: dict[str, tuple[float, float]] = {
+    # Grupo A
+    "Mexico":               (19.43, -99.13),   # Ciudad de México
+    "South Africa":         (-25.74, 28.19),   # Pretoria
+    "South Korea":          (37.57, 126.98),   # Seúl
+    "Czech Republic":       (50.08, 14.44),    # Praga
+    # Grupo B
+    "Canada":               (45.42, -75.70),   # Ottawa
+    "Bosnia & Herzegovina": (43.85, 18.36),    # Sarajevo
+    "Qatar":                (25.29, 51.53),    # Doha
+    "Switzerland":          (46.95, 7.45),     # Berna
+    # Grupo C
+    "Brazil":               (-15.78, -47.93),  # Brasilia
+    "Morocco":              (34.02, -6.84),    # Rabat
+    "Haiti":                (18.54, -72.34),   # Puerto Príncipe
+    "Scotland":             (55.95, -3.19),    # Edimburgo
+    # Grupo D
+    "United States":        (38.89, -77.03),   # Washington D.C.
+    "Paraguay":             (-25.28, -57.64),  # Asunción
+    "Australia":            (-35.28, 149.13),  # Canberra
+    "Turkey":               (39.93, 32.86),    # Ankara
+    # Grupo E
+    "Germany":              (52.52, 13.41),    # Berlín
+    "Curacao":              (12.11, -68.93),   # Willemstad
+    "Ivory Coast":          (5.36, -4.01),     # Abiyán (sede de gobierno)
+    "Ecuador":              (-0.23, -78.52),   # Quito
+    # Grupo F
+    "Netherlands":          (52.37, 4.90),     # Ámsterdam
+    "Japan":                (35.69, 139.69),   # Tokio
+    "Sweden":               (59.33, 18.06),    # Estocolmo
+    "Tunisia":              (36.82, 10.17),    # Túnez
+    # Grupo G
+    "Belgium":              (50.85, 4.35),     # Bruselas
+    "Egypt":                (30.04, 31.24),    # El Cairo
+    "Iran":                 (35.69, 51.39),    # Teherán
+    "New Zealand":          (-41.29, 174.78),  # Wellington
+    # Grupo H
+    "Spain":                (40.41, -3.70),    # Madrid
+    "Cape Verde":           (14.93, -23.51),   # Praia
+    "Saudi Arabia":         (24.69, 46.72),    # Riad
+    "Uruguay":              (-34.90, -56.19),  # Montevideo
+    # Grupo I
+    "France":               (48.85, 2.35),     # París
+    "Senegal":              (14.71, -17.47),   # Dakar
+    "Iraq":                 (33.34, 44.40),    # Bagdad
+    "Norway":               (59.91, 10.75),    # Oslo
+    # Grupo J
+    "Argentina":            (-34.61, -58.38),  # Buenos Aires
+    "Algeria":              (36.74, 3.06),     # Argel
+    "Austria":              (48.21, 16.37),    # Viena
+    "Jordan":               (31.95, 35.93),    # Amán
+    # Grupo K
+    "Portugal":             (38.72, -9.14),    # Lisboa
+    "DR Congo":             (-4.32, 15.32),    # Kinshasa
+    "Uzbekistan":           (41.30, 69.24),    # Taskent
+    "Colombia":             (4.71, -74.07),    # Bogotá
+    # Grupo L
+    "England":              (51.51, -0.13),    # Londres
+    "Croatia":              (45.81, 15.98),    # Zagreb
+    "Ghana":                (5.55, -0.20),     # Acra
+    "Panama":               (8.99, -79.52),    # Ciudad de Panamá
+}
+
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 6371.0
@@ -38,7 +104,16 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def _get_team_coords(team: str) -> tuple[float, float] | None:
-    """Intenta obtener coordenadas aproximadas de un país con geopy."""
+    """
+    Devuelve coordenadas (lat, lon) de la capital del equipo.
+    Primero consulta WC_TEAM_CAPITAL_COORDS (instantáneo, sin red) para los 48
+    clasificados al WC 2026. Para equipos históricos fuera del torneo usa
+    Nominatim como fallback.
+    """
+    # 1. Dict hardcodeado: cobertura 100 % para los 48 equipos WC 2026
+    if team in WC_TEAM_CAPITAL_COORDS:
+        return WC_TEAM_CAPITAL_COORDS[team]
+    # 2. Fallback Nominatim para equipos históricos de entrenamiento
     try:
         from geopy.geocoders import Nominatim
         from geopy.exc import GeocoderTimedOut
