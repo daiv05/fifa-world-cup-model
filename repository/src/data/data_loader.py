@@ -1,8 +1,3 @@
-"""
-Carga y limpieza de datasets históricos de fútbol internacional.
-Fuentes: martj42/international_results (GitHub), Kaggle WC datasets, openfootball/worldcup.
-"""
-
 import bisect
 import pandas as pd
 from pathlib import Path
@@ -15,7 +10,7 @@ INTERNATIONAL_RESULTS_URL = (
 )
 
 TEAM_NAME_ALIASES: dict[str, str] = {
-    # Nombres en datos históricos  →  nombre canónico del proyecto
+    # Nombres en datos históricos - nombre canónico del proyecto
     "USA": "United States",
     "United States of America": "United States",
     "IR Iran": "Iran",
@@ -84,11 +79,6 @@ def load_international_results(use_cache: bool = True) -> pd.DataFrame:
 
 
 def load_wc_matches(path: str | Path | None = None) -> pd.DataFrame:
-    """
-    Lee el dataset FIFA World Cup Matches 1974-2022 de Kaggle.
-    Descarga manual requerida: guardar en data/raw/wc_matches_1974_2022.csv
-    NOTA: no se usa actualmente en el pipeline; disponible para enriquecer features.
-    """
     if path is None:
         path = RAW_DIR / "wc_matches_1974_2022.csv"
     df = pd.read_csv(path, parse_dates=["date"] if "date" in pd.read_csv(path, nrows=0).columns else False)
@@ -97,13 +87,6 @@ def load_wc_matches(path: str | Path | None = None) -> pd.DataFrame:
 
 
 def load_fifa_ranking(path: str | Path | None = None) -> pd.DataFrame:
-    """
-    Lee el dataset FIFA World Ranking 1993-2023 de Kaggle.
-    Descarga manual requerida: guardar en data/raw/fifa_ranking.csv
-
-    Devuelve DataFrame con columnas: team, rank, total_points, rank_date.
-    Renombra 'country_full' → 'team' y aplica TEAM_NAME_ALIASES.
-    """
     if path is None:
         path = RAW_DIR / "fifa_ranking.csv"
     df = pd.read_csv(path)
@@ -114,14 +97,6 @@ def load_fifa_ranking(path: str | Path | None = None) -> pd.DataFrame:
 
 
 def build_ranking_dict(ranking_df: pd.DataFrame) -> dict[str, list[tuple]]:
-    """
-    Pre-computa {team: [(rank_date, rank), ...]} ordenado por fecha para
-    lookups O(log n) con bisect_right.
-
-    Parámetros
-    ----------
-    ranking_df : salida de load_fifa_ranking() con columnas [team, rank, rank_date]
-    """
     result: dict[str, list[tuple]] = {}
     for team, grp in ranking_df.groupby("team"):
         sorted_grp = grp.dropna(subset=["rank"]).sort_values("rank_date")
@@ -137,30 +112,14 @@ def get_ranking_at_date(
     date: pd.Timestamp,
     default_rank: int = 78,
 ) -> int:
-    """
-    Devuelve el ranking FIFA (posición ordinal) más reciente anterior o igual a `date`.
-
-    Parámetros
-    ----------
-    ranking_dict : salida de build_ranking_dict()
-    team         : nombre canónico del equipo
-    date         : fecha del partido
-    default_rank : rank por defecto si no hay datos (78 ≈ mediana de 156 equipos)
-    """
     entries = ranking_dict.get(team, [])
     if not entries:
         return default_rank
-    # bisect_right sobre tuplas (rank_date, inf) devuelve el primer índice > date
     idx = bisect.bisect_right(entries, (date, float("inf"))) - 1
     return entries[idx][1] if idx >= 0 else default_rank
 
 
 def load_wc2026_fixture(path: str | Path | None = None) -> pd.DataFrame:
-    """
-    Lee el fixture del Mundial 2026 desde openfootball/worldcup (formato CSV procesado).
-    Descarga manual requerida: guardar en data/raw/wc2026_fixture.csv
-    Columnas esperadas: group, team
-    """
     if path is None:
         path = RAW_DIR / "wc2026_fixture.csv"
     df = pd.read_csv(path)
@@ -171,9 +130,9 @@ def load_wc2026_fixture(path: str | Path | None = None) -> pd.DataFrame:
 if __name__ == "__main__":
     print("Descargando resultados internacionales...")
     df = load_international_results(use_cache=False)
-    print(f"  Total partidos: {len(df):,}")
+    print(f"Total partidos: {len(df):,}")
 
     df_filtered = filter_relevant_matches(df, year_cutoff=1990)
-    print(f"  Partidos relevantes desde 1990: {len(df_filtered):,}")
-    print(f"  Torneos únicos: {df_filtered['tournament'].nunique()}")
+    print(f"Partidos relevantes desde 1990: {len(df_filtered):,}")
+    print(f"Torneos únicos: {df_filtered['tournament'].nunique()}")
     print("OK")

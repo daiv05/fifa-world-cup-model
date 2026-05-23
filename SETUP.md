@@ -6,17 +6,17 @@ Asegurarse de tener instalado Python 3.13 (NO soporta versiones superiores). Lue
 
 ### Windows (PowerShell)
 ```powershell
-python -m venv .venv
+python -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
 ### macOS/Linux
 ```bash
-python -m venv .venv
+python -3.13 -m venv .venv
 source .venv/bin/activate
 ```
 
 ## Instalar dependencias
 ```bash
-pip install -r repository/requirements.txt
+pip3.13 install -r repository/requirements.txt
 ```

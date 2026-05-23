@@ -91,42 +91,25 @@ python -m repository.src.features.features
 ```
 Genera `data/processed/features.csv` (12,157 partidos, ~2 min por geocoding).
 
-### Paso 2 — Generar features por equipo (para simulación)
-```bash
-python -c "
-import sys; sys.path.insert(0, 'repository')
-from src.data.data_loader import load_international_results
-from src.data.scraper import get_statsbomb_xg_by_team, get_squad_values
-from src.features.features import build_team_features_for_simulation, save_features
-from src.simulation.tournament import GROUPS_2026
-matches = load_international_results()
-xg_df = get_statsbomb_xg_by_team()
-squad_df = get_squad_values()
-wc_teams = [t for ts in GROUPS_2026.values() for t in ts]
-tf = build_team_features_for_simulation(matches, xg_df=xg_df, squad_df=squad_df, teams=wc_teams)
-save_features(tf, 'team_features.csv')
-"
-```
-
-### Paso 3 — Entrenar modelos
+### Paso 2 — Entrenar modelos
 ```bash
 python -m repository.src.models.train
 ```
 Guarda 4 modelos en `data/processed/models/`.
 
-### Paso 4 — Evaluar modelos
+### Paso 3 — Evaluar modelos
 ```bash
 python -m repository.src.models.evaluate
 ```
 Imprime tabla log-loss / Brier y guarda `model_evaluation.csv` + `shap_summary.png`.
 
-### Paso 5 — Simulación Monte Carlo
+### Paso 4 — Simulación Monte Carlo
 ```bash
 python -m repository.src.simulation.simulate --iterations 10000 --model xgboost_calibrated
 ```
 Guarda `data/processed/simulation_results.csv`.
 
-### Paso 6 — Dashboard
+### Paso 5 — Dashboard
 ```bash
 streamlit run repository/src/visualization/dashboard.py
 ```
@@ -138,7 +121,6 @@ Abre el dashboard en `http://localhost:8501`.
 
 ```bash
 python -m pytest repository/tests/ -v
-# 23 passed
 ```
 
 ---
