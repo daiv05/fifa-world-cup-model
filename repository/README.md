@@ -41,7 +41,9 @@ repository/
 │           ├── xgboost_calibrated.joblib
 │           ├── xgboost_pre2022.joblib    # Modelo entrenado solo con date<2022
 │           └── best_params_*.json        # Hiperparámetros de Optuna
-├── reports/figures/                 # SHAP, calibración, etc.
+├── notebooks/
+│   └── 01_eda.ipynb                # Análisis exploratorio (10 secciones)
+├── reports/figures/                 # SHAP, calibración, EDA, etc.
 ├── src/
 │   ├── data/         # data_loader.py, scraper.py
 │   ├── features/     # elo.py, time_decay.py, features.py
@@ -98,6 +100,18 @@ python -m src.simulation.simulate --iterations 10000 --model xgboost_calibrated
 python -m src.analysis.sensitivity --iterations 10000 --model xgboost_calibrated
 streamlit run src/visualization/dashboard.py
 ```
+
+### EDA
+
+```bash
+jupyter notebook notebooks/01_eda.ipynb
+# o ejecutar de un golpe:
+jupyter nbconvert --to notebook --execute notebooks/01_eda.ipynb --output 01_eda.executed.ipynb
+```
+
+El notebook genera ~15 figuras en `reports/figures/eda_*.png` que documentan
+calidad de datos, distribución del target, análisis univariado por feature,
+correlaciones, evolución del ELO, SHAP y limitaciones del dataset.
 
 Outputs principales:
 - `data/processed/features.csv` — dataset de entrenamiento.
