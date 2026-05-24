@@ -1,6 +1,14 @@
-# El Oráculo del Balón — Predicción del Mundial 2026
+# Predicciones - Mundial 2026
 
 Modelo de predicción para la FIFA World Cup 2026 basado en Machine Learning (XGBoost / LightGBM) y simulación Monte Carlo (10,000 iteraciones). Predice probabilidades de campeonato para los 48 equipos del torneo.
+
+---
+
+## Dashboard interactivo
+
+Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equipo, la progresión por fases y el análisis de sensibilidad a lesiones.
+
+[https://fifa-world-cup-model.streamlit.app/](https://fifa-world-cup-model.streamlit.app/)
 
 ---
 
@@ -154,11 +162,27 @@ python -m pytest tests/ -v
 
 **Decaimiento temporal:** cada partido tiene peso W(t) = e^(−0.002 · Δt) multiplicado por peso de clase balanceado (H≈49%, E≈21%, V≈30%).
 
+### División del dataset
+
+Split **temporal** implementado en `temporal_split` ([src/models/train.py](src/models/train.py)).
+
+| Conjunto | Filtro de fecha | Uso |
+|----------|-----------------|-----|
+| **Train** | `date < 2021-01-01` | Entrenamiento de LogReg, XGBoost, LightGBM |
+| **Validación** | `2021-01-01 ≤ date < 2022-01-01` | Calibración isotónica de XGBoost (sin leakage) |
+| **Test** | `date ≥ 2022-01-01` | Evaluación final (`evaluate.py` reutiliza `temporal_split`) |
+
+**CV interno (Optuna):** dentro del conjunto de train se usa `TimeSeriesSplit(n_splits=5)` para optimizar hiperparámetros con `neg_log_loss`. Cada fold entrena con el pasado y valida sobre un bloque futuro contiguo.
+
+**Doble pipeline de entrenamiento** (`_full_training_pipeline` corre dos veces):
+1. Sin cutoff — modelos `*.joblib` (usa los tres cortes anteriores).
+2. Con `cutoff=2022-01-01` — modelos `*_pre2022.joblib`, entrenados solo con `date < 2022-01-01` para validar la WC 2022 sin leakage. Al aplicar este cutoff el `val_mask` (2021) queda vacío y se activa un **fallback 85/15**: el último 15% temporal del train se usa como validación para la calibración.
+
 ### Modelos
 - LogReg (baseline, escalado + balanceado).
 - XGBoost — optimizado con Optuna (100 trials por default).
 - LightGBM — optimizado con Optuna.
-- XGBoost calibrado (isotonic) sobre validación temporal (2021).
+- XGBoost calibrado sobre validación temporal (2021).
 - XGBoost pre-2022 — entrenado solo con `date < 2022-01-01` para validar el Mundial 2022 sin data leakage.
 
 Hiperparámetros se cachean en `data/processed/models/best_params_{model}.json`.
@@ -190,6 +214,5 @@ El modelo `xgboost_pre2022` se entrena exclusivamente con `date < 2022-01-01` y 
 
 ---
 
-## Equipo
-Proyecto desarrollado como trabajo final de curso · 2026  
-Datos, Modelado y Simulación Monte Carlo.
+## Hecho por
+[David Deras](https://github.com/daiv05)

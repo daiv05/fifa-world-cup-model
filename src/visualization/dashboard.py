@@ -9,7 +9,7 @@ PROCESSED_DIR = Path(__file__).parents[2] / "data" / "processed"
 REPORTS_DIR = Path(__file__).parents[2] / "reports" / "figures"
 
 st.set_page_config(
-    page_title="El Oráculo del Balón — Mundial 2026",
+    page_title="Predicciones - Mundial 2026",
     page_icon=":crown:",
     layout="wide",
 )

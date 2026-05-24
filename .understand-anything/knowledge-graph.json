@@ -1,0 +1,2961 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "wc2026-model",
+    "languages": [
+      "python",
+      "markdown",
+      "toml",
+      "json",
+      "csv",
+      "makefile"
+    ],
+    "frameworks": [
+      "pandas",
+      "numpy",
+      "scikit-learn",
+      "xgboost",
+      "lightgbm",
+      "optuna",
+      "shap",
+      "joblib",
+      "matplotlib",
+      "seaborn",
+      "plotly",
+      "streamlit",
+      "statsbombpy",
+      "geopy",
+      "scipy"
+    ],
+    "description": "FIFA World Cup 2026 prediction model \u2014 ML (XGBoost / LightGBM) + Monte Carlo simulation (10,000 iterations) over 48 teams.",
+    "analyzedAt": "2026-05-24T22:59:10.002129+00:00",
+    "gitCommitHash": "60b4ac1df3353a8fc60dfa418a06084ba63104ce"
+  },
+  "nodes": [
+    {
+      "id": "file:src/analysis/sensitivity.py",
+      "type": "file",
+      "name": "sensitivity.py",
+      "filePath": "src/analysis/sensitivity.py",
+      "summary": "Sensitivity analysis CLI that simulates injury scenarios by reducing a team's squad value and compares championship probabilities against the base scenario for the top N candidates.",
+      "tags": [
+        "analysis",
+        "sensitivity",
+        "simulation",
+        "cli",
+        "monte-carlo"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/analysis/sensitivity.py:simulate_injury_scenario",
+      "type": "function",
+      "name": "simulate_injury_scenario",
+      "filePath": "src/analysis/sensitivity.py",
+      "lineRange": [
+        15,
+        36
+      ],
+      "summary": "Reduces a team's squad_value_eur by the given percentage and runs a full Monte Carlo tournament simulation, returning the champions DataFrame.",
+      "tags": [
+        "simulation",
+        "scenario",
+        "injury-modeling"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/analysis/sensitivity.py:run_sensitivity_top_n",
+      "type": "function",
+      "name": "run_sensitivity_top_n",
+      "filePath": "src/analysis/sensitivity.py",
+      "lineRange": [
+        39,
+        67
+      ],
+      "summary": "Iterates over the top N base-scenario candidates, runs an injury simulation per team, and tabulates the delta in championship probability vs the base.",
+      "tags": [
+        "analysis",
+        "comparison",
+        "top-n",
+        "aggregation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/simulation/simulate.py",
+      "type": "file",
+      "name": "simulate.py",
+      "filePath": "src/simulation/simulate.py",
+      "summary": "Monte Carlo simulation engine for the 2026 World Cup that precomputes pairwise match probabilities from a trained model and aggregates per-phase progression and championship probabilities with Clopper-Pearson confidence intervals.",
+      "tags": [
+        "monte-carlo",
+        "simulation",
+        "entry-point",
+        "cli",
+        "engine",
+        "tested"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/simulation/simulate.py:build_predict_fn",
+      "type": "function",
+      "name": "build_predict_fn",
+      "filePath": "src/simulation/simulate.py",
+      "lineRange": [
+        29,
+        67
+      ],
+      "summary": "Precomputes predict_proba for all 48x47 ordered team pairs and returns an O(1) lookup function; reorders class outputs to [home_win, draw, away_win].",
+      "tags": [
+        "optimization",
+        "caching",
+        "prediction",
+        "factory"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/simulation/simulate.py:run_simulation",
+      "type": "function",
+      "name": "run_simulation",
+      "filePath": "src/simulation/simulate.py",
+      "lineRange": [
+        87,
+        162
+      ],
+      "summary": "Runs N Monte Carlo iterations of the full tournament, tallies per-phase counts per team, and returns champions and phase-progression DataFrames with Clopper-Pearson confidence intervals.",
+      "tags": [
+        "monte-carlo",
+        "simulation",
+        "aggregation",
+        "statistics"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/simulation/simulate.py:save_results",
+      "type": "function",
+      "name": "save_results",
+      "filePath": "src/simulation/simulate.py",
+      "lineRange": [
+        165,
+        175
+      ],
+      "summary": "Persists champions and progression DataFrames as CSV files into the processed data directory.",
+      "tags": [
+        "io",
+        "persistence",
+        "csv"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/simulation/tournament.py",
+      "type": "file",
+      "name": "tournament.py",
+      "filePath": "src/simulation/tournament.py",
+      "summary": "Encodes the 2026 World Cup tournament structure (12 groups of 4, knockout bracket through R32 to Final) and provides functions to simulate group-stage and knockout matches using symmetric probabilities, host-advantage handling, and Poisson goal sampling.",
+      "tags": [
+        "simulation",
+        "tournament-logic",
+        "bracket",
+        "domain-model",
+        "tested"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/simulation/tournament.py:simulate_group_stage",
+      "type": "function",
+      "name": "simulate_group_stage",
+      "filePath": "src/simulation/tournament.py",
+      "lineRange": [
+        108,
+        153
+      ],
+      "summary": "Simulates the 6 matches of a 4-team group using symmetric/host-aware probabilities and Poisson-sampled goals, then returns the standings sorted by points, goal difference, goals for.",
+      "tags": [
+        "simulation",
+        "group-stage",
+        "standings"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/simulation/tournament.py:select_best_thirds",
+      "type": "function",
+      "name": "select_best_thirds",
+      "filePath": "src/simulation/tournament.py",
+      "lineRange": [
+        156,
+        169
+      ],
+      "summary": "Selects the 8 best third-placed teams across all groups by points, goal difference, and goals for, returning their team names.",
+      "tags": [
+        "tournament-logic",
+        "qualification",
+        "ranking"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/simulation/tournament.py:build_knockout_bracket",
+      "type": "function",
+      "name": "build_knockout_bracket",
+      "filePath": "src/simulation/tournament.py",
+      "lineRange": [
+        172,
+        186
+      ],
+      "summary": "Maps group winners, runners-up, and best thirds into the fixed FIFA 2026 knockout bracket slot order and returns the 16 R32 pairings.",
+      "tags": [
+        "tournament-logic",
+        "bracket",
+        "seeding"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/simulation/tournament.py:simulate_knockout_round",
+      "type": "function",
+      "name": "simulate_knockout_round",
+      "filePath": "src/simulation/tournament.py",
+      "lineRange": [
+        189,
+        208
+      ],
+      "summary": "Simulates one knockout round by sampling outcomes per pair with host-aware probabilities and resolves draws via a 50/50 penalty shootout.",
+      "tags": [
+        "simulation",
+        "knockout",
+        "elimination"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/simulation/tournament.py:simulate_full_tournament",
+      "type": "function",
+      "name": "simulate_full_tournament",
+      "filePath": "src/simulation/tournament.py",
+      "lineRange": [
+        211,
+        265
+      ],
+      "summary": "Simulates the full tournament from group stage through final, returning a dict tracking which teams reached each phase and the champion.",
+      "tags": [
+        "simulation",
+        "tournament",
+        "orchestration",
+        "entry-point"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/test_simulation.py",
+      "type": "file",
+      "name": "test_simulation.py",
+      "filePath": "tests/test_simulation.py",
+      "summary": "Pytest suite covering tournament setup invariants (48 teams), group-stage point bounds, knockout phase sizes, seed reproducibility, home/away bias neutrality, and Clopper-Pearson edge cases.",
+      "tags": [
+        "test",
+        "pytest",
+        "simulation",
+        "regression"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/features/elo.py",
+      "type": "file",
+      "name": "elo.py",
+      "filePath": "src/features/elo.py",
+      "summary": "Implements an iterative Elo rating system for international football matches with tournament-weighted K-factors and helpers to retrieve current or historical ratings.",
+      "tags": [
+        "feature-engineering",
+        "elo",
+        "rating-system",
+        "ml-features",
+        "tested"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/features/elo.py:calculate_elo_ratings",
+      "type": "function",
+      "name": "calculate_elo_ratings",
+      "filePath": "src/features/elo.py",
+      "lineRange": [
+        46,
+        86
+      ],
+      "summary": "Iterates matches chronologically and computes Elo before/after ratings for home and away teams, applying tournament-specific K-factors.",
+      "tags": [
+        "elo",
+        "rating-system",
+        "core-algorithm"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/features/elo.py:get_current_elo",
+      "type": "function",
+      "name": "get_current_elo",
+      "filePath": "src/features/elo.py",
+      "lineRange": [
+        89,
+        94
+      ],
+      "summary": "Builds a dictionary mapping each team to its most recent post-match Elo rating from a precomputed Elo dataframe.",
+      "tags": [
+        "elo",
+        "utility",
+        "lookup"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/features/elo.py:get_elo_at_date",
+      "type": "function",
+      "name": "get_elo_at_date",
+      "filePath": "src/features/elo.py",
+      "lineRange": [
+        97,
+        120
+      ],
+      "summary": "Returns the Elo rating of a team immediately before a given date using a binary search over chronological match entries.",
+      "tags": [
+        "elo",
+        "lookup",
+        "binary-search",
+        "temporal"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/features/features.py",
+      "type": "file",
+      "name": "features.py",
+      "filePath": "src/features/features.py",
+      "summary": "Combines Elo, time decay, squad value, xG, geographic distance, and FIFA ranking into per-match and per-team feature tables for model training and Monte Carlo simulation.",
+      "tags": [
+        "feature-engineering",
+        "ml-pipeline",
+        "data-processing",
+        "entry-point",
+        "tested"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Mixes vectorized pandas merges with row-wise loops for geocoding; uses caches to avoid repeated Nominatim calls."
+    },
+    {
+      "id": "function:src/features/features.py:_haversine_km",
+      "type": "function",
+      "name": "_haversine_km",
+      "filePath": "src/features/features.py",
+      "lineRange": [
+        87,
+        93
+      ],
+      "summary": "Computes great-circle distance in kilometers between two latitude/longitude points using the haversine formula.",
+      "tags": [
+        "utility",
+        "geo",
+        "math"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/features/features.py:_get_team_coords",
+      "type": "function",
+      "name": "_get_team_coords",
+      "filePath": "src/features/features.py",
+      "lineRange": [
+        96,
+        116
+      ],
+      "summary": "Returns capital-city coordinates for a team, preferring the WC 2026 lookup table and falling back to Nominatim geocoding for historical teams.",
+      "tags": [
+        "geo",
+        "geocoding",
+        "lookup"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/features/features.py:compute_host_distance_wc2026",
+      "type": "function",
+      "name": "compute_host_distance_wc2026",
+      "filePath": "src/features/features.py",
+      "lineRange": [
+        129,
+        143
+      ],
+      "summary": "Computes the minimum great-circle distance from a team's capital to any WC 2026 host city (USA, Canada, Mexico).",
+      "tags": [
+        "geo",
+        "feature-engineering",
+        "wc2026"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/features/features.py:encode_target",
+      "type": "function",
+      "name": "encode_target",
+      "filePath": "src/features/features.py",
+      "lineRange": [
+        146,
+        157
+      ],
+      "summary": "Encodes match results as 2 (home win), 1 (draw), 0 (away win) using vectorized numpy selection.",
+      "tags": [
+        "feature-engineering",
+        "target-encoding",
+        "vectorized"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/features/features.py:_vectorized_elo_diff",
+      "type": "function",
+      "name": "_vectorized_elo_diff",
+      "filePath": "src/features/features.py",
+      "lineRange": [
+        160,
+        183
+      ],
+      "summary": "Performs a vectorized merge of matches against the Elo table to produce the per-match home minus away pre-match Elo difference.",
+      "tags": [
+        "feature-engineering",
+        "elo",
+        "vectorized",
+        "pandas-merge"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/features/features.py:_vectorized_travel_distances",
+      "type": "function",
+      "name": "_vectorized_travel_distances",
+      "filePath": "src/features/features.py",
+      "lineRange": [
+        186,
+        229
+      ],
+      "summary": "For each match, computes haversine travel distances from each team's capital to the venue country, honoring the neutral flag.",
+      "tags": [
+        "geo",
+        "feature-engineering",
+        "travel-distance"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/features/features.py:data_quality_report",
+      "type": "function",
+      "name": "data_quality_report",
+      "filePath": "src/features/features.py",
+      "lineRange": [
+        232,
+        253
+      ],
+      "summary": "Prints a simple dataset quality report covering row count, columns, nulls, duplicates, date range, and unique teams.",
+      "tags": [
+        "data-quality",
+        "diagnostics",
+        "reporting"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/features/features.py:build_match_features",
+      "type": "function",
+      "name": "build_match_features",
+      "filePath": "src/features/features.py",
+      "lineRange": [
+        256,
+        356
+      ],
+      "summary": "Builds the per-match training feature table combining Elo diff, time-decay weights, xG, squad value, FIFA ranking diff, travel distance, and target label.",
+      "tags": [
+        "feature-engineering",
+        "ml-pipeline",
+        "core-algorithm"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/features/features.py:build_team_features_for_simulation",
+      "type": "function",
+      "name": "build_team_features_for_simulation",
+      "filePath": "src/features/features.py",
+      "lineRange": [
+        359,
+        428
+      ],
+      "summary": "Builds a per-team feature row (Elo, squad value, xG, host distance, FIFA rank) used by the Monte Carlo tournament simulator.",
+      "tags": [
+        "feature-engineering",
+        "simulation",
+        "wc2026"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/features/features.py:save_features",
+      "type": "function",
+      "name": "save_features",
+      "filePath": "src/features/features.py",
+      "lineRange": [
+        431,
+        435
+      ],
+      "summary": "Persists a features dataframe to CSV under the processed data directory.",
+      "tags": [
+        "io",
+        "persistence",
+        "csv"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/features/time_decay.py",
+      "type": "file",
+      "name": "time_decay.py",
+      "filePath": "src/features/time_decay.py",
+      "summary": "Provides exponential time-decay weights anchored at the WC 2026 reference date and helpers to convert between lambda and half-life in years.",
+      "tags": [
+        "feature-engineering",
+        "time-decay",
+        "utility",
+        "tested"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/features/time_decay.py:compute_time_decay_weights",
+      "type": "function",
+      "name": "compute_time_decay_weights",
+      "filePath": "src/features/time_decay.py",
+      "lineRange": [
+        11,
+        20
+      ],
+      "summary": "Computes exponential decay weights for a series of dates relative to a deterministic reference date (default: WC 2026 start).",
+      "tags": [
+        "time-decay",
+        "weighting",
+        "vectorized"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_features.py",
+      "type": "file",
+      "name": "test_features.py",
+      "filePath": "tests/test_features.py",
+      "summary": "Pytest suite covering Elo computation, time-decay weighting, target encoding, vectorized Elo merging, and end-to-end match feature building.",
+      "tags": [
+        "test",
+        "pytest",
+        "feature-engineering"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "pipeline:Makefile",
+      "type": "pipeline",
+      "name": "Makefile",
+      "filePath": "Makefile",
+      "summary": "Top-level Makefile orchestrating the project lifecycle: installs the package, builds features, trains and evaluates models, runs Monte Carlo simulations and sensitivity analysis, launches the Streamlit dashboard, and runs tests.",
+      "tags": [
+        "build-system",
+        "infrastructure",
+        "ci-cd",
+        "orchestration",
+        "entry-point"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Parameterized via PY, ITER, MODEL, TRIALS variables; `all` target chains features \u00e2\u2020\u2019 train \u00e2\u2020\u2019 evaluate \u00e2\u2020\u2019 simulate \u00e2\u2020\u2019 sensitivity."
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "Primary project documentation describing the FIFA World Cup 2026 prediction model \u00e2\u20ac\u201d ML pipeline, Monte Carlo simulation, setup, usage, and project structure.",
+      "tags": [
+        "documentation",
+        "entry-point",
+        "overview"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:REQUERIMENT.md",
+      "type": "document",
+      "name": "REQUERIMENT.md",
+      "filePath": "REQUERIMENT.md",
+      "summary": "Project requirements specification listing functional and academic deliverables expected from the World Cup prediction model.",
+      "tags": [
+        "documentation",
+        "requirements",
+        "specification"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:RUBRIC.md",
+      "type": "document",
+      "name": "RUBRIC.md",
+      "filePath": "RUBRIC.md",
+      "summary": "Concise grading rubric outlining evaluation criteria for the project deliverable.",
+      "tags": [
+        "documentation",
+        "rubric",
+        "evaluation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:pyproject.toml",
+      "type": "config",
+      "name": "pyproject.toml",
+      "filePath": "pyproject.toml",
+      "summary": "Python package configuration declaring the wc2026-model project, its runtime dependencies (pandas, scikit-learn, xgboost, lightgbm, optuna, shap, streamlit, statsbombpy), dev extras, and setuptools packaging of the `src` namespace.",
+      "tags": [
+        "configuration",
+        "python",
+        "build-system",
+        "dependencies"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:requirements.txt",
+      "type": "document",
+      "name": "requirements.txt",
+      "filePath": "requirements.txt",
+      "summary": "Pinned pip dependency list mirroring pyproject.toml for environments that install via plain pip.",
+      "tags": [
+        "dependencies",
+        "python",
+        "configuration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:data/processed/features.csv",
+      "type": "file",
+      "name": "features.csv",
+      "filePath": "data/processed/features.csv",
+      "summary": "Primary training dataset of historical match feature vectors with engineered inputs (elo_diff, squad_value_diff, xG averages, travel distance, ranking diff, time weight) and binary target label for model training.",
+      "tags": [
+        "data",
+        "training-data",
+        "features",
+        "machine-learning",
+        "tabular"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Wide feature matrix with ~12k rows spanning matches from 1993 onward, ready for supervised classification."
+    },
+    {
+      "id": "file:data/processed/model_evaluation.csv",
+      "type": "file",
+      "name": "model_evaluation.csv",
+      "filePath": "data/processed/model_evaluation.csv",
+      "summary": "Model comparison report listing log-loss and Brier score for LogReg, XGBoost, LightGBM, and calibrated XGBoost baselines.",
+      "tags": [
+        "data",
+        "evaluation",
+        "metrics",
+        "model-comparison"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:data/processed/sensitivity_injuries.csv",
+      "type": "file",
+      "name": "sensitivity_injuries.csv",
+      "filePath": "data/processed/sensitivity_injuries.csv",
+      "summary": "Sensitivity analysis results comparing baseline vs injury-scenario champion probabilities under a 30% squad-value reduction for top contenders.",
+      "tags": [
+        "data",
+        "sensitivity-analysis",
+        "simulation",
+        "results"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:data/processed/simulation_results.csv",
+      "type": "file",
+      "name": "simulation_results.csv",
+      "filePath": "data/processed/simulation_results.csv",
+      "summary": "Monte Carlo tournament simulation output with per-team champion counts, percentages, and 95% confidence intervals across 48 World Cup teams.",
+      "tags": [
+        "data",
+        "simulation",
+        "monte-carlo",
+        "results"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:data/processed/team_features.csv",
+      "type": "file",
+      "name": "team_features.csv",
+      "filePath": "data/processed/team_features.csv",
+      "summary": "Team-level feature snapshot used as simulation input: Elo rating, squad market value, xG for/against, host distance, and FIFA rank for each of 48 teams.",
+      "tags": [
+        "data",
+        "features",
+        "team-data",
+        "simulation-input"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:data/processed/tournament_progression.csv",
+      "type": "file",
+      "name": "tournament_progression.csv",
+      "filePath": "data/processed/tournament_progression.csv",
+      "summary": "Per-team probability of reaching each tournament stage (group, R32, R16, QF, SF, final, champion) with confidence intervals from Monte Carlo simulation.",
+      "tags": [
+        "data",
+        "simulation",
+        "results",
+        "tournament-progression"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "config:data/processed/models/best_params_lightgbm.json",
+      "type": "config",
+      "name": "best_params_lightgbm.json",
+      "filePath": "data/processed/models/best_params_lightgbm.json",
+      "summary": "Optuna-tuned best hyperparameters for the LightGBM match outcome model trained on the full dataset.",
+      "tags": [
+        "configuration",
+        "hyperparameters",
+        "lightgbm",
+        "optuna",
+        "model-artifact"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:data/processed/models/best_params_lightgbm_pre2022.json",
+      "type": "config",
+      "name": "best_params_lightgbm_pre2022.json",
+      "filePath": "data/processed/models/best_params_lightgbm_pre2022.json",
+      "summary": "Optuna-tuned best hyperparameters for the LightGBM model trained on pre-2022 data, used for out-of-sample validation.",
+      "tags": [
+        "configuration",
+        "hyperparameters",
+        "lightgbm",
+        "optuna",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:data/processed/models/best_params_xgboost.json",
+      "type": "config",
+      "name": "best_params_xgboost.json",
+      "filePath": "data/processed/models/best_params_xgboost.json",
+      "summary": "Optuna-tuned best hyperparameters for the XGBoost match outcome model trained on the full dataset.",
+      "tags": [
+        "configuration",
+        "hyperparameters",
+        "xgboost",
+        "optuna",
+        "model-artifact"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:data/processed/models/best_params_xgboost_pre2022.json",
+      "type": "config",
+      "name": "best_params_xgboost_pre2022.json",
+      "filePath": "data/processed/models/best_params_xgboost_pre2022.json",
+      "summary": "Optuna-tuned best hyperparameters for the XGBoost model trained on pre-2022 data, used for out-of-sample validation.",
+      "tags": [
+        "configuration",
+        "hyperparameters",
+        "xgboost",
+        "optuna",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:data/raw/fifa_ranking.csv",
+      "type": "table",
+      "name": "fifa_ranking.csv",
+      "filePath": "data/raw/fifa_ranking.csv",
+      "summary": "Historical FIFA national team rankings dataset with 67k+ rows tracking rank, points, point changes, and confederation per country across snapshot dates from 1992 onwards.",
+      "tags": [
+        "dataset",
+        "rankings",
+        "fifa",
+        "time-series",
+        "raw-data"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Columns: rank, country_full, country_abrv, total_points, previous_points, rank_change, confederation, rank_date."
+    },
+    {
+      "id": "table:data/raw/international_results.csv",
+      "type": "table",
+      "name": "international_results.csv",
+      "filePath": "data/raw/international_results.csv",
+      "summary": "Comprehensive historical international football match results (1872 onwards) with scores, tournament context, and neutral-venue flag \u00e2\u20ac\u201d primary training corpus for the prediction model.",
+      "tags": [
+        "dataset",
+        "match-results",
+        "training-data",
+        "historical",
+        "raw-data"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Columns: date, home_team, away_team, home_score, away_score, tournament, city, country, neutral."
+    },
+    {
+      "id": "table:data/raw/squad_values.csv",
+      "type": "table",
+      "name": "squad_values.csv",
+      "filePath": "data/raw/squad_values.csv",
+      "summary": "Per-team aggregated squad market values in EUR, used as a strength feature for World Cup 2026 participants.",
+      "tags": [
+        "dataset",
+        "squad-value",
+        "feature",
+        "raw-data"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Columns: team, squad_value_eur."
+    },
+    {
+      "id": "table:data/raw/statsbomb_matches.csv",
+      "type": "table",
+      "name": "statsbomb_matches.csv",
+      "filePath": "data/raw/statsbomb_matches.csv",
+      "summary": "StatsBomb match metadata with competition, stadium, manager, referee, and team identifiers \u00e2\u20ac\u201d source for advanced xG-enriched features.",
+      "tags": [
+        "dataset",
+        "statsbomb",
+        "match-metadata",
+        "raw-data"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Wide schema (50+ columns) covering match, competition, team, manager, stadium, and referee fields."
+    },
+    {
+      "id": "table:data/raw/statsbomb_xg_by_team.csv",
+      "type": "table",
+      "name": "statsbomb_xg_by_team.csv",
+      "filePath": "data/raw/statsbomb_xg_by_team.csv",
+      "summary": "Per-team aggregated expected goals (xG for / xG against) and match counts derived from StatsBomb data, used as model features.",
+      "tags": [
+        "dataset",
+        "xg",
+        "feature",
+        "statsbomb",
+        "raw-data"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Columns: team, xg_for, xg_against, n_matches."
+    },
+    {
+      "id": "table:data/raw/wc2026_fixture.csv",
+      "type": "table",
+      "name": "wc2026_fixture.csv",
+      "filePath": "data/raw/wc2026_fixture.csv",
+      "summary": "Group-stage fixture allocation for the 2026 FIFA World Cup mapping each qualified team to its group letter \u00e2\u20ac\u201d drives the Monte Carlo tournament simulation.",
+      "tags": [
+        "dataset",
+        "fixture",
+        "world-cup-2026",
+        "simulation-input"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Columns: group, team."
+    },
+    {
+      "id": "table:data/raw/wc_matches_1974_2022.csv",
+      "type": "table",
+      "name": "wc_matches_1974_2022.csv",
+      "filePath": "data/raw/wc_matches_1974_2022.csv",
+      "summary": "Historical FIFA World Cup match results from 1974 through 2022 with stage and winner annotations \u00e2\u20ac\u201d used for tournament-specific model calibration and back-testing.",
+      "tags": [
+        "dataset",
+        "world-cup",
+        "match-results",
+        "historical",
+        "raw-data"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Columns: year, date, stage, home_team, away_team, home_score, away_score, winner, match_id, tournament."
+    },
+    {
+      "id": "config:.devcontainer/devcontainer.json",
+      "type": "config",
+      "name": "devcontainer.json",
+      "filePath": ".devcontainer/devcontainer.json",
+      "summary": "VS Code Dev Container configuration defining the reproducible Python development environment for the project.",
+      "tags": [
+        "configuration",
+        "devcontainer",
+        "vscode",
+        "development"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:.understand-anything/.understandignore",
+      "type": "config",
+      "name": ".understandignore",
+      "filePath": ".understand-anything/.understandignore",
+      "summary": "Ignore patterns for the understand-anything knowledge graph tool, excluding non-source paths from analysis.",
+      "tags": [
+        "configuration",
+        "ignore-file",
+        "tooling"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:conftest.py",
+      "type": "file",
+      "name": "conftest.py",
+      "filePath": "conftest.py",
+      "summary": "Pytest root conftest that injects the project root into sys.path so tests can import the src package.",
+      "tags": [
+        "test",
+        "configuration",
+        "pytest",
+        "entry-point"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:data/processed/models/lightgbm_pre2022.joblib",
+      "type": "file",
+      "name": "lightgbm_pre2022.joblib",
+      "filePath": "data/processed/models/lightgbm_pre2022.joblib",
+      "summary": "Serialized LightGBM classifier trained on data prior to 2022, used for leakage-free WC2022 validation.",
+      "tags": [
+        "model-artifact",
+        "lightgbm",
+        "serialized",
+        "pre2022"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:data/processed/models/lightgbm.joblib",
+      "type": "file",
+      "name": "lightgbm.joblib",
+      "filePath": "data/processed/models/lightgbm.joblib",
+      "summary": "Serialized LightGBM multiclass classifier trained on full match dataset for World Cup 2026 predictions.",
+      "tags": [
+        "model-artifact",
+        "lightgbm",
+        "serialized",
+        "production-model"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:data/processed/models/logreg_baseline_pre2022.joblib",
+      "type": "file",
+      "name": "logreg_baseline_pre2022.joblib",
+      "filePath": "data/processed/models/logreg_baseline_pre2022.joblib",
+      "summary": "Serialized logistic regression baseline pipeline trained on pre-2022 data for leakage-free validation.",
+      "tags": [
+        "model-artifact",
+        "logistic-regression",
+        "baseline",
+        "pre2022"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:data/processed/models/logreg_baseline.joblib",
+      "type": "file",
+      "name": "logreg_baseline.joblib",
+      "filePath": "data/processed/models/logreg_baseline.joblib",
+      "summary": "Serialized logistic regression baseline pipeline (StandardScaler + LogReg) used as benchmark model.",
+      "tags": [
+        "model-artifact",
+        "logistic-regression",
+        "baseline",
+        "serialized"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:data/processed/models/xgboost_calibrated_pre2022.joblib",
+      "type": "file",
+      "name": "xgboost_calibrated_pre2022.joblib",
+      "filePath": "data/processed/models/xgboost_calibrated_pre2022.joblib",
+      "summary": "Isotonic-calibrated XGBoost classifier trained on pre-2022 data for leakage-free probability calibration.",
+      "tags": [
+        "model-artifact",
+        "xgboost",
+        "calibrated",
+        "pre2022"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:data/processed/models/xgboost_calibrated.joblib",
+      "type": "file",
+      "name": "xgboost_calibrated.joblib",
+      "filePath": "data/processed/models/xgboost_calibrated.joblib",
+      "summary": "Isotonic-calibrated XGBoost classifier producing well-calibrated win/draw/loss probabilities.",
+      "tags": [
+        "model-artifact",
+        "xgboost",
+        "calibrated",
+        "production-model"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:data/processed/models/xgboost_pre2022.joblib",
+      "type": "file",
+      "name": "xgboost_pre2022.joblib",
+      "filePath": "data/processed/models/xgboost_pre2022.joblib",
+      "summary": "Serialized XGBoost classifier trained only on pre-2022 matches; used to validate against WC2022 results.",
+      "tags": [
+        "model-artifact",
+        "xgboost",
+        "pre2022",
+        "validation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:data/processed/models/xgboost.joblib",
+      "type": "file",
+      "name": "xgboost.joblib",
+      "filePath": "data/processed/models/xgboost.joblib",
+      "summary": "Serialized XGBoost multiclass classifier (Optuna-tuned) producing raw win/draw/loss probabilities.",
+      "tags": [
+        "model-artifact",
+        "xgboost",
+        "serialized",
+        "production-model"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:notebooks/01_eda.ipynb",
+      "type": "file",
+      "name": "01_eda.ipynb",
+      "filePath": "notebooks/01_eda.ipynb",
+      "summary": "Exploratory data analysis notebook covering match data quality checks, distributions, and feature exploration.",
+      "tags": [
+        "notebook",
+        "eda",
+        "exploration",
+        "analysis"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:src/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "src/__init__.py",
+      "summary": "Empty package marker that exposes src as the project's top-level Python package.",
+      "tags": [
+        "package-marker",
+        "entry-point",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/analysis/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "src/analysis/__init__.py",
+      "summary": "Empty package marker exposing src.analysis as a Python subpackage for analysis modules.",
+      "tags": [
+        "package-marker",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/data/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "src/data/__init__.py",
+      "summary": "Empty package marker exposing src.data as a Python subpackage for data loaders and scrapers.",
+      "tags": [
+        "package-marker",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/data/data_loader.py",
+      "type": "file",
+      "name": "data_loader.py",
+      "filePath": "src/data/data_loader.py",
+      "summary": "Loads and standardizes international match results, FIFA rankings, World Cup fixtures, and applies team-name alias normalization.",
+      "tags": [
+        "data-loader",
+        "preprocessing",
+        "normalization",
+        "pandas",
+        "tested"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/data/data_loader.py:standardize_team_names",
+      "type": "function",
+      "name": "standardize_team_names",
+      "filePath": "src/data/data_loader.py",
+      "lineRange": [
+        53,
+        57
+      ],
+      "summary": "Replaces non-canonical team names in home/away/team columns using TEAM_NAME_ALIASES mapping.",
+      "tags": [
+        "utility",
+        "normalization",
+        "preprocessing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/data/data_loader.py:filter_relevant_matches",
+      "type": "function",
+      "name": "filter_relevant_matches",
+      "filePath": "src/data/data_loader.py",
+      "lineRange": [
+        60,
+        67
+      ],
+      "summary": "Filters match DataFrame to a year cutoff and to tournaments deemed relevant to international competition.",
+      "tags": [
+        "filter",
+        "preprocessing",
+        "pandas"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/data/data_loader.py:load_international_results",
+      "type": "function",
+      "name": "load_international_results",
+      "filePath": "src/data/data_loader.py",
+      "lineRange": [
+        70,
+        78
+      ],
+      "summary": "Loads the martj42/international_results dataset from cache or remote URL and standardizes team names.",
+      "tags": [
+        "data-loader",
+        "io",
+        "cache"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/data/data_loader.py:load_wc_matches",
+      "type": "function",
+      "name": "load_wc_matches",
+      "filePath": "src/data/data_loader.py",
+      "lineRange": [
+        81,
+        88
+      ],
+      "summary": "Reads historical World Cup matches (1974-2022) CSV with date parsing and team name standardization.",
+      "tags": [
+        "data-loader",
+        "io",
+        "world-cup"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/data/data_loader.py:load_fifa_ranking",
+      "type": "function",
+      "name": "load_fifa_ranking",
+      "filePath": "src/data/data_loader.py",
+      "lineRange": [
+        91,
+        98
+      ],
+      "summary": "Loads the FIFA ranking CSV, parses rank_date, renames country_full to team, and normalizes names.",
+      "tags": [
+        "data-loader",
+        "io",
+        "ranking"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/data/data_loader.py:build_ranking_dict",
+      "type": "function",
+      "name": "build_ranking_dict",
+      "filePath": "src/data/data_loader.py",
+      "lineRange": [
+        101,
+        108
+      ],
+      "summary": "Transforms ranking DataFrame into a per-team sorted list of (date, rank) tuples for fast date lookups.",
+      "tags": [
+        "utility",
+        "preprocessing",
+        "indexing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/data/data_loader.py:get_ranking_at_date",
+      "type": "function",
+      "name": "get_ranking_at_date",
+      "filePath": "src/data/data_loader.py",
+      "lineRange": [
+        111,
+        121
+      ],
+      "summary": "Binary-searches the per-team ranking history to return the FIFA rank effective at a given date.",
+      "tags": [
+        "utility",
+        "lookup",
+        "binary-search"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/data/data_loader.py:load_wc2026_fixture",
+      "type": "function",
+      "name": "load_wc2026_fixture",
+      "filePath": "src/data/data_loader.py",
+      "lineRange": [
+        124,
+        129
+      ],
+      "summary": "Loads the 2026 World Cup fixture CSV and standardizes team names against the canonical alias map.",
+      "tags": [
+        "data-loader",
+        "io",
+        "world-cup-2026"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/data/scraper.py",
+      "type": "file",
+      "name": "scraper.py",
+      "filePath": "src/data/scraper.py",
+      "summary": "Fetches xG data per team from the StatsBomb API and exposes a manual snapshot of Transfermarkt squad valuations.",
+      "tags": [
+        "scraper",
+        "data-loader",
+        "statsbomb",
+        "transfermarkt"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/data/scraper.py:get_statsbomb_matches",
+      "type": "function",
+      "name": "get_statsbomb_matches",
+      "filePath": "src/data/scraper.py",
+      "lineRange": [
+        11,
+        45
+      ],
+      "summary": "Downloads StatsBomb match metadata for international tournaments (WC, Euro, Copa, etc.) with disk caching.",
+      "tags": [
+        "scraper",
+        "io",
+        "cache",
+        "statsbomb"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/data/scraper.py:get_statsbomb_xg_by_team",
+      "type": "function",
+      "name": "get_statsbomb_xg_by_team",
+      "filePath": "src/data/scraper.py",
+      "lineRange": [
+        48,
+        121
+      ],
+      "summary": "Aggregates per-team expected goals (xG) for and against from StatsBomb shot events, with goal-fallback on errors.",
+      "tags": [
+        "scraper",
+        "aggregation",
+        "xg",
+        "statsbomb"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/data/scraper.py:get_squad_values",
+      "type": "function",
+      "name": "get_squad_values",
+      "filePath": "src/data/scraper.py",
+      "lineRange": [
+        193,
+        218
+      ],
+      "summary": "Returns a (team, squad_value_eur) DataFrame from the manual Transfermarkt snapshot dict, caching to CSV.",
+      "tags": [
+        "data-loader",
+        "cache",
+        "transfermarkt",
+        "squad-value"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/features/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "src/features/__init__.py",
+      "summary": "Empty package marker exposing src.features as a Python subpackage for feature engineering modules.",
+      "tags": [
+        "package-marker",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/models/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "src/models/__init__.py",
+      "summary": "Empty package marker exposing src.models as a Python subpackage for training and evaluation modules.",
+      "tags": [
+        "package-marker",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/models/evaluate.py",
+      "type": "file",
+      "name": "evaluate.py",
+      "filePath": "src/models/evaluate.py",
+      "summary": "Evaluates trained models with log-loss/Brier, plots calibration curves, runs SHAP analysis, and validates pre-2022 models on WC2022 matches.",
+      "tags": [
+        "evaluation",
+        "metrics",
+        "calibration",
+        "shap"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/models/evaluate.py:evaluate_all",
+      "type": "function",
+      "name": "evaluate_all",
+      "filePath": "src/models/evaluate.py",
+      "lineRange": [
+        30,
+        49
+      ],
+      "summary": "Computes log-loss and one-vs-rest Brier score for each model in a dict and returns a sorted DataFrame.",
+      "tags": [
+        "evaluation",
+        "metrics",
+        "log-loss",
+        "brier"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/models/evaluate.py:plot_calibration_curves",
+      "type": "function",
+      "name": "plot_calibration_curves",
+      "filePath": "src/models/evaluate.py",
+      "lineRange": [
+        52,
+        81
+      ],
+      "summary": "Plots reliability diagrams (calibration curves) per class for multiple models against the perfect-calibration diagonal.",
+      "tags": [
+        "visualization",
+        "calibration",
+        "matplotlib"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/models/evaluate.py:shap_analysis",
+      "type": "function",
+      "name": "shap_analysis",
+      "filePath": "src/models/evaluate.py",
+      "lineRange": [
+        84,
+        100
+      ],
+      "summary": "Runs SHAP TreeExplainer on a trained model and saves a summary plot to reports/figures/shap_summary.png.",
+      "tags": [
+        "explainability",
+        "shap",
+        "visualization"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/models/evaluate.py:validate_wc2022",
+      "type": "function",
+      "name": "validate_wc2022",
+      "filePath": "src/models/evaluate.py",
+      "lineRange": [
+        103,
+        132
+      ],
+      "summary": "Evaluates a pre-2022 model on all 2022 matches (including WC2022) to measure leakage-free predictive performance.",
+      "tags": [
+        "validation",
+        "world-cup",
+        "leakage-check"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/models/train.py",
+      "type": "file",
+      "name": "train.py",
+      "filePath": "src/models/train.py",
+      "summary": "End-to-end training pipeline: temporal split, class+time weights, LogReg baseline, Optuna-tuned XGBoost/LightGBM, and isotonic calibration.",
+      "tags": [
+        "training",
+        "optuna",
+        "xgboost",
+        "lightgbm",
+        "calibration",
+        "tested"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Uses Optuna for hyperparameter search and handles sklearn>=1.6 API changes (FrozenEstimator, params= kwarg)."
+    },
+    {
+      "id": "function:src/models/train.py:compute_combined_weights",
+      "type": "function",
+      "name": "compute_combined_weights",
+      "filePath": "src/models/train.py",
+      "lineRange": [
+        47,
+        65
+      ],
+      "summary": "Combines balanced class weights with optional time-decay weights and renormalizes so the mean is ~1.0.",
+      "tags": [
+        "utility",
+        "weights",
+        "class-balance"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/models/train.py:temporal_split",
+      "type": "function",
+      "name": "temporal_split",
+      "filePath": "src/models/train.py",
+      "lineRange": [
+        68,
+        80
+      ],
+      "summary": "Returns boolean train/val/test masks based on configurable date cutoffs (default 2021-01-01 and 2022-01-01).",
+      "tags": [
+        "utility",
+        "split",
+        "temporal"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/models/train.py:train_baseline",
+      "type": "function",
+      "name": "train_baseline",
+      "filePath": "src/models/train.py",
+      "lineRange": [
+        97,
+        119
+      ],
+      "summary": "Fits a StandardScaler + class-balanced LogisticRegression pipeline as the project's baseline classifier.",
+      "tags": [
+        "training",
+        "baseline",
+        "logistic-regression",
+        "sklearn"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/models/train.py:train_xgboost",
+      "type": "function",
+      "name": "train_xgboost",
+      "filePath": "src/models/train.py",
+      "lineRange": [
+        122,
+        144
+      ],
+      "summary": "Fits a multiclass XGBClassifier with default or Optuna-derived hyperparameters and optional sample weights.",
+      "tags": [
+        "training",
+        "xgboost",
+        "multiclass"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/models/train.py:train_lightgbm",
+      "type": "function",
+      "name": "train_lightgbm",
+      "filePath": "src/models/train.py",
+      "lineRange": [
+        147,
+        175
+      ],
+      "summary": "Fits a multiclass LGBMClassifier with default or Optuna-derived hyperparameters and optional sample weights.",
+      "tags": [
+        "training",
+        "lightgbm",
+        "multiclass"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/models/train.py:run_optuna_study",
+      "type": "function",
+      "name": "run_optuna_study",
+      "filePath": "src/models/train.py",
+      "lineRange": [
+        178,
+        203
+      ],
+      "summary": "Runs an Optuna study over XGBoost or LightGBM hyperparameters using stratified k-fold negative log-loss as objective.",
+      "tags": [
+        "hyperparameter-tuning",
+        "optuna",
+        "cross-validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/models/train.py:calibrate_model",
+      "type": "function",
+      "name": "calibrate_model",
+      "filePath": "src/models/train.py",
+      "lineRange": [
+        206,
+        222
+      ],
+      "summary": "Wraps an already-fitted estimator with CalibratedClassifierCV (FrozenEstimator or prefit fallback) on a validation set.",
+      "tags": [
+        "calibration",
+        "isotonic",
+        "sklearn"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/models/train.py:save_model",
+      "type": "function",
+      "name": "save_model",
+      "filePath": "src/models/train.py",
+      "lineRange": [
+        225,
+        229
+      ],
+      "summary": "Persists a model to data/processed/models/<name>.joblib using joblib.dump.",
+      "tags": [
+        "utility",
+        "io",
+        "serialization"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/models/train.py:load_model",
+      "type": "function",
+      "name": "load_model",
+      "filePath": "src/models/train.py",
+      "lineRange": [
+        232,
+        234
+      ],
+      "summary": "Loads a serialized model from data/processed/models/<name>.joblib.",
+      "tags": [
+        "utility",
+        "io",
+        "deserialization"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/models/train.py:_full_training_pipeline",
+      "type": "function",
+      "name": "_full_training_pipeline",
+      "filePath": "src/models/train.py",
+      "lineRange": [
+        245,
+        311
+      ],
+      "summary": "Orchestrates baseline + XGBoost + LightGBM training with Optuna tuning and isotonic calibration, optionally under a date cutoff for leakage-free evaluation.",
+      "tags": [
+        "pipeline",
+        "training",
+        "orchestration"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:src/simulation/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "src/simulation/__init__.py",
+      "summary": "Empty package marker exposing src.simulation as a Python subpackage for Monte Carlo tournament simulation.",
+      "tags": [
+        "package-marker",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/visualization/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "src/visualization/__init__.py",
+      "summary": "Empty package marker exposing src.visualization as a Python subpackage for the Streamlit dashboard.",
+      "tags": [
+        "package-marker",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/visualization/dashboard.py",
+      "type": "file",
+      "name": "dashboard.py",
+      "filePath": "src/visualization/dashboard.py",
+      "summary": "Streamlit dashboard with five pages presenting championship probabilities, phase progression, model comparison, feature analysis, and injury sensitivity.",
+      "tags": [
+        "dashboard",
+        "streamlit",
+        "visualization",
+        "plotly"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/__init__.py",
+      "summary": "Empty package marker exposing tests as a Python package so pytest can discover and import submodules.",
+      "tags": [
+        "package-marker",
+        "test",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_data_loader.py",
+      "type": "file",
+      "name": "test_data_loader.py",
+      "filePath": "tests/test_data_loader.py",
+      "summary": "Pytest suite verifying team name standardization, year/tournament filtering, and alias dictionary integrity in the data loader.",
+      "tags": [
+        "test",
+        "pytest",
+        "data-loader",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_models.py",
+      "type": "file",
+      "name": "test_models.py",
+      "filePath": "tests/test_models.py",
+      "summary": "Pytest suite validating temporal train/val/test splitting, combined sample weighting, and baseline classifier probability outputs using synthetic feature data.",
+      "tags": [
+        "test",
+        "pytest",
+        "model-training",
+        "validation"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:src/analysis/sensitivity.py",
+      "target": "function:src/analysis/sensitivity.py:simulate_injury_scenario",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/analysis/sensitivity.py",
+      "target": "function:src/analysis/sensitivity.py:run_sensitivity_top_n",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/analysis/sensitivity.py",
+      "target": "function:src/analysis/sensitivity.py:run_sensitivity_top_n",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/analysis/sensitivity.py",
+      "target": "function:src/analysis/sensitivity.py:simulate_injury_scenario",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/analysis/sensitivity.py",
+      "target": "file:src/simulation/simulate.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:src/analysis/sensitivity.py:simulate_injury_scenario",
+      "target": "function:src/simulation/simulate.py:run_simulation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/analysis/sensitivity.py:run_sensitivity_top_n",
+      "target": "function:src/analysis/sensitivity.py:simulate_injury_scenario",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/simulation/simulate.py",
+      "target": "function:src/simulation/simulate.py:build_predict_fn",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/simulation/simulate.py",
+      "target": "function:src/simulation/simulate.py:run_simulation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/simulation/simulate.py",
+      "target": "function:src/simulation/simulate.py:save_results",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/simulation/simulate.py",
+      "target": "function:src/simulation/simulate.py:run_simulation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/simulation/simulate.py",
+      "target": "function:src/simulation/simulate.py:save_results",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/simulation/simulate.py",
+      "target": "function:src/simulation/simulate.py:build_predict_fn",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/simulation/simulate.py",
+      "target": "file:src/simulation/tournament.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:src/simulation/simulate.py:run_simulation",
+      "target": "function:src/simulation/simulate.py:build_predict_fn",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/simulation/simulate.py:run_simulation",
+      "target": "function:src/simulation/tournament.py:simulate_full_tournament",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/simulation/tournament.py",
+      "target": "function:src/simulation/tournament.py:simulate_group_stage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/simulation/tournament.py",
+      "target": "function:src/simulation/tournament.py:select_best_thirds",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/simulation/tournament.py",
+      "target": "function:src/simulation/tournament.py:build_knockout_bracket",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/simulation/tournament.py",
+      "target": "function:src/simulation/tournament.py:simulate_knockout_round",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/simulation/tournament.py",
+      "target": "function:src/simulation/tournament.py:simulate_full_tournament",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/simulation/tournament.py",
+      "target": "function:src/simulation/tournament.py:simulate_group_stage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/simulation/tournament.py",
+      "target": "function:src/simulation/tournament.py:select_best_thirds",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/simulation/tournament.py",
+      "target": "function:src/simulation/tournament.py:build_knockout_bracket",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/simulation/tournament.py",
+      "target": "function:src/simulation/tournament.py:simulate_knockout_round",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/simulation/tournament.py",
+      "target": "function:src/simulation/tournament.py:simulate_full_tournament",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/simulation/tournament.py:simulate_full_tournament",
+      "target": "function:src/simulation/tournament.py:simulate_group_stage",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/simulation/tournament.py:simulate_full_tournament",
+      "target": "function:src/simulation/tournament.py:select_best_thirds",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/simulation/tournament.py:simulate_full_tournament",
+      "target": "function:src/simulation/tournament.py:build_knockout_bracket",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/simulation/tournament.py:simulate_full_tournament",
+      "target": "function:src/simulation/tournament.py:simulate_knockout_round",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/test_simulation.py",
+      "target": "file:src/simulation/simulate.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/test_simulation.py",
+      "target": "file:src/simulation/tournament.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/simulation/simulate.py",
+      "target": "file:tests/test_simulation.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/simulation/tournament.py",
+      "target": "file:tests/test_simulation.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/features/elo.py",
+      "target": "function:src/features/elo.py:calculate_elo_ratings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/elo.py",
+      "target": "function:src/features/elo.py:get_current_elo",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/elo.py",
+      "target": "function:src/features/elo.py:get_elo_at_date",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/elo.py",
+      "target": "function:src/features/elo.py:calculate_elo_ratings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/features/elo.py",
+      "target": "function:src/features/elo.py:get_current_elo",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/features/elo.py",
+      "target": "function:src/features/elo.py:get_elo_at_date",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:_haversine_km",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:_get_team_coords",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:compute_host_distance_wc2026",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:encode_target",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:_vectorized_elo_diff",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:_vectorized_travel_distances",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:data_quality_report",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:build_match_features",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:build_team_features_for_simulation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:save_features",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:compute_host_distance_wc2026",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:encode_target",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:data_quality_report",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:build_match_features",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:build_team_features_for_simulation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "function:src/features/features.py:save_features",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "file:src/features/elo.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "file:src/features/time_decay.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:src/features/features.py:build_match_features",
+      "target": "function:src/features/elo.py:calculate_elo_ratings",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/features/features.py:build_team_features_for_simulation",
+      "target": "function:src/features/elo.py:calculate_elo_ratings",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/features/features.py:build_match_features",
+      "target": "function:src/features/time_decay.py:compute_time_decay_weights",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/features/time_decay.py",
+      "target": "function:src/features/time_decay.py:compute_time_decay_weights",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/features/time_decay.py",
+      "target": "function:src/features/time_decay.py:compute_time_decay_weights",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/test_features.py",
+      "target": "file:src/features/elo.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/test_features.py",
+      "target": "file:src/features/features.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/test_features.py",
+      "target": "file:src/features/time_decay.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/features/elo.py",
+      "target": "file:tests/test_features.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/features/features.py",
+      "target": "file:tests/test_features.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/features/time_decay.py",
+      "target": "file:tests/test_features.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:pyproject.toml",
+      "target": "document:README.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "pipeline:Makefile",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "config:pyproject.toml",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "pipeline:Makefile",
+      "target": "config:pyproject.toml",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:requirements.txt",
+      "target": "config:pyproject.toml",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:REQUERIMENT.md",
+      "target": "document:README.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:RUBRIC.md",
+      "target": "document:REQUERIMENT.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:standardize_team_names",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:filter_relevant_matches",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:load_international_results",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:load_wc_matches",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:load_fifa_ranking",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:build_ranking_dict",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:get_ranking_at_date",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:load_wc2026_fixture",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:standardize_team_names",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:filter_relevant_matches",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:load_international_results",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:load_wc_matches",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:load_fifa_ranking",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:build_ranking_dict",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:get_ranking_at_date",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "function:src/data/data_loader.py:load_wc2026_fixture",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/data/data_loader.py:load_international_results",
+      "target": "function:src/data/data_loader.py:standardize_team_names",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/data/data_loader.py:load_wc_matches",
+      "target": "function:src/data/data_loader.py:standardize_team_names",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/data/data_loader.py:load_fifa_ranking",
+      "target": "function:src/data/data_loader.py:standardize_team_names",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/data/data_loader.py:load_wc2026_fixture",
+      "target": "function:src/data/data_loader.py:standardize_team_names",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/data/scraper.py",
+      "target": "function:src/data/scraper.py:get_statsbomb_matches",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/data/scraper.py",
+      "target": "function:src/data/scraper.py:get_statsbomb_xg_by_team",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/data/scraper.py",
+      "target": "function:src/data/scraper.py:get_squad_values",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/data/scraper.py",
+      "target": "function:src/data/scraper.py:get_statsbomb_matches",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/data/scraper.py",
+      "target": "function:src/data/scraper.py:get_statsbomb_xg_by_team",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/data/scraper.py",
+      "target": "function:src/data/scraper.py:get_squad_values",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/data/scraper.py:get_statsbomb_xg_by_team",
+      "target": "function:src/data/scraper.py:get_statsbomb_matches",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/evaluate.py",
+      "target": "function:src/models/evaluate.py:evaluate_all",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/evaluate.py",
+      "target": "function:src/models/evaluate.py:plot_calibration_curves",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/evaluate.py",
+      "target": "function:src/models/evaluate.py:shap_analysis",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/evaluate.py",
+      "target": "function:src/models/evaluate.py:validate_wc2022",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/evaluate.py",
+      "target": "function:src/models/evaluate.py:evaluate_all",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/evaluate.py",
+      "target": "function:src/models/evaluate.py:plot_calibration_curves",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/evaluate.py",
+      "target": "function:src/models/evaluate.py:shap_analysis",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/evaluate.py",
+      "target": "function:src/models/evaluate.py:validate_wc2022",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/evaluate.py",
+      "target": "file:src/models/train.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/models/evaluate.py",
+      "target": "function:src/models/train.py:load_model",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/evaluate.py",
+      "target": "function:src/models/train.py:temporal_split",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:compute_combined_weights",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:temporal_split",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:train_baseline",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:train_xgboost",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:train_lightgbm",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:run_optuna_study",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:calibrate_model",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:save_model",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:load_model",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:_full_training_pipeline",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:compute_combined_weights",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:temporal_split",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:train_baseline",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:train_xgboost",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:train_lightgbm",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:run_optuna_study",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:calibrate_model",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:save_model",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "function:src/models/train.py:load_model",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/models/train.py:save_model",
+      "target": "file:data/processed/models/xgboost.joblib",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "function:src/models/train.py:save_model",
+      "target": "file:data/processed/models/lightgbm.joblib",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "function:src/models/train.py:save_model",
+      "target": "file:data/processed/models/logreg_baseline.joblib",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "function:src/models/train.py:save_model",
+      "target": "file:data/processed/models/xgboost_calibrated.joblib",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:src/visualization/dashboard.py",
+      "target": "file:data/processed/models/xgboost_calibrated.joblib",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:src/models/train.py",
+      "target": "file:tests/test_models.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/data/data_loader.py",
+      "target": "file:tests/test_data_loader.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:.devcontainer/devcontainer.json",
+      "target": "file:src/__init__.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:tests/test_data_loader.py",
+      "target": "file:src/data/data_loader.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/test_models.py",
+      "target": "file:src/models/train.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/test_data_loader.py",
+      "target": "function:src/data/data_loader.py:standardize_team_names",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/test_data_loader.py",
+      "target": "function:src/data/data_loader.py:filter_relevant_matches",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/test_models.py",
+      "target": "function:src/models/train.py:temporal_split",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/test_models.py",
+      "target": "function:src/models/train.py:compute_combined_weights",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/test_models.py",
+      "target": "function:src/models/train.py:train_baseline",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ],
+  "layers": [
+    {
+      "id": "layer:data-ingestion",
+      "name": "Data Ingestion",
+      "description": "Raw input datasets (FIFA rankings, international results, StatsBomb data, squad values, World Cup fixtures) and the loader/scraper modules that fetch and read them.",
+      "nodeIds": [
+        "file:src/data/__init__.py",
+        "file:src/data/data_loader.py",
+        "file:src/data/scraper.py",
+        "table:data/raw/fifa_ranking.csv",
+        "table:data/raw/international_results.csv",
+        "table:data/raw/squad_values.csv",
+        "table:data/raw/statsbomb_matches.csv",
+        "table:data/raw/statsbomb_xg_by_team.csv",
+        "table:data/raw/wc2026_fixture.csv",
+        "table:data/raw/wc_matches_1974_2022.csv"
+      ]
+    },
+    {
+      "id": "layer:feature-engineering",
+      "name": "Feature Engineering",
+      "description": "Elo ratings, time-decayed form metrics, and team feature builders that transform raw match data into model-ready features and processed feature tables.",
+      "nodeIds": [
+        "file:src/features/__init__.py",
+        "file:src/features/elo.py",
+        "file:src/features/features.py",
+        "file:src/features/time_decay.py",
+        "file:data/processed/features.csv",
+        "file:data/processed/team_features.csv"
+      ]
+    },
+    {
+      "id": "layer:model-training",
+      "name": "Model Training & Evaluation",
+      "description": "Training and evaluation code for logistic regression, XGBoost, and LightGBM classifiers along with the persisted joblib model artifacts, tuned hyperparameter JSONs, and evaluation metrics.",
+      "nodeIds": [
+        "file:src/models/__init__.py",
+        "file:src/models/train.py",
+        "file:src/models/evaluate.py",
+        "file:data/processed/model_evaluation.csv",
+        "file:data/processed/models/lightgbm.joblib",
+        "file:data/processed/models/lightgbm_pre2022.joblib",
+        "file:data/processed/models/logreg_baseline.joblib",
+        "file:data/processed/models/logreg_baseline_pre2022.joblib",
+        "file:data/processed/models/xgboost.joblib",
+        "file:data/processed/models/xgboost_pre2022.joblib",
+        "file:data/processed/models/xgboost_calibrated.joblib",
+        "file:data/processed/models/xgboost_calibrated_pre2022.joblib",
+        "config:data/processed/models/best_params_lightgbm.json",
+        "config:data/processed/models/best_params_lightgbm_pre2022.json",
+        "config:data/processed/models/best_params_xgboost.json",
+        "config:data/processed/models/best_params_xgboost_pre2022.json"
+      ]
+    },
+    {
+      "id": "layer:simulation-analysis",
+      "name": "Tournament Simulation & Analysis",
+      "description": "Monte Carlo match and tournament simulators plus sensitivity analysis (e.g., injury scenarios) and the simulation/progression output tables for the 2026 World Cup.",
+      "nodeIds": [
+        "file:src/simulation/__init__.py",
+        "file:src/simulation/simulate.py",
+        "file:src/simulation/tournament.py",
+        "file:src/analysis/__init__.py",
+        "file:src/analysis/sensitivity.py",
+        "file:data/processed/simulation_results.csv",
+        "file:data/processed/tournament_progression.csv",
+        "file:data/processed/sensitivity_injuries.csv"
+      ]
+    },
+    {
+      "id": "layer:visualization",
+      "name": "Visualization & Notebooks",
+      "description": "Streamlit/Plotly dashboard module and exploratory EDA notebook used to present model outputs, feature insights, and tournament results.",
+      "nodeIds": [
+        "file:src/__init__.py",
+        "file:src/visualization/__init__.py",
+        "file:src/visualization/dashboard.py",
+        "file:notebooks/01_eda.ipynb"
+      ]
+    },
+    {
+      "id": "layer:tests",
+      "name": "Tests",
+      "description": "Pytest suite covering data loading, feature engineering, model training, and simulation modules, plus the shared conftest fixtures.",
+      "nodeIds": [
+        "file:conftest.py",
+        "file:tests/__init__.py",
+        "file:tests/test_data_loader.py",
+        "file:tests/test_features.py",
+        "file:tests/test_models.py",
+        "file:tests/test_simulation.py"
+      ]
+    },
+    {
+      "id": "layer:project-config-docs",
+      "name": "Project Configuration & Documentation",
+      "description": "Top-level build/run tooling (Makefile, pyproject.toml, requirements.txt, devcontainer) and project documentation (README, requirements, rubric) that orchestrate and describe the pipeline.",
+      "nodeIds": [
+        "pipeline:Makefile",
+        "config:pyproject.toml",
+        "config:.devcontainer/devcontainer.json",
+        "config:.understand-anything/.understandignore",
+        "document:README.md",
+        "document:REQUERIMENT.md",
+        "document:RUBRIC.md",
+        "document:requirements.txt"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "order": 1,
+      "title": "Project Overview",
+      "description": "Begin with the README, which frames the entire project: a FIFA World Cup 2026 prediction model that combines ML classifiers (XGBoost / LightGBM, with a logistic regression baseline) and a 10,000-iteration Monte Carlo simulation over the 48-team tournament. It outlines the pipeline stages (ingestion, feature engineering, training, simulation, sensitivity, visualization) and is the narrative anchor every subsequent step refers back to.",
+      "nodeIds": [
+        "document:README.md",
+        "document:REQUERIMENT.md"
+      ]
+    },
+    {
+      "order": 2,
+      "title": "Build Orchestration and Packaging",
+      "description": "The Makefile is the real entry point for the pipeline: it wires targets like `features`, `train`, `evaluate`, `simulate`, `sensitivity`, `dashboard`, and `test` into a single command surface. The pyproject.toml declares the `wc2026-model` package, pins ML dependencies (pandas, scikit-learn, xgboost, lightgbm, optuna, shap, streamlit), and exposes the `src` namespace that every other step imports from.",
+      "nodeIds": [
+        "pipeline:Makefile",
+        "config:pyproject.toml",
+        "config:.devcontainer/devcontainer.json"
+      ],
+      "languageLesson": "Makefile targets define phony recipes with dependency tracking \u00e2\u20ac\u201d running `make train` after `make features` reuses the already-built feature CSV instead of rebuilding it. pyproject.toml is the modern PEP 621 successor to setup.py, declaring metadata and dependencies in a single TOML file."
+    },
+    {
+      "order": 3,
+      "title": "Raw Data Sources",
+      "description": "Before any code runs, the pipeline depends on a small set of CSV inputs. International match results (1872+) form the primary training corpus, while FIFA rankings, StatsBomb xG, and squad market values become engineered features. The 2026 fixture file pins teams to groups and drives the Monte Carlo bracket. Together these define the project's vocabulary.",
+      "nodeIds": [
+        "table:data/raw/international_results.csv",
+        "table:data/raw/fifa_ranking.csv",
+        "table:data/raw/statsbomb_xg_by_team.csv",
+        "table:data/raw/squad_values.csv",
+        "table:data/raw/wc2026_fixture.csv"
+      ]
+    },
+    {
+      "order": 4,
+      "title": "Data Loading and Scraping",
+      "description": "These modules turn the raw CSVs of Step 3 into clean DataFrames. `data_loader.py` standardizes team names with an alias dictionary, filters by year/tournament, and unifies results, rankings, and the 2026 fixture. `scraper.py` complements that with live StatsBomb xG fetches and a manual Transfermarkt squad-value snapshot, isolating all external I/O in one layer.",
+      "nodeIds": [
+        "file:src/data/data_loader.py",
+        "file:src/data/scraper.py"
+      ]
+    },
+    {
+      "order": 5,
+      "title": "Feature Engineering",
+      "description": "This is the analytical heart of the project. `elo.py` runs an iterative Elo rating system with tournament-weighted K-factors over every historical match. `time_decay.py` produces exponential weights anchored at the WC 2026 reference date so recent form dominates training. `features.py` ties everything together into per-match feature vectors (elo_diff, xG, squad value diff, host distance, ranking diff, time weight) \u00e2\u20ac\u201d these become the rows of `features.csv`.",
+      "nodeIds": [
+        "file:src/features/elo.py",
+        "file:src/features/time_decay.py",
+        "file:src/features/features.py",
+        "file:data/processed/features.csv"
+      ],
+      "languageLesson": "Time-decay weighting is a common trick in temporal ML: instead of equal-weighting all historical matches, each example's loss contribution is multiplied by exp(-lambda * years_ago). The half-life parameter lets you tune how quickly the model forgets old data \u00e2\u20ac\u201d critical when modeling team strength that drifts over decades."
+    },
+    {
+      "order": 6,
+      "title": "Model Training and Evaluation",
+      "description": "Building on the engineered features from Step 5, `train.py` performs a temporal train/val/test split, combines class weights with time-decay weights, fits a LogReg baseline, then uses Optuna to tune XGBoost and LightGBM before applying isotonic calibration. `evaluate.py` scores each model with log-loss / Brier, draws calibration curves, runs SHAP for interpretability, and back-tests pre-2022 variants against WC2022 to detect leakage. Tuned hyperparameters are persisted as JSON for reproducibility.",
+      "nodeIds": [
+        "file:src/models/train.py",
+        "file:src/models/evaluate.py",
+        "config:data/processed/models/best_params_xgboost.json",
+        "config:data/processed/models/best_params_lightgbm.json",
+        "file:data/processed/models/xgboost_calibrated.joblib",
+        "file:data/processed/model_evaluation.csv"
+      ],
+      "languageLesson": "Isotonic calibration wraps a trained classifier with a monotonic regression that maps raw scores to well-calibrated probabilities \u00e2\u20ac\u201d essential when downstream Monte Carlo (Step 7) treats those numbers as true win probabilities. Without calibration, gradient-boosted trees tend to be over-confident."
+    },
+    {
+      "order": 7,
+      "title": "Tournament Monte Carlo Simulation",
+      "description": "With a calibrated model in hand, `tournament.py` encodes the 2026 bracket structure (12 groups of 4, knockout through R32 to the Final) and samples scorelines via Poisson goal sampling with host-advantage handling. `simulate.py` precomputes pairwise match probabilities, runs the bracket 10,000 times, and aggregates per-team progression and championship odds with Clopper-Pearson confidence intervals. The CSV outputs become the dashboard's data source.",
+      "nodeIds": [
+        "file:src/simulation/tournament.py",
+        "file:src/simulation/simulate.py",
+        "file:data/processed/team_features.csv",
+        "file:data/processed/simulation_results.csv",
+        "file:data/processed/tournament_progression.csv"
+      ]
+    },
+    {
+      "order": 8,
+      "title": "Sensitivity Analysis",
+      "description": "The sensitivity module asks: how robust are the predictions? `sensitivity.py` perturbs a top contender's squad value (e.g. -30% to model injuries to a star player), re-runs the Monte Carlo, and compares championship probabilities against the baseline. The resulting CSV is what the dashboard's injury-scenario page consumes, turning a deterministic forecast into a what-if analysis.",
+      "nodeIds": [
+        "file:src/analysis/sensitivity.py",
+        "file:data/processed/sensitivity_injuries.csv"
+      ]
+    },
+    {
+      "order": 9,
+      "title": "Visualization: Dashboard and EDA",
+      "description": "The user-facing layer. `dashboard.py` is a five-page Streamlit app showing championship probabilities, phase progression, model comparison, feature analysis, and the injury sensitivity from Step 8 \u00e2\u20ac\u201d it reads every processed CSV produced earlier. `01_eda.ipynb` is the exploratory companion notebook documenting data quality checks and feature distributions that informed the choices in Steps 4\u00e2\u20ac\u201c5.",
+      "nodeIds": [
+        "file:src/visualization/dashboard.py",
+        "file:notebooks/01_eda.ipynb"
+      ]
+    },
+    {
+      "order": 10,
+      "title": "Test Suite",
+      "description": "The pytest suite locks in correctness across the pipeline: `test_data_loader.py` validates alias normalization and filtering, `test_features.py` covers Elo and time-decay math plus vectorized feature building, `test_models.py` checks temporal splits and weighting on synthetic data, and `test_simulation.py` enforces invariants like 48 teams, knockout sizes, seed reproducibility, and Clopper-Pearson edge cases. `conftest.py` makes `src` importable from the test root.",
+      "nodeIds": [
+        "file:conftest.py",
+        "file:tests/test_data_loader.py",
+        "file:tests/test_features.py",
+        "file:tests/test_models.py",
+        "file:tests/test_simulation.py"
+      ],
+      "languageLesson": "A root-level `conftest.py` is a pytest convention: pytest discovers it before collecting tests and runs its top-level code, which is the idiomatic place to inject sys.path entries so tests can import the project package without installing it."
+    }
+  ]
+}

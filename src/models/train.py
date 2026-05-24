@@ -18,7 +18,7 @@ from pathlib import Path
 
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.model_selection import TimeSeriesSplit, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.class_weight import compute_class_weight
@@ -81,8 +81,12 @@ def temporal_split(
 
 
 def _cv_score(model, X, y, weights, cv=5) -> float:
-    skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
-    kwargs = {"cv": skf, "scoring": "neg_log_loss"}
+    # TimeSeriesSplit preserva el orden temporal: cada fold entrena con el
+    # pasado y valida en un bloque futuro contiguo. Coherente con el split
+    # externo train/val/test por fecha — evita que Optuna elija
+    # hiperparámetros bajo un supuesto i.i.d. que el diseño externo niega.
+    splitter = TimeSeriesSplit(n_splits=cv)
+    kwargs = {"cv": splitter, "scoring": "neg_log_loss"}
     if weights is not None:
         # sklearn >=1.6 usa `params`; versiones previas usan `fit_params`.
         try:
@@ -253,6 +257,8 @@ def _full_training_pipeline(
     se guardan con `suffix` (p.ej. "_pre2022").
     """
     df = df.dropna(subset=FEATURE_COLS + ["target"]).copy()
+    # Ordenar por fecha es requisito para TimeSeriesSplit dentro del CV de Optuna.
+    df = df.sort_values("date", kind="mergesort").reset_index(drop=True)
     if cutoff is not None:
         df = df[pd.to_datetime(df["date"]) < cutoff].reset_index(drop=True)
 

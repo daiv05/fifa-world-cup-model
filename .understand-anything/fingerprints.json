@@ -1,0 +1,2218 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "60b4ac1df3353a8fc60dfa418a06084ba63104ce",
+  "generatedAt": "2026-05-24T22:59:55.035Z",
+  "files": {
+    ".devcontainer/devcontainer.json": {
+      "filePath": ".devcontainer/devcontainer.json",
+      "contentHash": "a57d6e4f30e378227ef40562bda1e3c52d8d1d1974ec715f2643efbb5c3d33bf",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 32,
+      "hasStructuralAnalysis": true
+    },
+    ".understand-anything/.understandignore": {
+      "filePath": ".understand-anything/.understandignore",
+      "contentHash": "d018ae75123ee597663d0082dc699dbedd1dfe96a7b39cdfceb3436694d57316",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 37,
+      "hasStructuralAnalysis": false
+    },
+    "conftest.py": {
+      "filePath": "conftest.py",
+      "contentHash": "ef074730225edfe210a872564ffac4446cad799e88ff1b86edb5d94a993794f7",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 5,
+      "hasStructuralAnalysis": true
+    },
+    "data/processed/features.csv": {
+      "filePath": "data/processed/features.csv",
+      "contentHash": "b61ca2e4a38a4585ff3b570da279745b26055f45438ebb791eefebe155f0f1c7",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 12159,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/model_evaluation.csv": {
+      "filePath": "data/processed/model_evaluation.csv",
+      "contentHash": "8fc27ffd7e507f36eb124074187db084e223f15e0c71f035d947b5d6f7157d6b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/models/best_params_lightgbm_pre2022.json": {
+      "filePath": "data/processed/models/best_params_lightgbm_pre2022.json",
+      "contentHash": "742215c7a0cb4485300c66a301fe2e0dee90aa607cad209002bd82647e426668",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 9,
+      "hasStructuralAnalysis": true
+    },
+    "data/processed/models/best_params_lightgbm.json": {
+      "filePath": "data/processed/models/best_params_lightgbm.json",
+      "contentHash": "d6c368ef84ce87e8f3cea44775e2bcedf8cfc3e110b1ae001e88e20469bd680f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 9,
+      "hasStructuralAnalysis": true
+    },
+    "data/processed/models/best_params_xgboost_pre2022.json": {
+      "filePath": "data/processed/models/best_params_xgboost_pre2022.json",
+      "contentHash": "72ac50741df1834d852f9edc7ef12d08aabadcb01b4bed35a090955bc76cfe6c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 9,
+      "hasStructuralAnalysis": true
+    },
+    "data/processed/models/best_params_xgboost.json": {
+      "filePath": "data/processed/models/best_params_xgboost.json",
+      "contentHash": "a6103fee6be5ea9ad1a1d2cdb4e43c94704324bfcac010a62f4d497efa17c2ce",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 9,
+      "hasStructuralAnalysis": true
+    },
+    "data/processed/models/lightgbm_pre2022.joblib": {
+      "filePath": "data/processed/models/lightgbm_pre2022.joblib",
+      "contentHash": "e207892947455c5e4b8becd0074a5f6f9acaf84a1faf44bf1944003760eeeb85",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 9677,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/models/lightgbm.joblib": {
+      "filePath": "data/processed/models/lightgbm.joblib",
+      "contentHash": "095d3ef188a4c6bec49a3bc9a1c649fc6d91c53528c92e7828d0db98db983d71",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 13553,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/models/logreg_baseline_pre2022.joblib": {
+      "filePath": "data/processed/models/logreg_baseline_pre2022.joblib",
+      "contentHash": "eae2c0481321ba41acde3e966d5187b21b885d3e4eac339913c9c69b51eec313",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 7,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/models/logreg_baseline.joblib": {
+      "filePath": "data/processed/models/logreg_baseline.joblib",
+      "contentHash": "eae2c0481321ba41acde3e966d5187b21b885d3e4eac339913c9c69b51eec313",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 7,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/models/xgboost_calibrated_pre2022.joblib": {
+      "filePath": "data/processed/models/xgboost_calibrated_pre2022.joblib",
+      "contentHash": "cc19178a8bfcec343c33f7b382e684988d55f29aa376d76ba09c0221b830a32a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4817,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/models/xgboost_calibrated.joblib": {
+      "filePath": "data/processed/models/xgboost_calibrated.joblib",
+      "contentHash": "484d5d63c8d6c937db73fd82b6f544988aaebe0f5ae8c0c36a8f8be62c0c7843",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 12707,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/models/xgboost_pre2022.joblib": {
+      "filePath": "data/processed/models/xgboost_pre2022.joblib",
+      "contentHash": "cb459b2ae41c4cf436d6168a5c319537bd7d576f18afb55807d421de9ed63649",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4810,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/models/xgboost.joblib": {
+      "filePath": "data/processed/models/xgboost.joblib",
+      "contentHash": "0f0c78fb7b09c3ea9c3891d43f17bbab202b36939480e5ca268cd6b4e1d0489c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 12696,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/sensitivity_injuries.csv": {
+      "filePath": "data/processed/sensitivity_injuries.csv",
+      "contentHash": "2bb9a0157ee3f8a8623b51fc0110e08e80e1d33207867e510741b87d031ee5d3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 7,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/simulation_results.csv": {
+      "filePath": "data/processed/simulation_results.csv",
+      "contentHash": "ef7614e95658789c4b1ab175c417ff5f859e6732880c65f328d173ede8bee894",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 50,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/team_features.csv": {
+      "filePath": "data/processed/team_features.csv",
+      "contentHash": "fd71382bc2a8cc0b50c21eb9e320b007a05270be06ad4906161abf1818a3dde8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 50,
+      "hasStructuralAnalysis": false
+    },
+    "data/processed/tournament_progression.csv": {
+      "filePath": "data/processed/tournament_progression.csv",
+      "contentHash": "557b36ca553880c77ce24eb85251a931ebe7c510024bcf00df8f87229d3bedc4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 50,
+      "hasStructuralAnalysis": false
+    },
+    "data/raw/fifa_ranking.csv": {
+      "filePath": "data/raw/fifa_ranking.csv",
+      "contentHash": "bc129a89b77ab55c27c614a68bf5a17941e02c04d07f870099b1b5e3fcd67c27",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 67474,
+      "hasStructuralAnalysis": false
+    },
+    "data/raw/international_results.csv": {
+      "filePath": "data/raw/international_results.csv",
+      "contentHash": "886781eaf304fd0121f1e2f0fb521dd2af67d8f88d50b8f079c8777c77226e88",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 49331,
+      "hasStructuralAnalysis": false
+    },
+    "data/raw/squad_values.csv": {
+      "filePath": "data/raw/squad_values.csv",
+      "contentHash": "cc45af9722d1708d22f5beabccdeaf496de93a722307196b6d0dcc5e72ff28d3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 64,
+      "hasStructuralAnalysis": false
+    },
+    "data/raw/statsbomb_matches.csv": {
+      "filePath": "data/raw/statsbomb_matches.csv",
+      "contentHash": "6527fe92cc90af5fd7205061e317b548582c6f47dc18fe7e06ba0ae411fe3286",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 465,
+      "hasStructuralAnalysis": false
+    },
+    "data/raw/statsbomb_xg_by_team.csv": {
+      "filePath": "data/raw/statsbomb_xg_by_team.csv",
+      "contentHash": "e20c3b60571b06125503aebd10d589930287ed47045188626b58544f5766ad9e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 111,
+      "hasStructuralAnalysis": false
+    },
+    "data/raw/wc_matches_1974_2022.csv": {
+      "filePath": "data/raw/wc_matches_1974_2022.csv",
+      "contentHash": "e9c478b7f8b94e9c862bb5e69999426fd4b577bd5333148c04efa102883f6c36",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 834,
+      "hasStructuralAnalysis": false
+    },
+    "data/raw/wc2026_fixture.csv": {
+      "filePath": "data/raw/wc2026_fixture.csv",
+      "contentHash": "57cf6dea46ad7ca2f6a733f5dc6cea59a8017cec7273dd0c9f93b24018b8e833",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 50,
+      "hasStructuralAnalysis": false
+    },
+    "Makefile": {
+      "filePath": "Makefile",
+      "contentHash": "495eefabb4b4894a4add2489bc3efe81a6ca8c9ab52d2f397fc3d39cd1b2eae9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 39,
+      "hasStructuralAnalysis": true
+    },
+    "notebooks/01_eda.ipynb": {
+      "filePath": "notebooks/01_eda.ipynb",
+      "contentHash": "ff36c97aa8ef8326732d389af595ce2d60851beefd37ddc5965e9b83f09b6b3e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1186,
+      "hasStructuralAnalysis": false
+    },
+    "pyproject.toml": {
+      "filePath": "pyproject.toml",
+      "contentHash": "496a663ce8d9303751990568931d99dc996aa792c055ef6f6081421b5a610f9d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 39,
+      "hasStructuralAnalysis": true
+    },
+    "README.md": {
+      "filePath": "README.md",
+      "contentHash": "67c96ff6d5e85453420aaa23d03e1218ab1763b372821c98779a00d5aada5fbb",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 219,
+      "hasStructuralAnalysis": true
+    },
+    "REQUERIMENT.md": {
+      "filePath": "REQUERIMENT.md",
+      "contentHash": "6bb14e9aa7bd37e2a2b587209d897ffaf5dbe7deb126b5aa85388c7b271ef903",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 58,
+      "hasStructuralAnalysis": true
+    },
+    "requirements.txt": {
+      "filePath": "requirements.txt",
+      "contentHash": "26080cd68ffe6899bdcfd46869432f4fbe6af81ebb4831318162138ef4f21de4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 19,
+      "hasStructuralAnalysis": false
+    },
+    "RUBRIC.md": {
+      "filePath": "RUBRIC.md",
+      "contentHash": "3e074bb602fccda787e4adbdbcf2627f3010bd3a9db8cc9db291e19eebadf027",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 14,
+      "hasStructuralAnalysis": true
+    },
+    "src/__init__.py": {
+      "filePath": "src/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "src/analysis/__init__.py": {
+      "filePath": "src/analysis/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "src/analysis/sensitivity.py": {
+      "filePath": "src/analysis/sensitivity.py",
+      "contentHash": "b0de847f92d08bee4cc1e782b516f344e3119b2567b722126ca5fa418bf919de",
+      "functions": [
+        {
+          "name": "simulate_injury_scenario",
+          "params": [
+            "team",
+            "squad_reduction_pct",
+            "base_team_features",
+            "model",
+            "n_iterations",
+            "seed"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 22
+        },
+        {
+          "name": "run_sensitivity_top_n",
+          "params": [
+            "base_champions_df",
+            "base_team_features",
+            "model",
+            "top_n",
+            "reduction",
+            "n_iterations",
+            "seed"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 29
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "argparse",
+          "specifiers": [
+            "argparse"
+          ]
+        },
+        {
+          "source": "numpy",
+          "specifiers": [
+            "np"
+          ]
+        },
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "src.simulation.simulate",
+          "specifiers": [
+            "run_simulation",
+            "RESULTS_DIR"
+          ]
+        }
+      ],
+      "exports": [
+        "simulate_injury_scenario",
+        "run_sensitivity_top_n"
+      ],
+      "totalLines": 110,
+      "hasStructuralAnalysis": true
+    },
+    "src/data/__init__.py": {
+      "filePath": "src/data/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "src/data/data_loader.py": {
+      "filePath": "src/data/data_loader.py",
+      "contentHash": "267e5c26d05c5671c0b5f8463a0f6402739103df2c6dc4139fc96d50d18a40c4",
+      "functions": [
+        {
+          "name": "standardize_team_names",
+          "params": [
+            "df"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "filter_relevant_matches",
+          "params": [
+            "df",
+            "year_cutoff"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "load_international_results",
+          "params": [
+            "use_cache"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "load_wc_matches",
+          "params": [
+            "path"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "load_fifa_ranking",
+          "params": [
+            "path"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "build_ranking_dict",
+          "params": [
+            "ranking_df"
+          ],
+          "returnType": "dict[str, list[tuple]]",
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "get_ranking_at_date",
+          "params": [
+            "ranking_dict",
+            "team",
+            "date",
+            "default_rank"
+          ],
+          "returnType": "int",
+          "exported": true,
+          "lineCount": 11
+        },
+        {
+          "name": "load_wc2026_fixture",
+          "params": [
+            "path"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "bisect",
+          "specifiers": [
+            "bisect"
+          ]
+        },
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        }
+      ],
+      "exports": [
+        "standardize_team_names",
+        "filter_relevant_matches",
+        "load_international_results",
+        "load_wc_matches",
+        "load_fifa_ranking",
+        "build_ranking_dict",
+        "get_ranking_at_date",
+        "load_wc2026_fixture"
+      ],
+      "totalLines": 141,
+      "hasStructuralAnalysis": true
+    },
+    "src/data/scraper.py": {
+      "filePath": "src/data/scraper.py",
+      "contentHash": "0fc8734aa5bda1f6a5fe1db7882832a2f0e344b27bec9cc02b9eaccbfe8cb716",
+      "functions": [
+        {
+          "name": "get_statsbomb_matches",
+          "params": [],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 35
+        },
+        {
+          "name": "get_statsbomb_xg_by_team",
+          "params": [],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 74
+        },
+        {
+          "name": "get_squad_values",
+          "params": [
+            "teams"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 26
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        }
+      ],
+      "exports": [
+        "get_statsbomb_matches",
+        "get_statsbomb_xg_by_team",
+        "get_squad_values"
+      ],
+      "totalLines": 230,
+      "hasStructuralAnalysis": true
+    },
+    "src/features/__init__.py": {
+      "filePath": "src/features/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "src/features/elo.py": {
+      "filePath": "src/features/elo.py",
+      "contentHash": "31147b486f057dd1d48a125e45362ebbdf003dfbde7e89682973cecda1a29016",
+      "functions": [
+        {
+          "name": "_get_k",
+          "params": [
+            "tournament"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "_expected_score",
+          "params": [
+            "rating_a",
+            "rating_b"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "_result_score",
+          "params": [
+            "home_goals",
+            "away_goals"
+          ],
+          "returnType": "tuple[float, float]",
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "calculate_elo_ratings",
+          "params": [
+            "matches_df"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 41
+        },
+        {
+          "name": "get_current_elo",
+          "params": [
+            "elo_df"
+          ],
+          "returnType": "dict[str, float]",
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "get_elo_at_date",
+          "params": [
+            "elo_df",
+            "team",
+            "date"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 24
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "bisect",
+          "specifiers": [
+            "bisect"
+          ]
+        },
+        {
+          "source": "collections",
+          "specifiers": [
+            "defaultdict"
+          ]
+        },
+        {
+          "source": "numpy",
+          "specifiers": [
+            "np"
+          ]
+        },
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        }
+      ],
+      "exports": [
+        "_get_k",
+        "_expected_score",
+        "_result_score",
+        "calculate_elo_ratings",
+        "get_current_elo",
+        "get_elo_at_date"
+      ],
+      "totalLines": 121,
+      "hasStructuralAnalysis": true
+    },
+    "src/features/features.py": {
+      "filePath": "src/features/features.py",
+      "contentHash": "593a0239bd734b16c761c7b487b6c33144a998b5425449d20b293df3da265bc3",
+      "functions": [
+        {
+          "name": "_haversine_km",
+          "params": [
+            "lat1",
+            "lon1",
+            "lat2",
+            "lon2"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "_get_team_coords",
+          "params": [
+            "team"
+          ],
+          "returnType": "tuple[float, float] | None",
+          "exported": true,
+          "lineCount": 21
+        },
+        {
+          "name": "_get_country_coords",
+          "params": [
+            "country",
+            "cache"
+          ],
+          "returnType": "tuple[float, float] | None",
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "compute_host_distance_wc2026",
+          "params": [
+            "team",
+            "coords_cache"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "encode_target",
+          "params": [
+            "df"
+          ],
+          "returnType": "np.ndarray",
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "_vectorized_elo_diff",
+          "params": [
+            "matches_df",
+            "elo_df"
+          ],
+          "returnType": "np.ndarray",
+          "exported": true,
+          "lineCount": 24
+        },
+        {
+          "name": "_vectorized_travel_distances",
+          "params": [
+            "matches_df",
+            "team_coords_cache",
+            "country_coords_cache"
+          ],
+          "returnType": "tuple[np.ndarray, np.ndarray]",
+          "exported": true,
+          "lineCount": 44
+        },
+        {
+          "name": "data_quality_report",
+          "params": [
+            "df",
+            "name"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 22
+        },
+        {
+          "name": "build_match_features",
+          "params": [
+            "matches_df",
+            "xg_df",
+            "squad_df",
+            "ranking_df",
+            "lambda_decay",
+            "year_cutoff"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 101
+        },
+        {
+          "name": "build_team_features_for_simulation",
+          "params": [
+            "matches_df",
+            "xg_df",
+            "squad_df",
+            "ranking_df",
+            "teams"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 70
+        },
+        {
+          "name": "save_features",
+          "params": [
+            "df",
+            "filename"
+          ],
+          "returnType": "Path",
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "numpy",
+          "specifiers": [
+            "np"
+          ]
+        },
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "src.features.elo",
+          "specifiers": [
+            "calculate_elo_ratings",
+            "INITIAL_RATING"
+          ]
+        },
+        {
+          "source": "src.features.time_decay",
+          "specifiers": [
+            "compute_time_decay_weights",
+            "REFERENCE_DATE"
+          ]
+        }
+      ],
+      "exports": [
+        "_haversine_km",
+        "_get_team_coords",
+        "_get_country_coords",
+        "compute_host_distance_wc2026",
+        "encode_target",
+        "_vectorized_elo_diff",
+        "_vectorized_travel_distances",
+        "data_quality_report",
+        "build_match_features",
+        "build_team_features_for_simulation",
+        "save_features"
+      ],
+      "totalLines": 472,
+      "hasStructuralAnalysis": true
+    },
+    "src/features/time_decay.py": {
+      "filePath": "src/features/time_decay.py",
+      "contentHash": "60db72d7ed0c83f76e97bc2c44db1ab4119abe24509cf2ffe61d8f2c231bf68c",
+      "functions": [
+        {
+          "name": "compute_time_decay_weights",
+          "params": [
+            "dates",
+            "lambda_",
+            "reference_date"
+          ],
+          "returnType": "np.ndarray",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "lambda_to_halflife_years",
+          "params": [
+            "lambda_"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "halflife_years_to_lambda",
+          "params": [
+            "years"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 2
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "numpy",
+          "specifiers": [
+            "np"
+          ]
+        },
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        }
+      ],
+      "exports": [
+        "compute_time_decay_weights",
+        "lambda_to_halflife_years",
+        "halflife_years_to_lambda"
+      ],
+      "totalLines": 29,
+      "hasStructuralAnalysis": true
+    },
+    "src/models/__init__.py": {
+      "filePath": "src/models/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "src/models/evaluate.py": {
+      "filePath": "src/models/evaluate.py",
+      "contentHash": "412f60210cc648dd6cd123d320dec370fbc149128ba297b866788bf865864489",
+      "functions": [
+        {
+          "name": "_to_df",
+          "params": [
+            "X"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "evaluate_all",
+          "params": [
+            "models",
+            "X_test",
+            "y_test"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 20
+        },
+        {
+          "name": "plot_calibration_curves",
+          "params": [
+            "models",
+            "X_test",
+            "y_test",
+            "n_bins"
+          ],
+          "returnType": "plt.Figure",
+          "exported": true,
+          "lineCount": 30
+        },
+        {
+          "name": "shap_analysis",
+          "params": [
+            "model",
+            "X_train",
+            "feature_names"
+          ],
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "validate_wc2022",
+          "params": [
+            "features_df",
+            "model_pre2022"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 30
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "numpy",
+          "specifiers": [
+            "np"
+          ]
+        },
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        },
+        {
+          "source": "matplotlib.pyplot",
+          "specifiers": [
+            "plt"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "sklearn.calibration",
+          "specifiers": [
+            "calibration_curve"
+          ]
+        },
+        {
+          "source": "sklearn.metrics",
+          "specifiers": [
+            "log_loss",
+            "brier_score_loss"
+          ]
+        }
+      ],
+      "exports": [
+        "_to_df",
+        "evaluate_all",
+        "plot_calibration_curves",
+        "shap_analysis",
+        "validate_wc2022"
+      ],
+      "totalLines": 181,
+      "hasStructuralAnalysis": true
+    },
+    "src/models/train.py": {
+      "filePath": "src/models/train.py",
+      "contentHash": "80a3981ae6baad91542c6d9e676f35889f1037b37d9d814f1a49f3f0364b1290",
+      "functions": [
+        {
+          "name": "compute_combined_weights",
+          "params": [
+            "y",
+            "time_weights"
+          ],
+          "returnType": "np.ndarray",
+          "exported": true,
+          "lineCount": 19
+        },
+        {
+          "name": "temporal_split",
+          "params": [
+            "df",
+            "train_end",
+            "val_end"
+          ],
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "_cv_score",
+          "params": [
+            "model",
+            "X",
+            "y",
+            "weights",
+            "cv"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "train_baseline",
+          "params": [
+            "X",
+            "y",
+            "weights",
+            "feature_names"
+          ],
+          "returnType": "Pipeline",
+          "exported": true,
+          "lineCount": 23
+        },
+        {
+          "name": "train_xgboost",
+          "params": [
+            "X",
+            "y",
+            "weights",
+            "params"
+          ],
+          "returnType": "XGBClassifier",
+          "exported": true,
+          "lineCount": 23
+        },
+        {
+          "name": "train_lightgbm",
+          "params": [
+            "X",
+            "y",
+            "weights",
+            "params",
+            "feature_names"
+          ],
+          "returnType": "LGBMClassifier",
+          "exported": true,
+          "lineCount": 29
+        },
+        {
+          "name": "run_optuna_study",
+          "params": [
+            "X",
+            "y",
+            "weights",
+            "n_trials",
+            "model_type"
+          ],
+          "returnType": "tuple[dict, optuna.Study]",
+          "exported": true,
+          "lineCount": 26
+        },
+        {
+          "name": "calibrate_model",
+          "params": [
+            "model",
+            "X_val",
+            "y_val",
+            "method"
+          ],
+          "returnType": "CalibratedClassifierCV",
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "save_model",
+          "params": [
+            "model",
+            "name"
+          ],
+          "returnType": "Path",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "load_model",
+          "params": [
+            "name"
+          ],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "save_best_params",
+          "params": [
+            "best_params",
+            "model_name"
+          ],
+          "returnType": "Path",
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "_full_training_pipeline",
+          "params": [
+            "df",
+            "trials",
+            "cutoff",
+            "suffix"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 69
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "argparse",
+          "specifiers": [
+            "argparse"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "joblib",
+          "specifiers": [
+            "joblib"
+          ]
+        },
+        {
+          "source": "numpy",
+          "specifiers": [
+            "np"
+          ]
+        },
+        {
+          "source": "optuna",
+          "specifiers": [
+            "optuna"
+          ]
+        },
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "sklearn.calibration",
+          "specifiers": [
+            "CalibratedClassifierCV"
+          ]
+        },
+        {
+          "source": "sklearn.linear_model",
+          "specifiers": [
+            "LogisticRegression"
+          ]
+        },
+        {
+          "source": "sklearn.model_selection",
+          "specifiers": [
+            "TimeSeriesSplit",
+            "cross_val_score"
+          ]
+        },
+        {
+          "source": "sklearn.pipeline",
+          "specifiers": [
+            "Pipeline"
+          ]
+        },
+        {
+          "source": "sklearn.preprocessing",
+          "specifiers": [
+            "StandardScaler"
+          ]
+        },
+        {
+          "source": "sklearn.utils.class_weight",
+          "specifiers": [
+            "compute_class_weight"
+          ]
+        },
+        {
+          "source": "xgboost",
+          "specifiers": [
+            "XGBClassifier"
+          ]
+        },
+        {
+          "source": "lightgbm",
+          "specifiers": [
+            "LGBMClassifier"
+          ]
+        }
+      ],
+      "exports": [
+        "compute_combined_weights",
+        "temporal_split",
+        "_cv_score",
+        "train_baseline",
+        "train_xgboost",
+        "train_lightgbm",
+        "run_optuna_study",
+        "calibrate_model",
+        "save_model",
+        "load_model",
+        "save_best_params",
+        "_full_training_pipeline"
+      ],
+      "totalLines": 340,
+      "hasStructuralAnalysis": true
+    },
+    "src/simulation/__init__.py": {
+      "filePath": "src/simulation/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "src/simulation/simulate.py": {
+      "filePath": "src/simulation/simulate.py",
+      "contentHash": "ef3ccb24d0412f2bb4d6ca8832e020c76444bff85b794fc969a037d1098b84ea",
+      "functions": [
+        {
+          "name": "build_predict_fn",
+          "params": [
+            "model",
+            "team_features"
+          ],
+          "exported": true,
+          "lineCount": 39
+        },
+        {
+          "name": "_build_team_xg",
+          "params": [
+            "team_features"
+          ],
+          "returnType": "dict[str, dict[str, float]]",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "_dummy_predict_fn",
+          "params": [
+            "home",
+            "away"
+          ],
+          "returnType": "np.ndarray",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "_clopper_pearson",
+          "params": [
+            "c",
+            "n",
+            "alpha"
+          ],
+          "returnType": "tuple[float, float]",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "run_simulation",
+          "params": [
+            "n_iterations",
+            "model",
+            "team_features",
+            "seed"
+          ],
+          "returnType": "tuple[pd.DataFrame, pd.DataFrame]",
+          "exported": true,
+          "lineCount": 76
+        },
+        {
+          "name": "save_results",
+          "params": [
+            "champions_df",
+            "progression_df"
+          ],
+          "returnType": "tuple[Path, Path]",
+          "exported": true,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "argparse",
+          "specifiers": [
+            "argparse"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "numpy",
+          "specifiers": [
+            "np"
+          ]
+        },
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        },
+        {
+          "source": "collections",
+          "specifiers": [
+            "defaultdict"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "tqdm",
+          "specifiers": [
+            "tqdm"
+          ]
+        },
+        {
+          "source": "scipy.stats",
+          "specifiers": [
+            "beta"
+          ]
+        },
+        {
+          "source": "src.simulation.tournament",
+          "specifiers": [
+            "GROUPS_2026",
+            "ALL_TEAMS",
+            "PHASES",
+            "simulate_full_tournament"
+          ]
+        }
+      ],
+      "exports": [
+        "build_predict_fn",
+        "_build_team_xg",
+        "_dummy_predict_fn",
+        "_clopper_pearson",
+        "run_simulation",
+        "save_results"
+      ],
+      "totalLines": 214,
+      "hasStructuralAnalysis": true
+    },
+    "src/simulation/tournament.py": {
+      "filePath": "src/simulation/tournament.py",
+      "contentHash": "3ed9acbde38560f85add014329a9c02943438d7349637f35b09eedf22dfa0590",
+      "functions": [
+        {
+          "name": "_load_groups",
+          "params": [
+            "fixture_path"
+          ],
+          "returnType": "dict[str, list[str]]",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "_points_tiebreak",
+          "params": [
+            "table"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "_symmetric_probs",
+          "params": [
+            "predict_fn",
+            "t1",
+            "t2"
+          ],
+          "returnType": "np.ndarray",
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "_host_advantage_probs",
+          "params": [
+            "predict_fn",
+            "t1",
+            "t2"
+          ],
+          "returnType": "np.ndarray",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "_sample_goals_poisson",
+          "params": [
+            "t1",
+            "t2",
+            "team_xg",
+            "league_xg"
+          ],
+          "returnType": "tuple[int, int]",
+          "exported": true,
+          "lineCount": 20
+        },
+        {
+          "name": "_outcome_from_probs",
+          "params": [
+            "probs"
+          ],
+          "returnType": "int",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "simulate_group_stage",
+          "params": [
+            "teams",
+            "predict_fn",
+            "team_xg"
+          ],
+          "returnType": "pd.DataFrame",
+          "exported": true,
+          "lineCount": 46
+        },
+        {
+          "name": "select_best_thirds",
+          "params": [
+            "all_group_results"
+          ],
+          "returnType": "list[str]",
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "build_knockout_bracket",
+          "params": [
+            "group_results",
+            "best_thirds"
+          ],
+          "returnType": "list[tuple[str, str]]",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "simulate_knockout_round",
+          "params": [
+            "pairs",
+            "predict_fn",
+            "team_xg"
+          ],
+          "returnType": "list[str]",
+          "exported": true,
+          "lineCount": 20
+        },
+        {
+          "name": "simulate_full_tournament",
+          "params": [
+            "predict_fn",
+            "team_xg"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 55
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "numpy",
+          "specifiers": [
+            "np"
+          ]
+        },
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "itertools",
+          "specifiers": [
+            "combinations"
+          ]
+        }
+      ],
+      "exports": [
+        "_load_groups",
+        "_points_tiebreak",
+        "_symmetric_probs",
+        "_host_advantage_probs",
+        "_sample_goals_poisson",
+        "_outcome_from_probs",
+        "simulate_group_stage",
+        "select_best_thirds",
+        "build_knockout_bracket",
+        "simulate_knockout_round",
+        "simulate_full_tournament"
+      ],
+      "totalLines": 266,
+      "hasStructuralAnalysis": true
+    },
+    "src/visualization/__init__.py": {
+      "filePath": "src/visualization/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "src/visualization/dashboard.py": {
+      "filePath": "src/visualization/dashboard.py",
+      "contentHash": "c83bbb164a118d51e707673daa00c37cfa828582df1ee8e61edf013975abbdbf",
+      "functions": [
+        {
+          "name": "load_csv",
+          "params": [
+            "name"
+          ],
+          "returnType": "pd.DataFrame | None",
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "numpy",
+          "specifiers": [
+            "np"
+          ]
+        },
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        },
+        {
+          "source": "plotly.express",
+          "specifiers": [
+            "px"
+          ]
+        },
+        {
+          "source": "plotly.graph_objects",
+          "specifiers": [
+            "go"
+          ]
+        },
+        {
+          "source": "streamlit",
+          "specifiers": [
+            "st"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        }
+      ],
+      "exports": [
+        "load_csv"
+      ],
+      "totalLines": 179,
+      "hasStructuralAnalysis": true
+    },
+    "tests/__init__.py": {
+      "filePath": "tests/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_data_loader.py": {
+      "filePath": "tests/test_data_loader.py",
+      "contentHash": "ba09fcdb822067dc5e612108feba37c3e8a6fee75dcfc8b5f33571d0d8d66cf4",
+      "functions": [
+        {
+          "name": "sample_matches",
+          "params": [],
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "test_standardize_replaces_aliases",
+          "params": [
+            "sample_matches"
+          ],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "test_standardize_preserves_unknown_names",
+          "params": [
+            "sample_matches"
+          ],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "test_filter_year_cutoff",
+          "params": [
+            "sample_matches"
+          ],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "test_filter_relevant_tournaments",
+          "params": [
+            "sample_matches"
+          ],
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "test_team_aliases_dict_has_no_duplicates",
+          "params": [],
+          "exported": true,
+          "lineCount": 2
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        },
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "src.data.data_loader",
+          "specifiers": [
+            "standardize_team_names",
+            "filter_relevant_matches",
+            "TEAM_NAME_ALIASES"
+          ]
+        }
+      ],
+      "exports": [
+        "sample_matches",
+        "test_standardize_replaces_aliases",
+        "test_standardize_preserves_unknown_names",
+        "test_filter_year_cutoff",
+        "test_filter_relevant_tournaments",
+        "test_team_aliases_dict_has_no_duplicates"
+      ],
+      "totalLines": 52,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_features.py": {
+      "filePath": "tests/test_features.py",
+      "contentHash": "dcd1abb8f4e2783b98716caf2cbaaf6b0af11960518753d08f98ea5e160282dc",
+      "functions": [
+        {
+          "name": "three_matches",
+          "params": [],
+          "exported": true,
+          "lineCount": 11
+        },
+        {
+          "name": "test_elo_output_columns",
+          "params": [
+            "three_matches"
+          ],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "test_elo_initial_rating",
+          "params": [
+            "three_matches"
+          ],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "test_elo_winner_gains_points",
+          "params": [
+            "three_matches"
+          ],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "test_elo_ratings_are_finite",
+          "params": [
+            "three_matches"
+          ],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "test_time_decay_range",
+          "params": [],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "test_time_decay_monotone",
+          "params": [],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "test_time_decay_uses_reference_date_default",
+          "params": [],
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "test_halflife_lambda_roundtrip",
+          "params": [],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "test_encode_target_vectorized",
+          "params": [
+            "three_matches"
+          ],
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "test_vectorized_elo_diff_matches_pointwise",
+          "params": [
+            "three_matches"
+          ],
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "test_build_match_features_no_nan",
+          "params": [
+            "three_matches"
+          ],
+          "exported": true,
+          "lineCount": 10
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "numpy",
+          "specifiers": [
+            "np"
+          ]
+        },
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        },
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "src.features.elo",
+          "specifiers": [
+            "calculate_elo_ratings",
+            "INITIAL_RATING"
+          ]
+        },
+        {
+          "source": "src.features.time_decay",
+          "specifiers": [
+            "compute_time_decay_weights",
+            "lambda_to_halflife_years",
+            "halflife_years_to_lambda",
+            "REFERENCE_DATE"
+          ]
+        },
+        {
+          "source": "src.features.features",
+          "specifiers": [
+            "encode_target",
+            "_vectorized_elo_diff",
+            "build_match_features"
+          ]
+        }
+      ],
+      "exports": [
+        "three_matches",
+        "test_elo_output_columns",
+        "test_elo_initial_rating",
+        "test_elo_winner_gains_points",
+        "test_elo_ratings_are_finite",
+        "test_time_decay_range",
+        "test_time_decay_monotone",
+        "test_time_decay_uses_reference_date_default",
+        "test_halflife_lambda_roundtrip",
+        "test_encode_target_vectorized",
+        "test_vectorized_elo_diff_matches_pointwise",
+        "test_build_match_features_no_nan"
+      ],
+      "totalLines": 114,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_models.py": {
+      "filePath": "tests/test_models.py",
+      "contentHash": "1adb495ccb28c9a337ab2b92dbc976940ece2af86429865a9228ae90d0734ee3",
+      "functions": [
+        {
+          "name": "synthetic_features",
+          "params": [],
+          "exported": true,
+          "lineCount": 19
+        },
+        {
+          "name": "test_temporal_split_no_leakage",
+          "params": [
+            "synthetic_features"
+          ],
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "test_combined_weights_mean_is_one",
+          "params": [
+            "synthetic_features"
+          ],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "test_baseline_predict_proba_sums_to_one",
+          "params": [
+            "synthetic_features"
+          ],
+          "exported": true,
+          "lineCount": 9
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "numpy",
+          "specifiers": [
+            "np"
+          ]
+        },
+        {
+          "source": "pandas",
+          "specifiers": [
+            "pd"
+          ]
+        },
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "src.models.train",
+          "specifiers": [
+            "temporal_split",
+            "compute_combined_weights",
+            "train_baseline",
+            "FEATURE_COLS",
+            "TRAIN_END",
+            "VAL_END"
+          ]
+        }
+      ],
+      "exports": [
+        "synthetic_features",
+        "test_temporal_split_no_leakage",
+        "test_combined_weights_mean_is_one",
+        "test_baseline_predict_proba_sums_to_one"
+      ],
+      "totalLines": 60,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_simulation.py": {
+      "filePath": "tests/test_simulation.py",
+      "contentHash": "a242be92dad57498461dab37fe59999143f4f855a0949d2dfeca246c70941204",
+      "functions": [
+        {
+          "name": "uniform_predict_fn",
+          "params": [
+            "home",
+            "away"
+          ],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "home_always_wins",
+          "params": [
+            "home",
+            "away"
+          ],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "biased_first_team_wins",
+          "params": [
+            "home",
+            "away"
+          ],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "test_all_48_teams_defined",
+          "params": [],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "test_group_stage_returns_4_rows",
+          "params": [],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "test_group_stage_points_non_negative",
+          "params": [],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "test_group_stage_total_points_range",
+          "params": [],
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "test_best_thirds_returns_8",
+          "params": [],
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "test_best_thirds_are_valid_teams",
+          "params": [],
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "test_full_tournament_returns_progression_dict",
+          "params": [],
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "test_full_tournament_phase_sizes",
+          "params": [],
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "test_simulation_reproducible_with_seed",
+          "params": [],
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "test_probabilities_sum_to_one",
+          "params": [],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "test_no_home_away_bias_in_groups",
+          "params": [],
+          "exported": true,
+          "lineCount": 29
+        },
+        {
+          "name": "test_clopper_pearson_basic",
+          "params": [],
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "test_clopper_pearson_edges",
+          "params": [],
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "numpy",
+          "specifiers": [
+            "np"
+          ]
+        },
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "scipy.stats",
+          "specifiers": [
+            "binomtest"
+          ]
+        },
+        {
+          "source": "src.simulation.tournament",
+          "specifiers": [
+            "GROUPS_2026",
+            "ALL_TEAMS",
+            "PHASES",
+            "simulate_group_stage",
+            "select_best_thirds",
+            "simulate_full_tournament"
+          ]
+        },
+        {
+          "source": "src.simulation.simulate",
+          "specifiers": [
+            "_clopper_pearson"
+          ]
+        }
+      ],
+      "exports": [
+        "uniform_predict_fn",
+        "home_always_wins",
+        "biased_first_team_wins",
+        "test_all_48_teams_defined",
+        "test_group_stage_returns_4_rows",
+        "test_group_stage_points_non_negative",
+        "test_group_stage_total_points_range",
+        "test_best_thirds_returns_8",
+        "test_best_thirds_are_valid_teams",
+        "test_full_tournament_returns_progression_dict",
+        "test_full_tournament_phase_sizes",
+        "test_simulation_reproducible_with_seed",
+        "test_probabilities_sum_to_one",
+        "test_no_home_away_bias_in_groups",
+        "test_clopper_pearson_basic",
+        "test_clopper_pearson_edges"
+      ],
+      "totalLines": 153,
+      "hasStructuralAnalysis": true
+    }
+  }
+}
