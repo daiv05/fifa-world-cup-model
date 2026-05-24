@@ -1,5 +1,5 @@
 # Makefile — fifa-world-cup-model
-# Ejecutar desde la carpeta `repository/`
+# Ejecutar desde la raiz del proyecto
 
 PY ?= python
 ITER ?= 10000

@@ -10,43 +10,43 @@ Instrucciones para ejecutar cada parte del pipeline, desde la obtención de data
    - Crea las características necesarias para el modelo:
 
    ```
-   python -m repository.src.features.features
+    python -m src.features.features
    ```
 
    - Entrena el modelo con los datos procesados:
 
    ```
-   python -m repository.src.models.train
+    python -m src.models.train
    ```
 
    - Simula el Mundial utilizando el modelo entrenado:
 
    ```
-   python -m repository.src.simulation.simulate
+    python -m src.simulation.simulate
    ```
 
    Puedes ajustar el número de iteraciones para obtener resultados más precisos:
 
    ```
-    python -m repository.src.simulation.simulate --iterations 10000
+    python -m src.simulation.simulate --iterations 10000
     ```
 
-    Asi como especificar el modelo a utilizar (tienes que especificar uno de los modelos de la carpeta `repository/data/processed/models/`):
+    Asi como especificar el modelo a utilizar (tienes que especificar uno de los modelos de la carpeta `data/processed/models/`):
 
     ```
-    python -m repository.src.simulation.simulate --model xgboost
+    python -m src.simulation.simulate --model xgboost
     ```
 
 3. Para visualizar los resultados de la simulación, puedes ejecutar el siguiente comando:
 
 ```
-streamlit run repository/src/visualization/dashboard.py
+streamlit run src/visualization/dashboard.py
 ```
 
 4. Para generar el reporte de la simulación, ejecuta:
 
 ```
-pytest repository/tests/ -v
+pytest tests/ -v
 ```
 
 5. Para ejecutar el checkpoint de Great Expectations y validar los datos, utiliza el siguiente comando:

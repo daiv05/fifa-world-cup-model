@@ -18,12 +18,12 @@ source .venv/bin/activate
 
 ## Instalar dependencias
 ```bash
-pip3.13 install -r repository/requirements.txt
+pip3.13 install -r requirements.txt
 ```
 
 ## Problemas conocidos
 
 Puede lanzar un error de pip por intentar actualizar pip dentro del entorno virtual. Si esto ocurre, ejecutar:
 ```bash
-.venv\Scripts\python.exe -m pip install -r repository/requirements.txt
+.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```

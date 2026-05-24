@@ -30,7 +30,6 @@ build/
 
 # Archivos de entorno Python
 .env
-repository/.env
 
 # Outputs de notebooks
 *.ipynb_checkpoints/

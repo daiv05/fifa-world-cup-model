@@ -19,7 +19,7 @@ Modelo de predicción para la FIFA World Cup 2026 basado en Machine Learning (XG
 ## Estructura del repositorio
 
 ```
-repository/
+.
 ├── data/
 │   ├── raw/                        # Datos crudos (no versionados)
 │   │   ├── international_results.csv   # Auto-descargado de GitHub
@@ -73,20 +73,19 @@ python -m venv .venv
 # source .venv/bin/activate    # Linux / macOS
 
 # 3. Instalar el paquete en modo editable (preferido)
-pip install -e repository/
+pip install -e .
 
 # alternativa:
-# pip install -r repository/requirements.txt
+# pip install -r requirements.txt
 ```
 
 ---
 
 ## Pipeline de ejecución
 
-Ejecutar desde `repository/` (todos los módulos son `src.*`):
+Ejecutar desde la raíz del proyecto (todos los módulos son `src.*`):
 
 ```bash
-cd repository
 make all          # features → train → evaluate → simulate → sensitivity
 ```
 
@@ -127,7 +126,7 @@ Outputs principales:
 ## Tests
 
 ```bash
-python -m pytest repository/tests/ -v
+python -m pytest tests/ -v
 ```
 
 ---

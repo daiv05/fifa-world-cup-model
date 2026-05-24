@@ -1,7 +1,7 @@
 # GET-DATASETS.md — Guía de Obtención de Datasets
 
 Instrucciones completas para obtener, renombrar y ubicar todos los datasets del proyecto.
-Todos los archivos van en `repository/data/raw/`.
+Todos los archivos van en `data/raw/`.
 
 ---
 
@@ -22,7 +22,7 @@ Todos los archivos van en `repository/data/raw/`.
 
 ## Paso 1 — Crear archivo manual: `wc2026_fixture.csv`
 
-Crea el archivo `repository/data/raw/wc2026_fixture.csv` con este contenido exacto:
+Crea el archivo `data/raw/wc2026_fixture.csv` con este contenido exacto:
 
 ```csv
 group,team
@@ -97,7 +97,7 @@ L,Panama
 
 > Las demás columnas pueden mantenerse — no afectan el pipeline.
 
-3. Guarda el resultado como: `repository/data/raw/wc_matches_1974_2022.csv`
+3. Guarda el resultado como: `data/raw/wc_matches_1974_2022.csv`
 
 ---
 
@@ -108,7 +108,7 @@ L,Panama
 1. Descarga el CSV del dataset
 2. No requiere renombrado de columnas. Las columnas que usa el pipeline son:
    - `rank_date`, `country_full`, `rank`, `total_points`
-3. Guarda como: `repository/data/raw/fifa_ranking.csv`
+3. Guarda como: `data/raw/fifa_ranking.csv`
 
 ---
 
@@ -119,17 +119,17 @@ Con los archivos de los pasos 1 y 2 en su lugar, ejecuta los siguientes scripts
 
 ```bash
 # Descarga international_results.csv desde GitHub (~49,000 partidos 1872-2024)
-python -m repository.src.data.data_loader
+python -m src.data.data_loader
 
 # Descarga StatsBomb xG, genera squad_values.csv y obtiene stats de FBref
-python -m repository.src.data.scraper
+python -m src.data.scraper
 ```
 
 ### Qué hace cada script automáticamente
 
 **`data_loader.py`:**
 - Descarga `international_results.csv` desde `github.com/martj42/international_results`
-- Lo guarda en caché en `repository/data/raw/international_results.csv`
+- Lo guarda en caché en `data/raw/international_results.csv`
 - En ejecuciones posteriores usa el caché (no re-descarga)
 
 **`scraper.py`:**
@@ -153,7 +153,7 @@ Descargando datos de StatsBomb...
 
 Descargando valores de plantilla (Transfermarkt)...
   squad_values.csv generado con valores aproximados (47 equipos).
-  Para valores exactos actualiza: ...repository/data/raw/squad_values.csv
+  Para valores exactos actualiza: ...data/raw/squad_values.csv
 
 Descargando estadísticas FBref...
   (puede mostrar advertencias de soccerdata sobre config — son informativas)
@@ -163,8 +163,8 @@ OK
 
 Si `Equipos con xG: 0` pero no hay errores de red, borra el caché y reintenta:
 ```bash
-del repository\data\raw\statsbomb_matches.csv
-python -m repository.src.data.scraper
+del data\raw\statsbomb_matches.csv
+python -m src.data.scraper
 ```
 
 ## Borrar data de FBref (si falla la descarga)
@@ -174,7 +174,7 @@ Si la descarga de FBref falla, es posible que queden archivos corruptos en el ca
 ```bash
 rmdir /s /q "C:\Users\Usuario\soccerdata\data\FBref"
 
-python -m repository.src.data.scraper
+python -m src.data.scraper
 ```
 
 ---
@@ -186,7 +186,7 @@ Para valores exactos:
 
 1. Ve a: https://www.transfermarkt.com/statistik/weltrangliste/statistik
 2. Filtra por los 48 equipos clasificados al Mundial 2026
-3. Edita `repository/data/raw/squad_values.csv` con el formato:
+3. Edita `data/raw/squad_values.csv` con el formato:
 
 ```csv
 team,squad_value_eur
@@ -207,15 +207,13 @@ Los siguientes problemas fueron encontrados y corregidos durante el desarrollo.
 Se documentan aquí como referencia:
 
 ### `parents[3]` - `parents[2]` (path bug)
-- **Síntoma:** Los archivos se guardaban en `fifa-world-cup-model/data/raw/`
-  en vez de `repository/data/raw/`
+- **Síntoma:** Los archivos se guardaban en `fifa-world-cup-model/repository/data/raw/`
+  en vez de `data/raw/` (estructura actual)
 - **Causa:** Error de conteo en `Path(__file__).parents[N]`
 - **Corrección aplicada en:** `data_loader.py`, `scraper.py`, `features.py`,
   `train.py`, `simulate.py`, `dashboard.py`
-- **Si ves archivos en la raíz del proyecto:** Bórralos y vuelve a ejecutar:
-  ```bash
-  rm -rf fifa-world-cup-model/data/
-  ```
+- **Si ves archivos en `repository/data/raw/` (estructura antigua):** muévelos a
+  `data/raw/` y elimina la carpeta `repository/`.
 
 ### `soccerdata.Transfermarkt` no existe
 - **Síntoma:** `module 'soccerdata' has no attribute 'Transfermarkt'`
@@ -253,10 +251,10 @@ Se documentan aquí como referencia:
 
 ---
 
-## Estructura final esperada de `repository/data/raw/`
+## Estructura final esperada de `data/raw/`
 
 ```
-repository/data/raw/
+data/raw/
 ├── international_results.csv     ← AUTO (~49k partidos)
 ├── statsbomb_matches.csv         ← AUTO (partidos con xG)
 ├── statsbomb_xg_by_team.csv      ← AUTO (xG agregado por equipo)
