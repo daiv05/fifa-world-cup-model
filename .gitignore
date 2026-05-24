@@ -30,10 +30,3 @@ build/
 
 # Archivos de entorno Python
 .env
-
-# Outputs de notebooks
-*.ipynb_checkpoints/
-
-# Modelos guardados (grandes)
-*.joblib
-*.pkl
