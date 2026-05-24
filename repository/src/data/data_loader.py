@@ -81,7 +81,9 @@ def load_international_results(use_cache: bool = True) -> pd.DataFrame:
 def load_wc_matches(path: str | Path | None = None) -> pd.DataFrame:
     if path is None:
         path = RAW_DIR / "wc_matches_1974_2022.csv"
-    df = pd.read_csv(path, parse_dates=["date"] if "date" in pd.read_csv(path, nrows=0).columns else False)
+    header_cols = pd.read_csv(path, nrows=0).columns
+    parse_dates = ["date"] if "date" in header_cols else False
+    df = pd.read_csv(path, parse_dates=parse_dates)
     df = standardize_team_names(df)
     return df
 

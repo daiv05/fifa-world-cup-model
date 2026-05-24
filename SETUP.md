@@ -20,3 +20,10 @@ source .venv/bin/activate
 ```bash
 pip3.13 install -r repository/requirements.txt
 ```
+
+## Problemas conocidos
+
+Puede lanzar un error de pip por intentar actualizar pip dentro del entorno virtual. Si esto ocurre, ejecutar:
+```bash
+.venv\Scripts\python.exe -m pip install -r repository/requirements.txt
+```

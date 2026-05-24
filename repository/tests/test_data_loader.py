@@ -1,5 +1,3 @@
-"""Tests para el pipeline de carga de datos."""
-
 import pandas as pd
 import pytest
 
@@ -8,7 +6,6 @@ from src.data.data_loader import (
     filter_relevant_matches,
     TEAM_NAME_ALIASES,
 )
-
 
 @pytest.fixture
 def sample_matches():
@@ -21,12 +18,11 @@ def sample_matches():
         "tournament": ["FIFA World Cup", "FIFA World Cup", "Friendly"],
     })
 
-
 def test_standardize_replaces_aliases(sample_matches):
     result = standardize_team_names(sample_matches)
-    assert "United States" in result["home_team"].values  # "USA" → "United States"
-    assert "Iran" in result["home_team"].values            # "IR Iran" → "Iran"
-    assert "South Korea" in result["away_team"].values     # "Korea Republic" → "South Korea"
+    assert "United States" in result["home_team"].values
+    assert "Iran" in result["home_team"].values
+    assert "South Korea" in result["away_team"].values
 
 
 def test_standardize_preserves_unknown_names(sample_matches):

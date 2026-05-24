@@ -1,19 +1,21 @@
 """
-Entrenamiento de modelos de clasificación multiclase para predicción de partidos.
 Modelos: Regresión Logística (baseline), XGBoost, LightGBM.
 Optimización de hiperparámetros con Optuna. Calibración de probabilidades.
+
+Split temporal:
+  - train: date < 2021-01-01
+  - val/calibración: 2021-01-01 <= date < 2022-01-01
+  - test: date >= 2022-01-01
 """
 
-import sys
+import argparse
+import json
 import joblib
 import numpy as np
 import optuna
 import pandas as pd
 from pathlib import Path
 
-_repo_root = Path(__file__).parents[2]
-if str(_repo_root) not in sys.path:
-    sys.path.insert(0, str(_repo_root))
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, cross_val_score
@@ -38,17 +40,18 @@ FEATURE_COLS = [
     "ranking_diff",
 ]
 
+TRAIN_END = pd.Timestamp("2021-01-01")
+VAL_END = pd.Timestamp("2022-01-01")
+
 
 def compute_combined_weights(
     y: np.ndarray,
     time_weights: np.ndarray | None = None,
 ) -> np.ndarray:
     """
-    Combina pesos de clase balanceados con pesos de decaimiento temporal.
-
-    Estrategia: w_i = class_weight[y_i] × time_decay_i
-    Esto aborda el desbalance (H:~49%, D:~21%, A:~31%) sin descartar información temporal.
-    Si time_weights es None, devuelve solo los pesos de clase.
+    Combina pesos balanceados de clase con time_decay y re-normaliza por su
+    media para que el peso promedio sea ~1.0 (evita que XGBoost interprete
+    todos los partidos como muy importantes o muy poco importantes).
     """
     classes = np.unique(y)
     cw_values = compute_class_weight("balanced", classes=classes, y=y)
@@ -57,21 +60,37 @@ def compute_combined_weights(
 
     if time_weights is not None:
         combined = class_w * time_weights.astype(np.float32)
-        # Normaliza para que la media sea 1 (evita escalar el learning rate efectivo)
         combined /= combined.mean()
         return combined
     return class_w
 
 
+def temporal_split(
+    df: pd.DataFrame,
+    train_end: pd.Timestamp = TRAIN_END,
+    val_end: pd.Timestamp = VAL_END,
+):
+    """
+    Devuelve (train_mask, val_mask, test_mask) sobre `df["date"]`.
+    """
+    dates = pd.to_datetime(df["date"])
+    train_mask = dates < train_end
+    val_mask = (dates >= train_end) & (dates < val_end)
+    test_mask = dates >= val_end
+    return train_mask.values, val_mask.values, test_mask.values
+
+
 def _cv_score(model, X, y, weights, cv=5) -> float:
-    """Log-loss negado con CV estratificado (más bajo = mejor)."""
     skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
-    scores = cross_val_score(
-        model, X, y,
-        cv=skf,
-        scoring="neg_log_loss",
-        fit_params={"sample_weight": weights} if weights is not None else {},
-    )
+    kwargs = {"cv": skf, "scoring": "neg_log_loss"}
+    if weights is not None:
+        # sklearn >=1.6 usa `params`; versiones previas usan `fit_params`.
+        try:
+            scores = cross_val_score(model, X, y, params={"sample_weight": weights}, **kwargs)
+        except TypeError:
+            scores = cross_val_score(model, X, y, fit_params={"sample_weight": weights}, **kwargs)
+    else:
+        scores = cross_val_score(model, X, y, **kwargs)
     return float(scores.mean())
 
 
@@ -88,11 +107,9 @@ def train_baseline(
             random_state=42,
             solver="lbfgs",
             C=1.0,
-            class_weight="balanced",   # fallback; sample_weight tiene precedencia
+            class_weight="balanced",
         )),
     ])
-    # Entrenar con DataFrame para que StandardScaler almacene los nombres de columna
-    # y no produzca UserWarning cuando se prediga con DataFrames con nombres.
     if isinstance(X, np.ndarray):
         cols = feature_names or FEATURE_COLS
         X = pd.DataFrame(X, columns=cols)
@@ -150,9 +167,6 @@ def train_lightgbm(
         default_params.update(params)
     model = LGBMClassifier(**default_params)
 
-    # LightGBM 4.x lanza UserWarning si se entrena con DataFrame y se predice con
-    # numpy (o viceversa). Pasar siempre un DataFrame con nombres garantiza
-    # consistencia en training y prediction.
     if isinstance(X, np.ndarray):
         cols = feature_names or FEATURE_COLS
         X = pd.DataFrame(X, columns=cols)
@@ -168,36 +182,21 @@ def run_optuna_study(
     n_trials: int = 100,
     model_type: str = "xgboost",
 ) -> tuple[dict, optuna.Study]:
-    """
-    Busca los mejores hiperparámetros para XGBoost o LightGBM.
-    Devuelve (best_params, study).
-    """
     def objective(trial: optuna.Trial) -> float:
+        params = {
+            "n_estimators": trial.suggest_int("n_estimators", 100, 600),
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
+            "max_depth": trial.suggest_int("max_depth", 3, 7),
+            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+            "reg_alpha": trial.suggest_float("reg_alpha", 1e-4, 10.0, log=True),
+            "reg_lambda": trial.suggest_float("reg_lambda", 1e-4, 10.0, log=True),
+        }
         if model_type == "xgboost":
-            params = {
-                "n_estimators": trial.suggest_int("n_estimators", 100, 600),
-                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
-                "max_depth": trial.suggest_int("max_depth", 3, 7),
-                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-                "reg_alpha": trial.suggest_float("reg_alpha", 1e-4, 10.0, log=True),
-                "reg_lambda": trial.suggest_float("reg_lambda", 1e-4, 10.0, log=True),
-            }
             model = train_xgboost(X, y, weights, params)
         else:
-            params = {
-                "n_estimators": trial.suggest_int("n_estimators", 100, 600),
-                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
-                "max_depth": trial.suggest_int("max_depth", 3, 7),
-                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-                "reg_alpha": trial.suggest_float("reg_alpha", 1e-4, 10.0, log=True),
-                "reg_lambda": trial.suggest_float("reg_lambda", 1e-4, 10.0, log=True),
-            }
             model = train_lightgbm(X, y, weights, params)
-
-        score = _cv_score(model, X, y, weights)
-        return score
+        return _cv_score(model, X, y, weights)
 
     study = optuna.create_study(direction="maximize", study_name=f"{model_type}_study")
     study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
@@ -211,9 +210,14 @@ def calibrate_model(
     method: str = "isotonic",
 ) -> CalibratedClassifierCV:
     """
-    Calibra las probabilidades del modelo con Platt scaling (sigmoid) o regresión isotónica.
+    Calibra un modelo ya entrenado sobre el set de validación.
+    sklearn >=1.6 quitó cv="prefit"; ahora se usa FrozenEstimator.
     """
-    calibrated = CalibratedClassifierCV(model, method=method, cv=5)
+    try:
+        from sklearn.frozen import FrozenEstimator
+        calibrated = CalibratedClassifierCV(FrozenEstimator(model), method=method)
+    except ImportError:
+        calibrated = CalibratedClassifierCV(model, method=method, cv="prefit")
     calibrated.fit(X_val, y_val)
     return calibrated
 
@@ -230,37 +234,100 @@ def load_model(name: str):
     return joblib.load(path)
 
 
+def save_best_params(best_params: dict, model_name: str) -> Path:
+    path = MODELS_DIR / f"best_params_{model_name}.json"
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(best_params, fh, indent=2)
+    print(f"Best params guardados: {path}")
+    return path
+
+
+def _full_training_pipeline(
+    df: pd.DataFrame,
+    trials: int,
+    cutoff: pd.Timestamp | None = None,
+    suffix: str = "",
+) -> None:
+    """
+    Si `cutoff` se pasa, se entrena solo con date < cutoff y los modelos
+    se guardan con `suffix` (p.ej. "_pre2022").
+    """
+    df = df.dropna(subset=FEATURE_COLS + ["target"]).copy()
+    if cutoff is not None:
+        df = df[pd.to_datetime(df["date"]) < cutoff].reset_index(drop=True)
+
+    train_mask, val_mask, test_mask = temporal_split(df)
+    print(f"  Train: {train_mask.sum():,} | Val: {val_mask.sum():,} | Test: {test_mask.sum():,}")
+
+    if val_mask.sum() == 0:
+        # Para entrenamiento con cutoff = 2022 no hay val_mask 2021 dentro
+        # del split estándar; se usa el último 15% del train como validación.
+        n = train_mask.sum()
+        split_at = int(n * 0.85)
+        train_idx = np.where(train_mask)[0]
+        val_mask = np.zeros_like(train_mask)
+        val_mask[train_idx[split_at:]] = True
+        train_mask = train_mask & ~val_mask
+        print(f"  Sin val_mask 2021 — fallback 85/15 dentro de train: "
+              f"Train={train_mask.sum():,}, Val={val_mask.sum():,}")
+
+    X_all = df[FEATURE_COLS].values.astype(np.float32)
+    y_all = df["target"].values.astype(int)
+    tw_all = (
+        df["time_weight"].values.astype(np.float32)
+        if "time_weight" in df.columns else None
+    )
+
+    X_train, y_train = X_all[train_mask], y_all[train_mask]
+    X_val, y_val = X_all[val_mask], y_all[val_mask]
+    tw_train = tw_all[train_mask] if tw_all is not None else None
+
+    weights_train = compute_combined_weights(y_train, tw_train)
+    print(f"  Pesos combinados — media: {weights_train.mean():.3f}, max: {weights_train.max():.3f}")
+
+    # Baseline
+    print("Entrenando baseline (LogReg)...")
+    baseline = train_baseline(X_train, y_train, weights_train)
+    save_model(baseline, f"logreg_baseline{suffix}")
+
+    # XGBoost con Optuna
+    print(f"Optuna XGBoost ({trials} trials)...")
+    best_xgb, _ = run_optuna_study(X_train, y_train, weights_train, n_trials=trials, model_type="xgboost")
+    save_best_params(best_xgb, f"xgboost{suffix}")
+    xgb_model = train_xgboost(X_train, y_train, weights_train, best_xgb)
+    save_model(xgb_model, f"xgboost{suffix}")
+
+    # LightGBM con Optuna
+    print(f"Optuna LightGBM ({trials} trials)...")
+    best_lgb, _ = run_optuna_study(X_train, y_train, weights_train, n_trials=trials, model_type="lightgbm")
+    save_best_params(best_lgb, f"lightgbm{suffix}")
+    lgb_model = train_lightgbm(X_train, y_train, weights_train, best_lgb)
+    save_model(lgb_model, f"lightgbm{suffix}")
+
+    # Calibración sobre val (no leakage)
+    if X_val.size > 0:
+        print("Calibrando XGBoost (isotonic, cv=prefit) sobre validación temporal...")
+        xgb_cal = calibrate_model(xgb_model, X_val, y_val, method="isotonic")
+        save_model(xgb_cal, f"xgboost_calibrated{suffix}")
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Entrenamiento WC2026")
+    parser.add_argument("--trials", type=int, default=100, help="Optuna trials por modelo")
+    parser.add_argument("--cutoff", type=str, default=None,
+                        help="Si se pasa (YYYY-MM-DD), entrena solo con date < cutoff "
+                             "y guarda con suffix _pre<YYYY>")
+    args = parser.parse_args()
+
     from src.features.features import PROCESSED_DIR
-
-    print("Cargando features...")
     df = pd.read_csv(PROCESSED_DIR / "features.csv")
-    df = df.dropna(subset=FEATURE_COLS + ["target"])
 
-    X = df[FEATURE_COLS].values.astype(np.float32)
-    y = df["target"].values.astype(int)
-    time_weights = df["time_weight"].values.astype(np.float32) if "time_weight" in df.columns else None
+    print(f"\n=== Pipeline principal (sin cutoff) ===")
+    _full_training_pipeline(df, trials=args.trials, suffix="")
 
-    # Combina time decay con class_weight balanceado para tratar el desbalance
-    # Distribución: Home Win ~49%, Away Win ~31%, Draw ~21%
-    weights = compute_combined_weights(y, time_weights)
-    print(f"  Pesos combinados — media: {weights.mean():.3f}, max: {weights.max():.3f}")
+    cutoff_pre22 = pd.Timestamp(args.cutoff) if args.cutoff else pd.Timestamp("2022-01-01")
+    suffix = f"_pre{cutoff_pre22.year}"
+    print(f"\n=== Pipeline pre-{cutoff_pre22.year} (para validar WC sin leakage) ===")
+    _full_training_pipeline(df, trials=args.trials, cutoff=cutoff_pre22, suffix=suffix)
 
-    print("Entrenando modelo baseline (Regresión Logística)...")
-    baseline = train_baseline(X, y, weights)
-    save_model(baseline, "logreg_baseline")
-
-    print("Entrenando XGBoost...")
-    xgb_model = train_xgboost(X, y, weights)
-    save_model(xgb_model, "xgboost")
-
-    print("Entrenando LightGBM...")
-    lgb_model = train_lightgbm(X, y, weights)
-    save_model(lgb_model, "lightgbm")
-
-    print("Calibrando XGBoost (Platt scaling)...")
-    split = int(len(X) * 0.8)
-    xgb_cal = calibrate_model(xgb_model, X[split:], y[split:], method="sigmoid")
-    save_model(xgb_cal, "xgboost_calibrated")
-
-    print("OK — modelos guardados en", MODELS_DIR)
+    print("\nOK — modelos guardados en", MODELS_DIR)

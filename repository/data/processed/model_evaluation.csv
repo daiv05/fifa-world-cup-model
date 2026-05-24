@@ -1,0 +1,5 @@
+model,log_loss,brier_score
+LogReg,0.8894,0.1741
+XGBoost,0.8948,0.1755
+LightGBM,0.9005,0.1772
+XGBoost-Cal,1.0242,0.1716

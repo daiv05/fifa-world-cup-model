@@ -24,40 +24,35 @@ repository/
 │   ├── raw/                        # Datos crudos (no versionados)
 │   │   ├── international_results.csv   # Auto-descargado de GitHub
 │   │   ├── statsbomb_xg_by_team.csv    # Auto-generado por scraper.py
-│   │   └── squad_values.csv            # Auto-generado (valores Transfermarkt)
+│   │   ├── squad_values.csv            # Snapshot manual Transfermarkt
+│   │   ├── fifa_ranking.csv            # Ranking FIFA histórico
+│   │   └── wc2026_fixture.csv          # Sorteo de los 48 equipos
 │   └── processed/
-│       ├── features.csv                # Dataset de entrenamiento (12,157 partidos)
-│       ├── team_features.csv           # Features por equipo para simulación
-│       ├── simulation_results.csv      # Output del Monte Carlo
-│       ├── model_evaluation.csv        # Métricas log-loss / Brier por modelo
+│       ├── features.csv                  # Dataset de entrenamiento
+│       ├── team_features.csv             # Features por equipo para simulación
+│       ├── simulation_results.csv        # P(campeón) Monte Carlo
+│       ├── tournament_progression.csv    # P(avanzar) por fase
+│       ├── sensitivity_injuries.csv      # Análisis de sensibilidad
+│       ├── model_evaluation.csv          # Log-loss / Brier por modelo
 │       └── models/
 │           ├── logreg_baseline.joblib
 │           ├── xgboost.joblib
 │           ├── lightgbm.joblib
-│           └── xgboost_calibrated.joblib
-├── notebooks/
-│   └── 01_eda.ipynb                # (pendiente) Análisis exploratorio
+│           ├── xgboost_calibrated.joblib
+│           ├── xgboost_pre2022.joblib    # Modelo entrenado solo con date<2022
+│           └── best_params_*.json        # Hiperparámetros de Optuna
+├── reports/figures/                 # SHAP, calibración, etc.
 ├── src/
-│   ├── data/
-│   │   ├── data_loader.py          # Carga y limpieza de datos históricos
-│   │   └── scraper.py              # StatsBomb xG + valores de plantilla
-│   ├── features/
-│   │   ├── elo.py                  # Sistema ELO dinámico con K-factor variable
-│   │   ├── time_decay.py           # Decaimiento exponencial W(t)=e^(-λΔt)
-│   │   └── features.py             # Pipeline completo de features
-│   ├── models/
-│   │   ├── train.py                # Entrena LogReg, XGBoost, LightGBM + Optuna
-│   │   └── evaluate.py             # Log-loss, Brier, SHAP, validación WC2022
-│   ├── simulation/
-│   │   ├── tournament.py           # Lógica del torneo: grupos, terceros, llaves
-│   │   └── simulate.py             # Motor Monte Carlo con precomputed cache
-│   └── visualization/
-│       └── dashboard.py            # Dashboard Streamlit interactivo
+│   ├── data/         # data_loader.py, scraper.py
+│   ├── features/     # elo.py, time_decay.py, features.py
+│   ├── models/       # train.py, evaluate.py
+│   ├── simulation/   # tournament.py, simulate.py
+│   ├── analysis/     # sensitivity.py
+│   └── visualization/  # dashboard.py
 ├── tests/
-│   ├── test_data_loader.py
-│   ├── test_features.py
-│   └── test_simulation.py
 ├── conftest.py
+├── pyproject.toml
+├── Makefile
 └── requirements.txt
 ```
 
@@ -71,49 +66,47 @@ git clone <url>
 cd fifa-world-cup-model
 
 # 2. Crear entorno virtual
-python -m venv venv
-venv\Scripts\activate          # Windows
-# source venv/bin/activate     # Linux / macOS
+python -m venv .venv
+.venv\Scripts\activate         # Windows
+# source .venv/bin/activate    # Linux / macOS
 
-# 3. Instalar dependencias
-pip install -r repository/requirements.txt
+# 3. Instalar el paquete en modo editable (preferido)
+pip install -e repository/
+
+# alternativa:
+# pip install -r repository/requirements.txt
 ```
 
 ---
 
 ## Pipeline de ejecución
 
-Ejecutar cada paso desde la raíz del proyecto (`fifa-world-cup-model/`):
+Ejecutar desde `repository/` (todos los módulos son `src.*`):
 
-### Paso 1 — Construir features
 ```bash
-python -m repository.src.features.features
+cd repository
+make all          # features → train → evaluate → simulate → sensitivity
 ```
-Genera `data/processed/features.csv` (12,157 partidos, ~2 min por geocoding).
 
-### Paso 2 — Entrenar modelos
-```bash
-python -m repository.src.models.train
-```
-Guarda 4 modelos en `data/processed/models/`.
+O paso a paso:
 
-### Paso 3 — Evaluar modelos
 ```bash
-python -m repository.src.models.evaluate
+python -m src.features.features
+python -m src.models.train --trials 100
+python -m src.models.evaluate
+python -m src.simulation.simulate --iterations 10000 --model xgboost_calibrated
+python -m src.analysis.sensitivity --iterations 10000 --model xgboost_calibrated
+streamlit run src/visualization/dashboard.py
 ```
-Imprime tabla log-loss / Brier y guarda `model_evaluation.csv` + `shap_summary.png`.
 
-### Paso 4 — Simulación Monte Carlo
-```bash
-python -m repository.src.simulation.simulate --iterations 10000 --model xgboost_calibrated
-```
-Guarda `data/processed/simulation_results.csv`.
-
-### Paso 5 — Dashboard
-```bash
-streamlit run repository/src/visualization/dashboard.py
-```
-Abre el dashboard en `http://localhost:8501`.
+Outputs principales:
+- `data/processed/features.csv` — dataset de entrenamiento.
+- `data/processed/models/*.joblib` — LogReg, XGBoost, LightGBM, XGBoost calibrado, XGBoost pre-2022.
+- `data/processed/model_evaluation.csv` — log-loss / Brier.
+- `data/processed/simulation_results.csv` — P(campeón) con IC Clopper-Pearson.
+- `data/processed/tournament_progression.csv` — P(avanzar) por fase.
+- `data/processed/sensitivity_injuries.csv` — análisis de sensibilidad.
+- `reports/figures/shap_summary.png`.
 
 ---
 
@@ -132,49 +125,55 @@ python -m pytest repository/tests/ -v
 |--------|-----------|-------------------|
 | [martj42/international_results](https://github.com/martj42/international_results) | Resultados históricos 1872–2024 | ~47,000 partidos |
 | [StatsBomb Open Data](https://github.com/statsbomb/open-data) | xG por equipo (internacionales) | 109 equipos |
-| Transfermarkt (hardcoded) | Valor de mercado de plantilla | 60 equipos |
+| Transfermarkt (snapshot manual, ver `scraper.SQUAD_VALUES_SNAPSHOT_DATE`) | Valor de mercado de plantilla | 60 equipos |
+| FIFA Ranking (CSV histórico) | Posición y puntos por equipo y fecha | ~210 equipos |
 
-### Features (6)
+### Features (7)
 | Feature | Descripción | Justificación |
 |---------|-------------|---------------|
 | `elo_diff` | ELO local − ELO visitante | Métrica dinámica, superior al ranking FIFA estático |
 | `squad_value_diff` | log(valor_local) − log(valor_visitante) | Proxy de calidad individual de la plantilla |
 | `xg_avg_for` | xG promedio a favor: local − visitante | Eficiencia ofensiva reciente |
 | `xg_avg_against` | xG promedio en contra: local − visitante | Solidez defensiva reciente |
-| `travel_distance_home` | Distancia del equipo local a las sedes (km) | Fatiga de viaje / ventaja de localía geográfica |
-| `travel_distance_away` | Distancia del equipo visitante a las sedes (km) | Ídem para el visitante |
+| `travel_distance_home` | Distancia (km) de la capital del local a la sede real del partido (`country`). 0.0 si la sede no se puede geocodificar | Fatiga / desventaja de viaje |
+| `travel_distance_away` | Ídem para el visitante | Ídem |
+| `ranking_diff` | rank_visitante − rank_local (positivo = local mejor rankeado) | Captura cambios discretos del ranking FIFA |
 
 **Decaimiento temporal:** cada partido tiene peso W(t) = e^(−0.002 · Δt) multiplicado por peso de clase balanceado (H≈49%, E≈21%, V≈30%).
 
 ### Modelos
-| Modelo | Log-Loss (test) | Brier Score | WC2022 Accuracy |
-|--------|:---------------:|:-----------:|:---------------:|
-| LightGBM | 0.6843 | 0.1309 | — |
-| XGBoost | 0.7296 | 0.1380 | — |
-| XGBoost (calibrado) | — | — | **69.2%** |
-| Regresión Logística | 0.8915 | 0.1741 | — |
+- LogReg (baseline, escalado + balanceado).
+- XGBoost — optimizado con Optuna (100 trials por default).
+- LightGBM — optimizado con Optuna.
+- XGBoost calibrado (isotonic) sobre validación temporal (2021).
+- XGBoost pre-2022 — entrenado solo con `date < 2022-01-01` para validar el Mundial 2022 sin data leakage.
 
-Hiperparámetros optimizados con **Optuna** (búsqueda bayesiana, 100 trials).  
-Pesos de entrenamiento: `w = class_weight_balanced × time_decay` — aborda el desbalance (H:49%, D:21%, V:30%) sin sacrificar información temporal.
+Hiperparámetros se cachean en `data/processed/models/best_params_{model}.json`.
+
+Pesos de entrenamiento: `w = class_weight_balanced × time_decay`, re-normalizados por su media. Aborda el desbalance de clases (H:49% / D:21% / V:30%) sin sacrificar información temporal.
+
+Las métricas exactas se generan con `make evaluate` y quedan en `data/processed/model_evaluation.csv`. La validación WC2022 se hace exclusivamente con `xgboost_pre2022`.
 
 ### Simulación Monte Carlo
 - **10,000 iteraciones** del torneo completo (104 partidos c/u).
-- Optimización: todas las probabilidades (48×47 = 2,256 matchups) se precomputan en un único batch antes del loop → lookup O(1) por partido.
+- Probabilidades simétricas: para cada par `(t1, t2)` se promedia `P(t1 vs t2)` con `P(t2 vs t1)` (invertida) para eliminar sesgo home/away. Excepción: anfitriones (USA, México, Canadá) reciben localía cuando juegan en su país.
+- Goles modelados con Poisson independiente sobre `xg_for / xg_against` de los dos equipos. El outcome surge del marcador, no al revés.
 - Desempate de grupos: puntos → diferencia de goles → goles a favor (FIFA 2026).
-- Fase eliminatoria: en caso de empate, penalty shootout (50/50).
+- Knockout: en caso de empate, penalty shootout (50/50).
+- IC binomial: Clopper-Pearson (`scipy.stats.beta`).
+- Tracking de avance por fase: `data/processed/tournament_progression.csv` (P de llegar a grupos / R32 / R16 / QF / SF / Final / Champion).
 
 ### Validación histórica (WC 2022)
-Entrenando únicamente con datos anteriores a 2022:
-- **Accuracy: 66.6%** sobre partidos de 2022
-- **Log-Loss: 0.7952**
+El modelo `xgboost_pre2022` se entrena exclusivamente con `date < 2022-01-01` y se evalúa sobre el Mundial 2022. Las métricas exactas quedan en consola al ejecutar `make evaluate`.
 
 ---
 
 ## Limitaciones conocidas
-- Los equipos debutantes (Uzbekistán, Curaçao, etc.) tienen muy pocos partidos históricos → ELO inicial por defecto (1500).
-- Las lesiones de última hora no están modeladas.
-- El xG de StatsBomb cubre principalmente torneos UEFA/FIFA; equipos de otras confederaciones usan valores por defecto.
-- `travel_distance = −1.0` para equipos cuya geocodificación falla (se pasa al modelo tal cual, consistente con el entrenamiento).
+- Los equipos debutantes (Uzbekistán, Curaçao, etc.) tienen muy pocos partidos históricos — ELO inicial por defecto (1500).
+- Las lesiones de última hora no están modeladas de forma estructural, pero `src/analysis/sensitivity.py` simula escenarios `-30% squad_value` sobre el top-5 (ver `data/processed/sensitivity_injuries.csv`).
+- El xG de StatsBomb cubre principalmente torneos UEFA/FIFA; equipos de otras confederaciones usan `1.2` por defecto (media global aprox.).
+- `travel_distance = 0.0` cuando la sede del partido no se puede geocodificar (campo neutral / dato faltante).
+- El snapshot Transfermarkt es manual (no scraping en vivo); fecha en `scraper.SQUAD_VALUES_SNAPSHOT_DATE`.
 
 ---
 

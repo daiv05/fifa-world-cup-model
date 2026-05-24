@@ -1,9 +1,3 @@
-"""
-Evaluación de modelos: log-loss, Brier score, curvas de calibración y análisis SHAP.
-Incluye validación histórica sobre el Mundial 2022.
-"""
-
-import sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -11,9 +5,8 @@ from pathlib import Path
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import log_loss, brier_score_loss
 
-_repo_root = Path(__file__).parents[2]
-if str(_repo_root) not in sys.path:
-    sys.path.insert(0, str(_repo_root))
+REPORTS_DIR = Path(__file__).parents[2] / "reports" / "figures"
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 FEATURE_COLS = [
     "elo_diff",
@@ -28,10 +21,7 @@ FEATURE_COLS = [
 CLASS_NAMES = {0: "Away Win", 1: "Draw", 2: "Home Win"}
 
 
-def _to_df(X: np.ndarray) -> pd.DataFrame:
-    """Convierte numpy array a DataFrame con nombres de features.
-    Evita el UserWarning de LightGBM cuando predict recibe numpy
-    pero el modelo fue entrenado con un DataFrame con nombres de columna."""
+def _to_df(X) -> pd.DataFrame:
     if isinstance(X, pd.DataFrame):
         return X
     return pd.DataFrame(X, columns=FEATURE_COLS)
@@ -39,28 +29,14 @@ def _to_df(X: np.ndarray) -> pd.DataFrame:
 
 def evaluate_all(
     models: dict,
-    X_test: np.ndarray,
+    X_test,
     y_test: np.ndarray,
 ) -> pd.DataFrame:
-    """
-    Calcula log-loss y Brier score macro para cada modelo.
-
-    Parámetros
-    ----------
-    models : dict[name -> fitted_model]
-    X_test, y_test : datos de prueba
-
-    Devuelve
-    --------
-    DataFrame con columnas [model, log_loss, brier_score]
-    """
     records = []
     X_df = _to_df(X_test)
     for name, model in models.items():
         proba = model.predict_proba(X_df)
         ll = log_loss(y_test, proba)
-
-        # Brier score macro: promedio sobre las 3 clases
         brier = np.mean([
             brier_score_loss(
                 (y_test == cls).astype(int),
@@ -75,13 +51,10 @@ def evaluate_all(
 
 def plot_calibration_curves(
     models: dict,
-    X_test: np.ndarray,
+    X_test,
     y_test: np.ndarray,
     n_bins: int = 10,
 ) -> plt.Figure:
-    """
-    Grafica curvas de calibración (reliability diagrams) para cada clase y modelo.
-    """
     classes = sorted(np.unique(y_test))
     fig, axes = plt.subplots(1, len(classes), figsize=(5 * len(classes), 4))
     if len(classes) == 1:
@@ -108,11 +81,7 @@ def plot_calibration_curves(
     return fig
 
 
-def shap_analysis(model, X_train: np.ndarray, feature_names: list[str] | None = None):
-    """
-    Genera análisis SHAP de importancia de features.
-    Devuelve el objeto shap.Explanation y muestra el summary plot.
-    """
+def shap_analysis(model, X_train, feature_names: list[str] | None = None):
     import shap
 
     if feature_names is None:
@@ -124,116 +93,88 @@ def shap_analysis(model, X_train: np.ndarray, feature_names: list[str] | None = 
     print("Generando SHAP summary plot...")
     shap.summary_plot(shap_values, X_train, feature_names=feature_names, show=False)
     plt.tight_layout()
-    plt.savefig("shap_summary.png", dpi=150, bbox_inches="tight")
-    print("  Guardado en shap_summary.png")
+    out_path = REPORTS_DIR / "shap_summary.png"
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    print(f"  Guardado en {out_path}")
 
     return shap_values
 
 
 def validate_wc2022(
-    wc_matches_df: pd.DataFrame | None,
     features_df: pd.DataFrame,
-    model,
+    model_pre2022,
 ) -> pd.DataFrame:
     """
-    Validación histórica: evalúa el modelo sobre los partidos del Mundial 2022.
-
-    Si wc_matches_df no es None: hace inner join exacto (date, home_team, away_team)
-    para aislar los partidos reales del WC 2022 dentro de features_df, descartando
-    amistosos, clasificatorias y otras competiciones del mismo año.
-
-    Uso recomendado en __main__:
-        all_matches = load_international_results()
-        wc22_actual = all_matches[
-            (all_matches["tournament"] == "FIFA World Cup")
-            & (all_matches["date"].astype(str).str.startswith("2022"))
-        ]
-        validate_wc2022(wc22_actual, df, model)
-
-    Si wc_matches_df es None: fallback a filtrar todos los partidos del año 2022.
-
-    Devuelve DataFrame con [date, home_team, away_team, pred_class, true_class,
-    correct, confidence].
+    Evalúa el modelo `xgboost_pre2022` (entrenado solo con date < 2022)
+    sobre todos los partidos de 2022 — el Mundial 2022 incluido.
     """
-    if wc_matches_df is not None and not wc_matches_df.empty:
-        wc22_raw = wc_matches_df[
-            wc_matches_df["date"].astype(str).str.startswith("2022")
-        ][["date", "home_team", "away_team"]].copy()
-        wc22_raw["_date_str"] = wc22_raw["date"].astype(str).str[:10]
-        features_copy = features_df.copy()
-        features_copy["_date_str"] = features_copy["date"].astype(str).str[:10]
-        wc22 = features_copy.merge(
-            wc22_raw[["_date_str", "home_team", "away_team"]],
-            on=["_date_str", "home_team", "away_team"],
-            how="inner",
-        ).drop(columns="_date_str")
-        print(f"  Partidos WC 2022 encontrados por join exacto: {len(wc22)}")
-    else:
-        date_mask = features_df["date"].astype(str).str.startswith("2022")
-        wc22 = features_df[date_mask].copy()
-        print(f"  Partidos 2022 (fallback por año): {len(wc22)}")
-
+    df = features_df.copy()
+    df["date"] = pd.to_datetime(df["date"])
+    wc22 = df[df["date"].dt.year == 2022].dropna(subset=FEATURE_COLS + ["target"]).copy()
     if wc22.empty:
-        print("No hay datos del año 2022 en el dataset de features.")
+        print("No hay partidos de 2022 en features.csv")
         return pd.DataFrame()
 
-    X_wc22 = _to_df(wc22[FEATURE_COLS].fillna(0).values.astype(np.float32))
-    y_wc22 = wc22["target"].values.astype(int)
-
-    proba = model.predict_proba(X_wc22)
+    X = _to_df(wc22[FEATURE_COLS].values.astype(np.float32))
+    y = wc22["target"].values.astype(int)
+    proba = model_pre2022.predict_proba(X)
     preds = proba.argmax(axis=1)
 
     result = wc22[["date", "home_team", "away_team"]].copy()
     result["pred_class"] = preds
-    result["true_class"] = y_wc22
-    result["correct"] = preds == y_wc22
+    result["true_class"] = y
+    result["correct"] = preds == y
     result["confidence"] = proba.max(axis=1).round(3)
 
     accuracy = result["correct"].mean()
-    ll = log_loss(y_wc22, proba)
-    print(f"WC2022 Accuracy: {accuracy:.1%}  |  Log-Loss: {ll:.4f}")
+    ll = log_loss(y, proba)
+    print(f"WC/2022 Accuracy (modelo pre-2022, sin leakage): {accuracy:.1%}  |  Log-Loss: {ll:.4f}")
     return result
 
 
 if __name__ == "__main__":
-    from pathlib import Path
-    from src.models.train import load_model, FEATURE_COLS
+    from src.models.train import load_model, FEATURE_COLS, temporal_split
     from src.features.features import PROCESSED_DIR
 
     df = pd.read_csv(PROCESSED_DIR / "features.csv").dropna(subset=FEATURE_COLS + ["target"])
-    X = df[FEATURE_COLS].values.astype(np.float32)
-    y = df["target"].values.astype(int)
+    df["date"] = pd.to_datetime(df["date"])
 
-    split = int(len(X) * 0.8)
-    X_test, y_test = X[split:], y[split:]
+    _, _, test_mask = temporal_split(df)
+    X_test = df.loc[test_mask, FEATURE_COLS].values.astype(np.float32)
+    y_test = df.loc[test_mask, "target"].values.astype(int)
+
+    print(f"Test set (date >= 2022): {len(y_test):,} partidos")
 
     models = {
         "LogReg": load_model("logreg_baseline"),
-        "XGBoost": load_model("xgboost_calibrated"),
+        "XGBoost": load_model("xgboost"),
+        "XGBoost-Cal": load_model("xgboost_calibrated"),
         "LightGBM": load_model("lightgbm"),
     }
 
-    print("\n=== Tabla de evaluación ===")
+    print("\n=== Evaluación sobre test temporal (>= 2022) ===")
     eval_df = evaluate_all(models, X_test, y_test)
     print(eval_df.to_string(index=False))
-    from src.features.features import PROCESSED_DIR as _EVAL_DIR
-    eval_df.to_csv(_EVAL_DIR / "model_evaluation.csv", index=False)
-    print(f"  Guardado en {_EVAL_DIR / 'model_evaluation.csv'}")
+    eval_df.to_csv(PROCESSED_DIR / "model_evaluation.csv", index=False)
+    print(f"Guardado en {PROCESSED_DIR / 'model_evaluation.csv'}")
+
+    print("\n=== Calibration curves ===")
+    fig = plot_calibration_curves(models, X_test, y_test)
+    fig.savefig(REPORTS_DIR / "calibration_curves.png", dpi=150, bbox_inches="tight")
+    print(f"  Guardado en {REPORTS_DIR / 'calibration_curves.png'}")
 
     print("\n=== SHAP Analysis (XGBoost) ===")
+    train_mask, _, _ = temporal_split(df)
+    X_train = df.loc[train_mask, FEATURE_COLS].values.astype(np.float32)
     xgb_raw = load_model("xgboost")
-    shap_analysis(xgb_raw, X[:split])
+    shap_analysis(xgb_raw, X_train[:5000])  # limitar para velocidad
 
-    print("\n=== Validación WC2022 ===")
-    # Carga los 64 partidos reales del Mundial 2022 desde international_results
-    # (filtrado por tournament="FIFA World Cup" + año 2022) para hacer join exacto.
-    # wc_matches_1974_2022.csv tiene datos incorrectos para 2022, no se usa aquí.
-    from src.data.data_loader import load_international_results
-    all_matches = load_international_results()
-    wc22_actual = all_matches[
-        (all_matches["tournament"] == "FIFA World Cup")
-        & (all_matches["date"].astype(str).str.startswith("2022"))
-    ].copy()
-    print(f"  Partidos del Mundial 2022 (fuente: international_results): {len(wc22_actual)}")
-    wc22_results = validate_wc2022(wc22_actual, df, models["XGBoost"])
-    print(wc22_results.head(10).to_string(index=False))
+    print("\n=== Validación WC2022 (modelo pre-2022, sin leakage) ===")
+    try:
+        xgb_pre22 = load_model("xgboost_pre2022")
+    except FileNotFoundError:
+        print("xgboost_pre2022 no encontrado — ejecuta `python -m src.models.train --cutoff 2022-01-01`")
+    else:
+        wc22_results = validate_wc2022(df, xgb_pre22)
+        if not wc22_results.empty:
+            print(wc22_results.head(10).to_string(index=False))

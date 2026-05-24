@@ -1,8 +1,3 @@
-"""
-Cálculo del sistema ELO histórico para selecciones nacionales.
-K-factor variable por tipo de competición, siguiendo la fórmula de EloRatings.net.
-"""
-
 import bisect
 from collections import defaultdict
 
@@ -49,20 +44,6 @@ def _result_score(home_goals: int, away_goals: int) -> tuple[float, float]:
 
 
 def calculate_elo_ratings(matches_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Calcula el ELO antes y después de cada partido iterando cronológicamente.
-
-    Parámetros
-    ----------
-    matches_df : DataFrame con columnas [date, home_team, away_team,
-                 home_score, away_score, tournament]
-
-    Devuelve
-    --------
-    DataFrame con columnas [date, home_team, away_team,
-                             home_elo_before, away_elo_before,
-                             home_elo_after, away_elo_after]
-    """
     df = matches_df.sort_values("date").reset_index(drop=True)
     ratings: dict[str, float] = defaultdict(lambda: INITIAL_RATING)
     records = []
@@ -106,10 +87,6 @@ def calculate_elo_ratings(matches_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_current_elo(elo_df: pd.DataFrame) -> dict[str, float]:
-    """
-    Devuelve el ELO más reciente de cada equipo dado el DataFrame de historial ELO.
-    Útil para inspección/debug; para simulación usa get_elo_at_date() que es O(log n).
-    """
     latest = elo_df.sort_values("date")
     home_last = latest.groupby("home_team")["home_elo_after"].last()
     away_last = latest.groupby("away_team")["away_elo_after"].last()
@@ -122,9 +99,6 @@ def get_elo_at_date(
     team: str,
     date: pd.Timestamp,
 ) -> float:
-    """
-    Devuelve el ELO de un equipo justo antes de una fecha dada usando bisect (O log n).
-    """
     home_mask = elo_df["home_team"] == team
     away_mask = elo_df["away_team"] == team
 

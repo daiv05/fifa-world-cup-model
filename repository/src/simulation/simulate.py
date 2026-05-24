@@ -1,39 +1,40 @@
 """
 Motor de simulación Monte Carlo para el Mundial 2026.
-Estrategia por capas: NumPy vectorizado → numba @njit si es necesario.
 """
 
-import sys
 import argparse
 import time
 import numpy as np
 import pandas as pd
-from collections import Counter
+from collections import defaultdict
 from pathlib import Path
 from tqdm import tqdm
+from scipy.stats import beta
 
-# Garantiza que repository/ esté en sys.path sin importar desde dónde se ejecute
-_repo_root = Path(__file__).parents[2]
-if str(_repo_root) not in sys.path:
-    sys.path.insert(0, str(_repo_root))
-
-from src.simulation.tournament import GROUPS_2026, ALL_TEAMS, simulate_full_tournament
+from src.simulation.tournament import (
+    GROUPS_2026, ALL_TEAMS, PHASES,
+    simulate_full_tournament,
+)
 
 RESULTS_DIR = Path(__file__).parents[2] / "data" / "processed"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
+_FEATURE_COLS = [
+    "elo_diff", "squad_value_diff", "xg_avg_for",
+    "xg_avg_against", "travel_distance_home", "travel_distance_away",
+    "ranking_diff",
+]
+
 
 def build_predict_fn(model, team_features: pd.DataFrame):
     """
-    Construye una función de predicción a partir de un modelo sklearn/XGBoost.
-    Precomputa todas las probabilidades de enfrentamientos posibles en un único
-    batch para minimizar llamadas al modelo durante la simulación.
-    predict_fn(home, away, features) -> np.array([p_away, p_draw, p_home])
+    Precalcula `predict_proba` para los 48*47 = 2256 pares ordenados de
+    equipos del torneo. Devuelve una función que hace lookup O(1) por par.
+    `team_features` debe traer las columnas: elo, squad_value_eur, xg_for,
+    xg_against, host_distance, rank.
     """
     feat_map = team_features.set_index("team").to_dict("index") if not team_features.empty else {}
     teams = list(feat_map.keys())
-
-    # Build feature matrix for all directed pairs in one shot
     pairs = [(h, a) for h in teams for a in teams if h != a]
     rows = []
     for home, away in pairs:
@@ -44,40 +45,43 @@ def build_predict_fn(model, team_features: pd.DataFrame):
             np.log1p(h.get("squad_value_eur", 1e7)) - np.log1p(a.get("squad_value_eur", 1e7)),
             h.get("xg_for", 1.2) - a.get("xg_for", 1.2),
             h.get("xg_against", 1.2) - a.get("xg_against", 1.2),
-            h.get("travel_distance", 5000.0),
-            a.get("travel_distance", 5000.0),
-            a.get("rank", 78) - h.get("rank", 78),   # ranking_diff: positivo = local mejor rankeado
+            h.get("host_distance", 5000.0),
+            a.get("host_distance", 5000.0),
+            a.get("rank", 78) - h.get("rank", 78),
         ])
 
-    # Usar DataFrame con nombres de columna para evitar el UserWarning de LightGBM
-    # "X does not have valid feature names, but LGBMClassifier was fitted with feature names"
-    _FEATURE_COLS = ["elo_diff", "squad_value_diff", "xg_avg_for",
-                     "xg_avg_against", "travel_distance_home", "travel_distance_away",
-                     "ranking_diff"]
     X_all = pd.DataFrame(rows, columns=_FEATURE_COLS).astype(np.float32)
-
-    # Model returns [p_away, p_draw, p_home] (class order 0,1,2).
-    # tournament.py expects [p_home, p_draw, p_away] (outcome choice [2,1,0]).
-    # Reorder: flip index 0 ↔ 2 so the cache stores [p_home, p_draw, p_away].
     probas_raw = model.predict_proba(X_all)
+    # El modelo devuelve [class0=away_win, class1=draw, class2=home_win].
+    # `predict_fn` debe devolver [home_win, draw, away_win].
     probas = probas_raw[:, [2, 1, 0]]
 
-    # Cache: (home, away) -> probability array [p_home, p_draw, p_away]
     cache: dict[tuple[str, str], np.ndarray] = {
         pair: probas[i] for i, pair in enumerate(pairs)
     }
     default_proba = np.array([1 / 3, 1 / 3, 1 / 3])
 
-    def predict_fn(home: str, away: str, _features: dict = None) -> np.ndarray:
-        # Returns [p_home, p_draw, p_away] as expected by tournament.py
+    def predict_fn(home: str, away: str) -> np.ndarray:
         return cache.get((home, away), default_proba)
 
     return predict_fn
 
 
-def _dummy_predict_fn(home: str, away: str, _features: dict = None) -> np.ndarray:
-    """Predictor de fallback con probabilidades fijas [p_home=0.40, p_draw=0.25, p_away=0.35]."""
+def _build_team_xg(team_features: pd.DataFrame) -> dict[str, dict[str, float]]:
+    if team_features is None or team_features.empty:
+        return {}
+    return team_features.set_index("team")[["xg_for", "xg_against"]].to_dict("index")
+
+
+def _dummy_predict_fn(home: str, away: str) -> np.ndarray:
     return np.array([0.40, 0.25, 0.35])
+
+
+def _clopper_pearson(c: int, n: int, alpha: float = 0.10) -> tuple[float, float]:
+    """IC bilateral Clopper-Pearson (1-alpha) sobre proporción c/n, en %."""
+    lo = beta.ppf(alpha / 2, c, n - c + 1) if c > 0 else 0.0
+    hi = beta.ppf(1 - alpha / 2, c + 1, n - c) if c < n else 1.0
+    return float(lo * 100), float(hi * 100)
 
 
 def run_simulation(
@@ -85,76 +89,102 @@ def run_simulation(
     model=None,
     team_features: pd.DataFrame | None = None,
     seed: int = 42,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Ejecuta la simulación Monte Carlo del torneo completo.
-
-    Devuelve DataFrame con columnas:
-      team, champion_count, champion_pct, champion_ci_low, champion_ci_high
+    Devuelve (champions_df, progression_df):
+      - champions_df: team, champion_count, champion_pct, champion_ci_low/high
+      - progression_df: team + porcentaje + IC por fase (group_stage, R32, R16, QF, SF, Final, Champion)
     """
     np.random.seed(seed)
 
     if model is not None and team_features is not None:
         predict_fn = build_predict_fn(model, team_features)
+        team_xg = _build_team_xg(team_features)
     else:
-        print("Usando predictor dummy (ELO simple). Proporciona un modelo para resultados reales.")
+        print("Usando predictor dummy. Proporciona un modelo para resultados reales.")
         predict_fn = _dummy_predict_fn
+        team_xg = {}
 
-    champions: Counter = Counter()
-
-    # Mide la primera iteración para estimar si se necesita numba
+    # Sanity: una iteración para timing
     start = time.perf_counter()
-    _ = simulate_full_tournament(predict_fn, {})
+    _ = simulate_full_tournament(predict_fn, team_xg)
     first_iter_ms = (time.perf_counter() - start) * 1000
+    print(f"Primera iteración: {first_iter_ms:.1f} ms — "
+          f"estimado total: {first_iter_ms * n_iterations / 1000:.0f}s")
 
-    estimated_total_s = first_iter_ms * n_iterations / 1000
-    print(f"Primera iteración: {first_iter_ms:.1f}ms — estimado total: {estimated_total_s:.0f}s")
-
-    if estimated_total_s > 30:
-        print("Tiempo estimado > 30s. Considera activar numba (ver simulate_numba_ready.py)")
+    # phase_counts[phase][team] = nº de veces que el equipo llegó a esa fase
+    phase_counts: dict[str, dict[str, int]] = {p: defaultdict(int) for p in PHASES}
 
     for _ in tqdm(range(n_iterations), desc="Simulando torneos"):
-        champion = simulate_full_tournament(predict_fn, {})
-        champions[champion] += 1
+        result = simulate_full_tournament(predict_fn, team_xg)
+        for phase in PHASES:
+            if phase == "champion":
+                phase_counts["champion"][result["champion"]] += 1
+            else:
+                for team in result[phase]:
+                    phase_counts[phase][team] += 1
 
-    results = []
+    # ----- Tabla de campeones (con IC Clopper-Pearson) -----
+    champ_rows = []
     for team in ALL_TEAMS:
-        c = champions[team]
-        results.append({
+        c = phase_counts["champion"][team]
+        lo, hi = _clopper_pearson(c, n_iterations)
+        champ_rows.append({
             "team": team,
             "champion_count": c,
             "champion_pct": round(c / n_iterations * 100, 2),
-            # Bootstrap CI: simulate 10_000 tournament seasons and take 5th/95th percentile
-            # of the champion proportion. Uses binomial(n, p) / n to get proportions.
-            "champion_ci_low": round(np.percentile(
-                np.random.binomial(n_iterations, max(c / n_iterations, 1e-9), 10_000) / n_iterations * 100, 5
-            ), 2),
-            "champion_ci_high": round(np.percentile(
-                np.random.binomial(n_iterations, min(c / n_iterations, 1 - 1e-9), 10_000) / n_iterations * 100, 95
-            ), 2),
+            "champion_ci_low": round(lo, 2),
+            "champion_ci_high": round(hi, 2),
         })
+    champions_df = (
+        pd.DataFrame(champ_rows)
+        .sort_values("champion_pct", ascending=False)
+        .reset_index(drop=True)
+    )
 
-    df = pd.DataFrame(results).sort_values("champion_pct", ascending=False).reset_index(drop=True)
-    return df
+    # ----- Tabla de avance por fase -----
+    prog_rows = []
+    for team in ALL_TEAMS:
+        row = {"team": team}
+        for phase in PHASES:
+            c = phase_counts[phase][team]
+            lo, hi = _clopper_pearson(c, n_iterations)
+            row[f"{phase}_pct"] = round(c / n_iterations * 100, 2)
+            row[f"{phase}_ci_low"] = round(lo, 2)
+            row[f"{phase}_ci_high"] = round(hi, 2)
+        prog_rows.append(row)
+    progression_df = (
+        pd.DataFrame(prog_rows)
+        .sort_values("champion_pct", ascending=False)
+        .reset_index(drop=True)
+    )
+
+    return champions_df, progression_df
 
 
-def save_results(df: pd.DataFrame, filename: str = "simulation_results.csv") -> Path:
-    path = RESULTS_DIR / filename
-    df.to_csv(path, index=False)
-    print(f"Resultados guardados en {path}")
-    return path
+def save_results(
+    champions_df: pd.DataFrame,
+    progression_df: pd.DataFrame,
+) -> tuple[Path, Path]:
+    p_champ = RESULTS_DIR / "simulation_results.csv"
+    p_prog = RESULTS_DIR / "tournament_progression.csv"
+    champions_df.to_csv(p_champ, index=False)
+    progression_df.to_csv(p_prog, index=False)
+    print(f"Campeones    → {p_champ}")
+    print(f"Progresión   → {p_prog}")
+    return p_champ, p_prog
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Motor Monte Carlo — Mundial 2026")
     parser.add_argument("--iterations", type=int, default=10_000)
-    parser.add_argument("--model", type=str, default=None, help="Nombre del modelo en data/processed/models/")
+    parser.add_argument("--model", type=str, default=None,
+                        help="Nombre del modelo en data/processed/models/")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
     model = None
     team_features = None
-
     if args.model:
         from src.models.train import load_model
         model = load_model(args.model)
@@ -163,9 +193,21 @@ if __name__ == "__main__":
             team_features = pd.read_csv(features_path)
 
     print(f"\nEjecutando {args.iterations:,} iteraciones del Mundial 2026...")
-    results = run_simulation(args.iterations, model=model, team_features=team_features, seed=args.seed)
+    champions_df, progression_df = run_simulation(
+        args.iterations,
+        model=model,
+        team_features=team_features,
+        seed=args.seed,
+    )
 
     print("\n=== TOP 10 candidatos al campeonato ===")
-    print(results.head(10).to_string(index=False))
+    print(champions_df.head(10).to_string(index=False))
 
-    save_results(results)
+    print("\n=== TOP 10 — Probabilidad de llegar a la final ===")
+    print(
+        progression_df[["team", "final_pct", "champion_pct"]]
+        .sort_values("final_pct", ascending=False)
+        .head(10).to_string(index=False)
+    )
+
+    save_results(champions_df, progression_df)

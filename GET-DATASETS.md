@@ -135,12 +135,12 @@ python -m repository.src.data.scraper
 **`scraper.py`:**
 - **StatsBomb:** Descarga partidos internacionales (Mundiales, Euros, Copa América) con xG
   desde `github.com/statsbomb/open-data` vía `statsbombpy`
-  → genera `statsbomb_matches.csv` y `statsbomb_xg_by_team.csv`
+  - genera `statsbomb_matches.csv` y `statsbomb_xg_by_team.csv`
 - **Squad values:** Genera `squad_values.csv` con valores de mercado aproximados
   para los 48 equipos (ver sección de actualización manual abajo)
 - **FBref:** Intenta descargar estadísticas de torneos `INT-World Cup` e
   `INT-European Championship` vía `soccerdata`
-  → genera `fbref_stats.csv` si tiene éxito
+  - genera `fbref_stats.csv` si tiene éxito
 
 ---
 
@@ -206,7 +206,7 @@ Brazil,1050000000
 Los siguientes problemas fueron encontrados y corregidos durante el desarrollo.
 Se documentan aquí como referencia:
 
-### `parents[3]` → `parents[2]` (path bug)
+### `parents[3]` - `parents[2]` (path bug)
 - **Síntoma:** Los archivos se guardaban en `fifa-world-cup-model/data/raw/`
   en vez de `repository/data/raw/`
 - **Causa:** Error de conteo en `Path(__file__).parents[N]`

@@ -1,7 +1,10 @@
 """
 Lógica del torneo FIFA Mundial 2026.
-12 grupos de 4 equipos. Avanzan los 2 primeros de cada grupo + 8 mejores terceros (32 total).
-Llaves eliminatorias de 32 hasta la final.
+12 grupos de 4. Avanzan 2 primeros de cada grupo + 8 mejores terceros = 32 equipos.
+Llaves eliminatorias R32 → R16 → QF → SF → Final.
+
+Las fases trackeadas: "group_stage", "round_of_32", "round_of_16",
+"quarterfinals", "semifinals", "final", "champion".
 """
 
 import numpy as np
@@ -11,13 +14,14 @@ from itertools import combinations
 
 _FIXTURE_CSV = Path(__file__).parents[2] / "data" / "raw" / "wc2026_fixture.csv"
 
+HOST_COUNTRIES = {"United States", "Mexico", "Canada"}
+PHASES = [
+    "group_stage", "round_of_32", "round_of_16",
+    "quarterfinals", "semifinals", "final", "champion",
+]
+
 
 def _load_groups(fixture_path: Path) -> dict[str, list[str]]:
-    """
-    Carga los grupos del fixture CSV y aplica estandarización de nombres de equipo.
-    Los nombres pasan por TEAM_NAME_ALIASES ("USA" → "United States", etc.).
-    Para actualizar el torneo: reemplaza data/raw/wc2026_fixture.csv y re-ejecuta.
-    """
     from src.data.data_loader import load_wc2026_fixture
     df = load_wc2026_fixture(fixture_path)
     groups: dict[str, list[str]] = {}
@@ -27,7 +31,6 @@ def _load_groups(fixture_path: Path) -> dict[str, list[str]]:
 
 
 GROUPS_2026: dict[str, list[str]] = _load_groups(_FIXTURE_CSV)
-
 ALL_TEAMS: list[str] = [team for teams in GROUPS_2026.values() for team in teams]
 
 KNOCKOUT_BRACKET_ORDER = [
@@ -39,65 +42,109 @@ KNOCKOUT_BRACKET_ORDER = [
 
 
 def _points_tiebreak(table: pd.DataFrame) -> pd.DataFrame:
-    """Ordena la tabla de grupo por: puntos → diferencia de goles → goles a favor."""
-    return table.sort_values(
-        ["points", "gd", "gf"], ascending=False
-    ).reset_index(drop=True)
+    return table.sort_values(["points", "gd", "gf"], ascending=False).reset_index(drop=True)
+
+
+def _symmetric_probs(predict_fn, t1: str, t2: str) -> np.ndarray:
+    """
+    Promedia P(t1 vs t2) con la versión invertida P(t2 vs t1) para eliminar
+    el sesgo home/away cuando no hay localía real. Devuelve [P(win_t1),
+    P(draw), P(win_t2)].
+    """
+    p_fwd = predict_fn(t1, t2)              # [home_win, draw, away_win] desde la perspectiva t1=home
+    p_rev = predict_fn(t2, t1)              # [home_win, draw, away_win] desde la perspectiva t2=home
+    p_t1_win = (p_fwd[0] + p_rev[2]) / 2.0
+    p_draw   = (p_fwd[1] + p_rev[1]) / 2.0
+    p_t2_win = (p_fwd[2] + p_rev[0]) / 2.0
+    out = np.array([p_t1_win, p_draw, p_t2_win])
+    out /= out.sum()
+    return out
+
+
+def _host_advantage_probs(predict_fn, t1: str, t2: str) -> np.ndarray:
+    """
+    Si exactamente uno de los dos equipos es anfitrión, lo usamos como home
+    (sin promediar) para reflejar la localía real. Si ambos o ninguno son
+    anfitriones, se usa el promedio simétrico.
+    """
+    t1_host = t1 in HOST_COUNTRIES
+    t2_host = t2 in HOST_COUNTRIES
+    if t1_host and not t2_host:
+        return predict_fn(t1, t2)
+    if t2_host and not t1_host:
+        # Invertir orientación para devolver siempre [P(t1_win), P(draw), P(t2_win)]
+        rev = predict_fn(t2, t1)
+        return np.array([rev[2], rev[1], rev[0]])
+    return _symmetric_probs(predict_fn, t1, t2)
+
+
+def _sample_goals_poisson(
+    t1: str,
+    t2: str,
+    team_xg: dict[str, dict[str, float]],
+    league_xg: float = 1.25,
+) -> tuple[int, int]:
+    """
+    Modela goles con Poisson independiente: λ_t1 = xg_for(t1) * xg_against(t2) / league_xg.
+    El outcome surge del marcador, no al revés.
+    """
+    xg_for_1 = team_xg.get(t1, {}).get("xg_for", league_xg)
+    xg_for_2 = team_xg.get(t2, {}).get("xg_for", league_xg)
+    xg_ag_1  = team_xg.get(t1, {}).get("xg_against", league_xg)
+    xg_ag_2  = team_xg.get(t2, {}).get("xg_against", league_xg)
+
+    lam_1 = max(0.05, xg_for_1 * xg_ag_2 / league_xg)
+    lam_2 = max(0.05, xg_for_2 * xg_ag_1 / league_xg)
+    g1 = int(np.random.poisson(lam_1))
+    g2 = int(np.random.poisson(lam_2))
+    return g1, g2
+
+
+def _outcome_from_probs(probs: np.ndarray) -> int:
+    """Devuelve 2=t1 wins, 1=draw, 0=t2 wins según probs=[t1, draw, t2]."""
+    return int(np.random.choice([2, 1, 0], p=probs))
 
 
 def simulate_group_stage(
     teams: list[str],
     predict_fn,
-    group_features: dict,
+    team_xg: dict[str, dict[str, float]] | None = None,
 ) -> pd.DataFrame:
     """
-    Simula los 6 partidos de un grupo de 4 equipos.
-
-    Parámetros
-    ----------
-    teams        : 4 equipos del grupo
-    predict_fn   : función(home, away, features) -> np.array([p_home_win, p_draw, p_away_win])
-    group_features : dict con features actuales por equipo
-
-    Devuelve
-    --------
-    DataFrame con columnas [team, points, gw, gd_count, gl, gf, ga, gd]
-    ordenado de 1° a 4°.
+    Simula los 6 partidos del grupo. Los outcomes se sortean con probs
+    simétricas (sin sesgo home/away); los goles se samplean con Poisson
+    sobre xG del equipo, y se corrige el marcador si contradice el outcome.
     """
+    team_xg = team_xg or {}
     standings = {
-        t: {"points": 0, "gw": 0, "gd_count": 0, "gl": 0, "gf": 0, "ga": 0}
+        t: {"points": 0, "gf": 0, "ga": 0}
         for t in teams
     }
+    for t1, t2 in combinations(teams, 2):
+        probs = _host_advantage_probs(predict_fn, t1, t2)
+        outcome = _outcome_from_probs(probs)
+        g1, g2 = _sample_goals_poisson(t1, t2, team_xg)
 
-    for home, away in combinations(teams, 2):
-        probs = predict_fn(home, away, group_features)
-        outcome = np.random.choice([2, 1, 0], p=probs)
+        # Reconciliar marcador con outcome sorteado
+        if outcome == 2 and g1 <= g2:
+            g1 = g2 + 1
+        elif outcome == 0 and g2 <= g1:
+            g2 = g1 + 1
+        elif outcome == 1 and g1 != g2:
+            g2 = g1  # forzar empate al marcador del t1
 
         if outcome == 2:
-            standings[home]["points"] += 3
-            standings[home]["gw"] += 1
-            standings[away]["gl"] += 1
-            hg, ag = _sample_goals(probs[2]), _sample_goals(probs[0])
-            if hg <= ag:
-                hg = ag + 1
+            standings[t1]["points"] += 3
         elif outcome == 0:
-            standings[away]["points"] += 3
-            standings[away]["gw"] += 1
-            standings[home]["gl"] += 1
-            hg, ag = _sample_goals(probs[2]), _sample_goals(probs[0])
-            if ag <= hg:
-                ag = hg + 1
+            standings[t2]["points"] += 3
         else:
-            standings[home]["points"] += 1
-            standings[away]["points"] += 1
-            standings[home]["gd_count"] += 1
-            standings[away]["gd_count"] += 1
-            hg = ag = _sample_goals(0.4)
+            standings[t1]["points"] += 1
+            standings[t2]["points"] += 1
 
-        standings[home]["gf"] += hg
-        standings[home]["ga"] += ag
-        standings[away]["gf"] += ag
-        standings[away]["ga"] += hg
+        standings[t1]["gf"] += g1
+        standings[t1]["ga"] += g2
+        standings[t2]["gf"] += g2
+        standings[t2]["ga"] += g1
 
     table = pd.DataFrame([
         {"team": t, **v, "gd": v["gf"] - v["ga"]}
@@ -106,17 +153,7 @@ def simulate_group_stage(
     return _points_tiebreak(table)
 
 
-def _sample_goals(win_prob: float) -> int:
-    """Muestra goles de una distribución Poisson simplificada según la prob de ganar."""
-    lam = max(0.3, 1.0 + win_prob * 1.5)
-    return int(np.random.poisson(lam))
-
-
 def select_best_thirds(all_group_results: dict[str, pd.DataFrame]) -> list[str]:
-    """
-    Selecciona los 8 mejores terceros entre los 12 grupos.
-    Criterio FIFA: puntos → dif. goles → goles a favor.
-    """
     thirds = []
     for group, table in all_group_results.items():
         if len(table) >= 3:
@@ -124,10 +161,11 @@ def select_best_thirds(all_group_results: dict[str, pd.DataFrame]) -> list[str]:
             row["group"] = group
             thirds.append(row)
 
+    if not thirds:
+        return []
+
     thirds_df = pd.DataFrame(thirds)
-    thirds_df = thirds_df.sort_values(
-        ["points", "gd", "gf"], ascending=False
-    ).head(8)
+    thirds_df = thirds_df.sort_values(["points", "gd", "gf"], ascending=False).head(8)
     return thirds_df["team"].tolist()
 
 
@@ -135,10 +173,6 @@ def build_knockout_bracket(
     group_results: dict[str, pd.DataFrame],
     best_thirds: list[str],
 ) -> list[tuple[str, str]]:
-    """
-    Construye las 16 llaves del Round of 32 a partir de los clasificados.
-    Devuelve lista de (equipo_local, equipo_visitante).
-    """
     slots: dict[str, str] = {}
     for group, table in group_results.items():
         slots[f"{group}1"] = table.iloc[0]["team"]
@@ -148,64 +182,84 @@ def build_knockout_bracket(
 
     bracket = []
     for h_slot, a_slot in KNOCKOUT_BRACKET_ORDER:
-        home = slots.get(h_slot, "TBD")
-        away = slots.get(a_slot, "TBD")
-        bracket.append((home, away))
+        bracket.append((slots.get(h_slot, "TBD"), slots.get(a_slot, "TBD")))
     return bracket
 
 
 def simulate_knockout_round(
-    bracket: list[tuple[str, str]],
+    pairs: list[tuple[str, str]],
     predict_fn,
-    features: dict,
+    team_xg: dict[str, dict[str, float]] | None = None,
 ) -> list[str]:
-    """
-    Simula una ronda eliminatoria. En caso de empate hay tiempo extra y penaltis (50/50).
-    Devuelve la lista de ganadores (siguiente ronda).
-    """
+    team_xg = team_xg or {}
     winners = []
-    for home, away in bracket:
-        if home == "TBD" or away == "TBD":
-            winners.append(home if away == "TBD" else away)
+    for t1, t2 in pairs:
+        if t1 == "TBD" or t2 == "TBD":
+            winners.append(t1 if t2 == "TBD" else t2)
             continue
-
-        probs = predict_fn(home, away, features)
-        outcome = np.random.choice([2, 1, 0], p=probs)
+        probs = _host_advantage_probs(predict_fn, t1, t2)
+        outcome = _outcome_from_probs(probs)
         if outcome == 2:
-            winners.append(home)
+            winners.append(t1)
         elif outcome == 0:
-            winners.append(away)
+            winners.append(t2)
         else:
-            winners.append(np.random.choice([home, away]))
-
+            winners.append(str(np.random.choice([t1, t2])))  # penalty shootout 50/50
     return winners
 
 
-def simulate_full_tournament(predict_fn, features: dict) -> str:
+def simulate_full_tournament(
+    predict_fn,
+    team_xg: dict[str, dict[str, float]] | None = None,
+) -> dict:
     """
-    Simula un torneo completo del Mundial 2026.
-    Devuelve el nombre del equipo campeón.
+    Simula el torneo completo y devuelve un dict con los equipos que
+    llegaron a cada fase y el campeón.
+
+    Estructura: {
+        "group_stage": set,        # 48 equipos
+        "round_of_32": set,        # 32 equipos clasificados
+        "round_of_16": set,        # 16 ganadores R32
+        "quarterfinals": set,      # 8
+        "semifinals": set,         # 4
+        "final": set,              # 2
+        "champion": str,
+    }
     """
-    all_group_results: dict[str, pd.DataFrame] = {}
+    progression = {phase: set() for phase in PHASES if phase != "champion"}
+    progression["group_stage"] = set(ALL_TEAMS)
+
+    group_results: dict[str, pd.DataFrame] = {}
     for group, teams in GROUPS_2026.items():
-        all_group_results[group] = simulate_group_stage(teams, predict_fn, features)
+        group_results[group] = simulate_group_stage(teams, predict_fn, team_xg)
 
-    best_thirds = select_best_thirds(all_group_results)
-    bracket = build_knockout_bracket(all_group_results, best_thirds)
+    best_thirds = select_best_thirds(group_results)
+    bracket = build_knockout_bracket(group_results, best_thirds)
 
-    remaining = bracket
-    while len(remaining) > 1:
-        winners = simulate_knockout_round(remaining, predict_fn, features)
-        remaining = list(zip(winners[::2], winners[1::2]))
+    # round_of_32: los 32 que entran al bracket
+    for h, a in bracket:
+        if h != "TBD":
+            progression["round_of_32"].add(h)
+        if a != "TBD":
+            progression["round_of_32"].add(a)
 
-    if len(remaining) == 1:
-        home, away = remaining[0]
-        probs = predict_fn(home, away, features)
-        outcome = np.random.choice([2, 1, 0], p=probs)
-        if outcome == 2:
-            return home
-        if outcome == 0:
-            return away
-        return np.random.choice([home, away])
+    # Avanzar fases hasta que quede 1 campeón
+    current_pairs = bracket
+    phase_after_pairs = ["round_of_16", "quarterfinals", "semifinals", "final"]
+    phase_idx = 0
 
-    return remaining[0] if isinstance(remaining[0], str) else remaining[0][0]
+    while len(current_pairs) >= 1:
+        winners = simulate_knockout_round(current_pairs, predict_fn, team_xg)
+        if phase_idx < len(phase_after_pairs):
+            for w in winners:
+                progression[phase_after_pairs[phase_idx]].add(w)
+        phase_idx += 1
+
+        if len(winners) == 1:
+            progression["champion"] = winners[0]
+            return progression
+        current_pairs = list(zip(winners[::2], winners[1::2]))
+
+    # Fallback defensivo
+    progression["champion"] = "TBD"
+    return progression
