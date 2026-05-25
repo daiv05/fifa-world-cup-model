@@ -7,7 +7,7 @@ import pandas as pd
 from pathlib import Path
 
 from src.features.elo import calculate_elo_ratings, INITIAL_RATING
-from src.features.time_decay import compute_time_decay_weights, REFERENCE_DATE
+from src.features.time_decay import compute_time_decay_weights, REFERENCE_DATE, DEFAULT_LAMBDA
 
 PROCESSED_DIR = Path(__file__).parents[2] / "data" / "processed"
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
@@ -258,7 +258,7 @@ def build_match_features(
     xg_df: pd.DataFrame | None = None,
     squad_df: pd.DataFrame | None = None,
     ranking_df: pd.DataFrame | None = None,
-    lambda_decay: float = 0.002,
+    lambda_decay: float = DEFAULT_LAMBDA,
     year_cutoff: int = 1993,
 ) -> pd.DataFrame:
     """

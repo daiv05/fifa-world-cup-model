@@ -124,7 +124,7 @@ def train_baseline(
 
 
 def train_xgboost(
-    X: np.ndarray,
+    X: np.ndarray | pd.DataFrame,
     y: np.ndarray,
     weights: np.ndarray | None = None,
     params: dict | None = None,
@@ -180,7 +180,7 @@ def train_lightgbm(
 
 
 def run_optuna_study(
-    X: np.ndarray,
+    X: np.ndarray | pd.DataFrame,
     y: np.ndarray,
     weights: np.ndarray | None = None,
     n_trials: int = 100,
@@ -277,7 +277,7 @@ def _full_training_pipeline(
         print(f"  Sin val_mask 2021 - fallback 85/15 dentro de train: "
               f"Train={train_mask.sum():,}, Val={val_mask.sum():,}")
 
-    X_all = df[FEATURE_COLS].values.astype(np.float32)
+    X_all = df[FEATURE_COLS].astype(np.float32)
     y_all = df["target"].values.astype(int)
     tw_all = (
         df["time_weight"].values.astype(np.float32)

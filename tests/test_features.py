@@ -8,6 +8,7 @@ from src.features.time_decay import (
     lambda_to_halflife_years,
     halflife_years_to_lambda,
     REFERENCE_DATE,
+    DEFAULT_LAMBDA,
 )
 from src.features.features import (
     encode_target,
@@ -58,14 +59,14 @@ def test_elo_ratings_are_finite(three_matches):
 
 def test_time_decay_range():
     dates = pd.Series(pd.to_datetime(["2024-01-01", "2020-01-01", "2010-01-01"]))
-    weights = compute_time_decay_weights(dates, lambda_=0.002)
+    weights = compute_time_decay_weights(dates, lambda_=DEFAULT_LAMBDA)
     assert np.all(weights > 0)
     assert np.all(weights <= 1.0)
 
 
 def test_time_decay_monotone():
     dates = pd.Series(pd.to_datetime(["2024-01-01", "2020-01-01", "2015-01-01"]))
-    weights = compute_time_decay_weights(dates, lambda_=0.002)
+    weights = compute_time_decay_weights(dates, lambda_=DEFAULT_LAMBDA)
     assert weights[0] >= weights[1] >= weights[2]
 
 
@@ -78,7 +79,7 @@ def test_time_decay_uses_reference_date_default():
 
 
 def test_halflife_lambda_roundtrip():
-    lambda_ = 0.002
+    lambda_ = DEFAULT_LAMBDA
     years = lambda_to_halflife_years(lambda_)
     recovered = halflife_years_to_lambda(years)
     assert abs(recovered - lambda_) < 1e-10

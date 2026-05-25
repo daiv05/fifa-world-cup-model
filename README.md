@@ -160,7 +160,7 @@ python -m pytest tests/ -v
 | `travel_distance_away` | Ídem para el visitante | Ídem |
 | `ranking_diff` | rank_visitante − rank_local (positivo = local mejor rankeado) | Captura cambios discretos del ranking FIFA |
 
-**Decaimiento temporal:** cada partido tiene peso W(t) = e^(−0.002 · Δt) multiplicado por peso de clase balanceado (H≈49%, E≈21%, V≈30%).
+**Decaimiento temporal:** cada partido tiene peso W(t) = e^(−0.001 · Δt) multiplicado por peso de clase balanceado (H≈49%, E≈21%, V≈30%).
 
 ### División del dataset
 

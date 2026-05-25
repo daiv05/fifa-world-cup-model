@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-DEFAULT_LAMBDA = 0.002
+DEFAULT_LAMBDA = 0.001
 # Fecha de referencia determinista para el decay temporal. Usamos el inicio
 # del año del Mundial 2026 para que los pesos sean reproducibles entre
 # ejecuciones y consistentes con el horizonte de predicción.
