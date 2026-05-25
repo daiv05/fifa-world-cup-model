@@ -38,12 +38,13 @@ Mundial de la FIFA 2026 bajo el nuevo formato de 12 grupos. El pipeline
 integra cuatro fuentes heterog\'eneas (resultados internacionales
 1872--2024, \emph{Expected Goals} de StatsBomb, valor de mercado de
 Transfermarkt y ranking FIFA hist\'orico) para construir siete
-caracter\'isticas que alimentan tres clasificadores multiclase
-(Regresi\'on Log\'istica, XGBoost y LightGBM) entrenados con
+caracter\'isticas que alimentan cuatro modelos multiclase
+(Regresi\'on Log\'istica, XGBoost, LightGBM y XGBoost calibrado con Platt)
+entrenados con
 ponderaci\'on por decaimiento temporal exponencial y rebalanceo de
-clases. El mejor modelo (XGBoost calibrado isot\'onicamente) obtiene
-un Brier $\approx 0{,}17$ sobre un conjunto de prueba temporal y se
-acopla a un motor Monte Carlo de $10{,}000$ iteraciones que respeta el
+clases. El mejor modelo (XGBoost calibrado con m\'etodo Platt) obtiene
+un Log-Loss de $0{,}870$ y un Brier de $0{,}170$ sobre un conjunto de
+prueba temporal y se acopla a un motor Monte Carlo de $10{,}000$ iteraciones que respeta el
 reglamento 2026 (2 primeros de grupo + 8 mejores terceros, desempates
 puntos$\to$DG$\to$GF, definici\'on por penales). Los intervalos de
 confianza de Clopper--Pearson sit\'uan a un grupo reducido de selecciones
@@ -54,7 +55,7 @@ ausencia de modelado estructural de lesiones.
 
 \begin{IEEEkeywords}
 F\'utbol, predicci\'on probabil\'istica, XGBoost, Monte Carlo,
-ranking ELO, Mundial 2026, calibraci\'on isot\'onica.
+ranking ELO, Mundial 2026, calibraci\'on de probabilidades.
 \end{IEEEkeywords}
 
 \section{Introducci\'on}
@@ -146,8 +147,6 @@ EloRatings.net \cite{eloratings}
 \bottomrule
 \end{tabular}
 \end{table}
-
-\textit{Nota: revisar y sincronizar con \texttt{data/processed/model\_evaluation.csv}.}
 
 \textbf{Fuente principal de resultados.} El dataset de
 Mart~J\"urisoo~\cite{martj42} disponible tanto en GitHub como en
@@ -272,9 +271,13 @@ emplea Optuna \cite{akiba2019optuna} con $100$ \emph{trials} y
 \texttt{TimeSeriesSplit}$(n=5)$ interno sobre el conjunto de
 entrenamiento, optimizando \texttt{neg\_log\_loss}. La Fig.\
 \ref{fig:shap} resume la importancia SHAP agregada (mean |SHAP|) y muestra
-que \texttt{elo\_diff} domina, seguido por \texttt{ranking\_diff};
-\texttt{travel\_distance\_away} aporta en un segundo nivel, mientras que
-\texttt{squad\_value\_diff} queda por debajo de lo esperado.
+que \texttt{elo\_diff} domina (${\approx}0{,}35$), seguido por
+\texttt{ranking\_diff} (${\approx}0{,}22$); las features de xG se
+sit\'uan en un segundo nivel (${\approx}0{,}05$ c/u), mientras que
+\texttt{squad\_value\_diff} y \texttt{travel\_distance\_away} aportan
+marginalmente. \texttt{travel\_distance\_home} es pr\'acticamente nulo
+(${\approx}0{,}00$), coherente con el 97{,}7\,\% de ceros que
+presenta en el dataset hist\'orico.
 
 \begin{figure}[!t]
 \centering
@@ -288,9 +291,11 @@ domina la contribuci\'on, con \texttt{ranking\_diff} en segundo lugar y
 \subsection{Divisi\'on temporal del dataset}
 
 Se evita rigurosamente el \emph{data leakage} mediante un split
-estrictamente temporal (Tabla \ref{tab:split}). La calibraci\'on
-isot\'onica del XGBoost se ajusta sobre la franja 2021 (validaci\'on)
-para no contaminar el conjunto de prueba.
+estrictamente temporal (Tabla \ref{tab:split}). La calibraci\'on Platt (sigmoid) del XGBoost se ajusta sobre la franja 2021
+(validaci\'on) para no contaminar el conjunto de prueba. El m\'etodo sigmoid
+es m\'as estable que el isot\'onico cuando el conjunto de validaci\'on es
+peque\~no (un a\~no de datos, tres clases), evitando sobreajuste en la curva
+de calibraci\'on.
 
 \begin{table}[!t]
 \caption{Split temporal y uso de cada conjunto}
@@ -307,6 +312,14 @@ Test         & \texttt{date $\ge$ 2022-01-01}                   & Evaluaci\'on f
 \bottomrule
 \end{tabular}
 \end{table}
+
+\textbf{Recorte m\'inimo.} El entrenamiento usa partidos con
+\texttt{date $\geq$ 2010}, aunque \texttt{features.csv} contiene datos
+desde 1993. Los features est\'aticos (xG, valor de plantilla, ranking
+moderno) no son representativos del f\'utbol pre-2010, y el time decay
+con $\lambda\!=\!0{,}001$ ya reduce el peso de esos partidos a menos del
+2\,\%. El ELO sigue calcul\'andose sobre el hist\'orico completo para
+mayor precisi\'on.
 
 \textbf{Doble pipeline.} Para validar el Mundial 2022 sin leakage se
 re-ejecuta el entrenamiento con \texttt{cutoff = 2022-01-01},
@@ -352,10 +365,13 @@ exacto de Clopper--Pearson \cite{clopper1934} v\'ia
 Se reportan Log-Loss y Brier score sobre el conjunto de prueba
 ($\texttt{date}\ge 2022$). Se evita \texttt{accuracy} por ser
 inadecuada para predicciones probabil\'isticas desbalanceadas
-\cite{brier1950}. La Tabla \ref{tab:eval} muestra que LogReg y XGBoost
-calibrado son competitivos; el XGBoost calibrado tiende a mejorar el Brier a costa de
-un Log-Loss algo mayor, el \emph{trade-off} esperado al recalibrar
-probabilidades.
+\cite{brier1950}. La Tabla \ref{tab:eval} muestra que XGBoost calibrado es el mejor modelo
+en ambas m\'etricas — el \'unico que supera a todos los dem\'as
+simult\'aneamente en Log-Loss y Brier. La calibraci\'on Platt sobre datos
+de validaci\'on 2021 corrige la sobreconfianza del XGBoost base sin degradar
+su discriminaci\'on. LightGBM y XGBoost sin calibrar quedan pr\'acticamente
+empatados, mientras que LogReg, pese a su simplicidad, obtiene un Brier
+competitivo gracias al rebalanceo de clases y el time decay.
 
 \begin{table}[!t]
 \caption{M\'etricas de evaluaci\'on sobre test temporal ($\ge$2022)}
@@ -366,10 +382,10 @@ probabilidades.
 \toprule
 \textbf{Modelo} & \textbf{Log-Loss} $\downarrow$ & \textbf{Brier} $\downarrow$\\
 \midrule
-LogReg              & 0{,}8894 & 0{,}1741\\
-XGBoost             & 0{,}8948 & 0{,}1755\\
-LightGBM            & 0{,}9005 & 0{,}1772\\
-\textbf{XGBoost-Cal} & 1{,}0242 & \textbf{0{,}1716}\\
+\textbf{XGBoost-Cal} & \textbf{0{,}8697} & \textbf{0{,}1695}\\
+LightGBM            & 0{,}8905 & 0{,}1755\\
+XGBoost             & 0{,}8907 & 0{,}1753\\
+LogReg              & 0{,}8910 & 0{,}1748\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -377,8 +393,10 @@ LightGBM            & 0{,}9005 & 0{,}1772\\
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\columnwidth]{calibration_curves.png}
-\caption{Curvas de calibraci\'on. El XGBoost calibrado isot\'onicamente
-es el que m\'as se aproxima a la diagonal ideal.}
+\caption{Curvas de calibraci\'on por clase. Todos los modelos se
+aproximan bien a la diagonal en \emph{Away Win} y \emph{Home Win};
+la clase \emph{Draw} queda sub-calibrada en todos — reflejo directo
+de la baja correlaci\'on entre features y empates ($|r|<0{,}07$).}
 \label{fig:calibration}
 \end{figure}
 
@@ -404,21 +422,19 @@ anfitriones, ambos con intervalos Clopper--Pearson al 90\,\%.
 \toprule
 \textbf{Equipo} & \textbf{P(Campe\'on)} & \textbf{IC 90\,\%}\\
 \midrule
-Espa\~na         & 14{,}12\,\% & [13{,}55, 14{,}71]\\
-Argentina        & 11{,}20\,\% & [10{,}68, 11{,}73]\\
-Brasil           & 8{,}32\,\%  & [7{,}87, 8{,}79]\\
-Francia          & 8{,}01\,\%  & [7{,}57, 8{,}47]\\
-Inglaterra       & 6{,}30\,\%  & [5{,}90, 6{,}71]\\
-M\'exico         & 6{,}06\,\%  & [5{,}67, 6{,}47]\\
-Estados Unidos   & 5{,}69\,\%  & [5{,}31, 6{,}09]\\
-Jap\'on          & 4{,}03\,\%  & [3{,}71, 4{,}37]\\
-Portugal         & 3{,}72\,\%  & [3{,}41, 4{,}05]\\
-Alemania         & 3{,}01\,\%  & [2{,}73, 3{,}31]\\
+Espa\~na         & 14{,}30\,\% & [13{,}73, 14{,}89]\\
+Francia          & 11{,}11\,\% & [10{,}60, 11{,}64]\\
+Argentina        &  9{,}55\,\% & [ 9{,}07, 10{,}05]\\
+Inglaterra       &  7{,}96\,\% & [ 7{,}52,  8{,}42]\\
+Brasil           &  6{,}11\,\% & [ 5{,}72,  6{,}52]\\
+Portugal         &  4{,}16\,\% & [ 3{,}84,  4{,}50]\\
+Canad\'a         &  4{,}09\,\% & [ 3{,}77,  4{,}43]\\
+Estados Unidos   &  4{,}06\,\% & [ 3{,}74,  4{,}40]\\
+Alemania         &  3{,}83\,\% & [ 3{,}52,  4{,}16]\\
+M\'exico         &  3{,}74\,\% & [ 3{,}43,  4{,}07]\\
 \bottomrule
 \end{tabular}
 \end{table}
-
-\textit{Nota: revisar y sincronizar con \texttt{data/processed/simulation\_results.csv}.}
 
 \begin{table}[!t]
 \caption{Progresi\'on por fase de los anfitriones (\%, IC 90\,\%)}
@@ -429,16 +445,15 @@ Alemania         & 3{,}01\,\%  & [2{,}73, 3{,}31]\\
 \toprule
 \textbf{Fase} & \textbf{M\'exico} & \textbf{EE.UU.} & \textbf{Canad\'a}\\
 \midrule
-Round of 16   & 64{,}9 & 48{,}7 & 51{,}4\\
-Cuartos       & 35{,}6 & 31{,}1 & 26{,}9\\
-Semifinales   & 21{,}0 & 19{,}1 & 12{,}9\\
-Final         & 11{,}6 & 10{,}3 &  5{,}6\\
-Campe\'on     &  6{,}1 &  5{,}7 &  2{,}4\\
+Round of 32   & 95{,}8 & 86{,}8 & 94{,}8\\
+Round of 16   & 58{,}5 & 47{,}9 & 54{,}7\\
+Cuartos       & 31{,}0 & 30{,}4 & 28{,}9\\
+Semifinales   & 16{,}3 & 15{,}8 & 15{,}1\\
+Final         &  7{,}9 &  8{,}2 &  7{,}7\\
+Campe\'on     &  3{,}7 &  4{,}1 &  4{,}1\\
 \bottomrule
 \end{tabular}
 \end{table}
-
-\textit{Nota: revisar y sincronizar con \texttt{data/processed/tournament\_progression.csv}.}
 
 \subsection{An\'alisis de sensibilidad a lesiones}
 
@@ -446,9 +461,12 @@ Aunque las lesiones no se modelan estructuralmente, el script
 \texttt{src/analysis/sensitivity.py} aplica una perturbaci\'on de
 $-30$\,\% sobre \texttt{squad\_value} para cada equipo del top-5 y
 re-ejecuta la simulaci\'on. La Tabla \ref{tab:sens} muestra que el
-efecto es modesto ($|\Delta|\!<\!0{,}7$ pp en todos los casos), lo cual
-es consistente con la observaci\'on de que el feature \texttt{elo\_diff}
-domina la importancia SHAP (Fig.\ \ref{fig:shap}).
+efecto es modesto ($|\Delta|\!\leq\!0{,}83$ pp en todos los casos).
+Esto es coherente con la importancia SHAP: \texttt{squad\_value\_diff}
+ocupa la quinta posici\'on (Fig.\ \ref{fig:shap}), muy por debajo de
+\texttt{elo\_diff} y \texttt{ranking\_diff}. El signo positivo en Brasil
+(+0{,}10 pp) refleja varianza estoc\'astica del Monte Carlo, no un efecto
+real de la reducci\'on de plantilla.
 
 \begin{table}[!t]
 \caption{Sensibilidad a una reducci\'on del 30\,\% en el valor de plantilla}
@@ -459,11 +477,11 @@ domina la importancia SHAP (Fig.\ \ref{fig:shap}).
 \toprule
 \textbf{Equipo} & \textbf{Base \%} & \textbf{Lesi\'on \%} & \textbf{$\Delta$ pp}\\
 \midrule
-Espa\~na      & 14{,}12 & 13{,}91 & $-0{,}21$\\
-Argentina     & 11{,}20 & 10{,}51 & $-0{,}69$\\
-Brasil        &  8{,}32 &  8{,}69 & $+0{,}37$\\
-Francia       &  8{,}01 &  8{,}08 & $+0{,}07$\\
-Inglaterra    &  6{,}30 &  6{,}62 & $+0{,}32$\\
+Espa\~na      & 14{,}30 & 13{,}47 & $-0{,}83$\\
+Francia       & 11{,}11 & 10{,}57 & $-0{,}54$\\
+Argentina     &  9{,}55 &  8{,}94 & $-0{,}61$\\
+Inglaterra    &  7{,}96 &  7{,}27 & $-0{,}69$\\
+Brasil        &  6{,}11 &  6{,}21 & $+0{,}10$\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -526,12 +544,16 @@ goles. Un \emph{dashboard} Streamlit se publica en
 
 Se ha presentado un sistema reproducible para predecir la Copa Mundial
 2026 que cumple con los requisitos planteados: m\'ultiples fuentes
-limpias, siete caracter\'isticas justificadas, \emph{benchmark} de tres
-modelos con calibraci\'on temporal y un motor Monte Carlo de
-$10{,}000$ iteraciones fiel al nuevo reglamento. Las simulaciones ubican
-a selecciones tradicionalmente fuertes en el primer grupo de
-probabilidades, mientras que los anfitriones muestran una ventaja
-coherente sin distorsionar el escenario global.
+limpias, siete caracter\'isticas justificadas por EDA y SHAP,
+\emph{benchmark} de cuatro modelos con calibraci\'on Platt sobre
+validaci\'on temporal y un motor Monte Carlo de $10{,}000$ iteraciones
+fiel al nuevo reglamento. El XGBoost calibrado logra Log-Loss de $0{,}870$
+y Brier de $0{,}170$ — mejor en ambas m\'etricas simult\'aneamente. Las
+simulaciones ubican a Espa\~na (14{,}3\,\%), Francia (11{,}1\,\%) y
+Argentina (9{,}6\,\%) como principales favoritas; los tres anfitriones
+alcanzan probabilidades de t\'itulo entre 3{,}7\,\% y 4{,}1\,\%, con
+ventaja de local coherente en rondas iniciales pero convergencia en
+etapas avanzadas.
 
 Trabajo futuro: (i) incorporar un modelo Dixon--Coles \cite{dixon1997}
 para los marcadores en lugar de Poisson independiente; (ii) reemplazar

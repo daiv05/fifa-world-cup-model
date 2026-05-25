@@ -16,11 +16,11 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 
 | Equipo | P(Campeón) | IC 90% |
 |--------|:----------:|:------:|
-| Spain | 15.2% | [14.6%, 15.8%] |
-| France | 11.1% | [10.6%, 11.6%] |
-| Argentina | 10.6% | [10.0%, 11.1%] |
-| Brazil | 9.9% | [9.4%, 10.4%] |
-| Germany | 6.5% | [6.1%, 6.9%] |
+| Spain | 14.3% | [13.73%, 14.89%] |
+| France | 11.11% | [10.6%, 11.64%] |
+| Argentina | 9.55% | [9.07%, 10.05%] |
+| England | 7.96% | [7.52%, 8.42%] |
+| Brazil | 6.11% | [5.72%, 6.52%] |
 
 ---
 
@@ -29,7 +29,7 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 ```
 .
 ├── data/
-│   ├── raw/                        # Datos crudos (no versionados)
+│   ├── raw/                        # Datos crudos
 │   │   ├── international_results.csv   # Auto-descargado de GitHub
 │   │   ├── statsbomb_xg_by_team.csv    # Auto-generado por scraper.py
 │   │   ├── squad_values.csv            # Snapshot manual Transfermarkt
@@ -50,8 +50,8 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 │           ├── xgboost_pre2022.joblib    # Modelo entrenado solo con date<2022
 │           └── best_params_*.json        # Hiperparámetros de Optuna
 ├── notebooks/
-│   └── 01_eda.ipynb                # Análisis exploratorio (10 secciones)
-├── reports/figures/                 # SHAP, calibración, EDA, etc.
+│   └── 01_eda.ipynb                # Análisis exploratorio
+├── reports/figures/                 # SHAP, calibración, EDA
 ├── src/
 │   ├── data/         # data_loader.py, scraper.py
 │   ├── features/     # elo.py, time_decay.py, features.py
@@ -72,7 +72,7 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 
 ```bash
 # 1. Clonar el repositorio
-git clone <url>
+git clone https://github.com/daiv05/fifa-world-cup-model
 cd fifa-world-cup-model
 
 # 2. Crear entorno virtual
@@ -82,22 +82,13 @@ python -m venv .venv
 
 # 3. Instalar el paquete en modo editable (preferido)
 pip install -e .
-
-# alternativa:
-# pip install -r requirements.txt
 ```
 
 ---
 
 ## Pipeline de ejecución
 
-Ejecutar desde la raíz del proyecto (todos los módulos son `src.*`):
-
-```bash
-make all          # features - train - evaluate - simulate - sensitivity
-```
-
-O paso a paso:
+Ejecutar desde la raíz del proyecto:
 
 ```bash
 python -m src.features.features
@@ -129,7 +120,7 @@ python -m pytest tests/ -v
 |--------|-----------|-------------------|
 | [martj42/international_results](https://github.com/martj42/international_results) | Resultados históricos 1872-2024 | ~47,000 partidos |
 | [StatsBomb Open Data](https://github.com/statsbomb/open-data) | xG por equipo (internacionales) | 109 equipos |
-| Transfermarkt (snapshot manual, ver `scraper.SQUAD_VALUES_SNAPSHOT_DATE`) | Valor de mercado de plantilla | 60 equipos |
+| Transfermarkt (snapshot manual) | Valor de mercado de plantilla | 60 equipos |
 | FIFA Ranking (CSV histórico) | Posición y puntos por equipo y fecha | ~210 equipos |
 
 ### Features (7)
@@ -152,27 +143,15 @@ Split **temporal** implementado en `temporal_split` ([src/models/train.py](src/m
 | Conjunto | Filtro de fecha | Uso |
 |----------|-----------------|-----|
 | **Train** | `date < 2021-01-01` | Entrenamiento de LogReg, XGBoost, LightGBM |
-| **Validación** | `2021-01-01 ≤ date < 2022-01-01` | Calibración isotónica de XGBoost (sin leakage) |
+| **Validación** | `2021-01-01 ≤ date < 2022-01-01` | Calibración Platt (sigmoid) de XGBoost (sin leakage) |
 | **Test** | `date ≥ 2022-01-01` | Evaluación final (`evaluate.py` reutiliza `temporal_split`) |
-
-**CV interno (Optuna):** dentro del conjunto de train se usa `TimeSeriesSplit(n_splits=5)` para optimizar hiperparámetros con `neg_log_loss`. Cada fold entrena con el pasado y valida sobre un bloque futuro contiguo.
-
-**Doble pipeline de entrenamiento** (`_full_training_pipeline` corre dos veces):
-1. Sin cutoff - modelos `*.joblib` (usa los tres cortes anteriores).
-2. Con `cutoff=2022-01-01` - modelos `*_pre2022.joblib`, entrenados solo con `date < 2022-01-01` para validar la WC 2022 sin leakage. Al aplicar este cutoff el `val_mask` (2021) queda vacío y se activa un **fallback 85/15**: el último 15% temporal del train se usa como validación para la calibración.
 
 ### Modelos
 - LogReg (baseline, escalado + balanceado).
 - XGBoost - optimizado con Optuna (100 trials por default).
 - LightGBM - optimizado con Optuna.
-- XGBoost calibrado sobre validación temporal (2021).
+- XGBoost calibrado con método Platt (sigmoid) sobre validación temporal (2021).
 - XGBoost pre-2022 - entrenado solo con `date < 2022-01-01` para validar el Mundial 2022 sin data leakage.
-
-Hiperparámetros se cachean en `data/processed/models/best_params_{model}.json`.
-
-Pesos de entrenamiento: `w = class_weight_balanced × time_decay`, re-normalizados por su media. Aborda el desbalance de clases (H:49% / D:21% / V:30%) sin sacrificar información temporal.
-
-Las métricas exactas se generan con `make evaluate` y quedan en `data/processed/model_evaluation.csv`. La validación WC2022 se hace exclusivamente con `xgboost_pre2022`.
 
 ### Simulación Monte Carlo
 - **10,000 iteraciones** del torneo completo (104 partidos c/u).
@@ -180,18 +159,17 @@ Las métricas exactas se generan con `make evaluate` y quedan en `data/processed
 - Goles modelados con Poisson independiente sobre `xg_for / xg_against` de los dos equipos. El outcome surge del marcador, no al revés.
 - Desempate de grupos: puntos - diferencia de goles - goles a favor (FIFA 2026).
 - Knockout: en caso de empate, penalty shootout (50/50).
-- IC binomial: Clopper-Pearson (`scipy.stats.beta`).
-- Tracking de avance por fase: `data/processed/tournament_progression.csv` (P de llegar a grupos / R32 / R16 / QF / SF / Final / Champion).
+- Tracking de avance por fase: `data/processed/tournament_progression.csv`.
 
 ### Validación histórica (WC 2022)
-El modelo `xgboost_pre2022` se entrena exclusivamente con `date < 2022-01-01` y se evalúa sobre el Mundial 2022. Las métricas exactas quedan en consola al ejecutar `make evaluate`.
+El modelo `xgboost_pre2022` se entrena exclusivamente con `date < 2022-01-01` y se evalúa sobre el Mundial 2022. Las métricas exactas quedan en consola al ejecutar la evaluación.
 
 ---
 
 ## Limitaciones conocidas
 - Los equipos debutantes (Uzbekistán, Curaçao, etc.) tienen muy pocos partidos históricos - ELO inicial por defecto (1500).
 - Las lesiones de última hora no están modeladas de forma estructural, pero `src/analysis/sensitivity.py` simula escenarios `-30% squad_value` sobre el top-5 (ver `data/processed/sensitivity_injuries.csv`).
-- El xG de StatsBomb cubre principalmente torneos UEFA/FIFA; equipos de otras confederaciones usan `1.2` por defecto (media global aprox.).
+- El xG de StatsBomb cubre principalmente torneos UEFA/FIFA; equipos de otras confederaciones usan `1.2` por defecto (media global aproximada).
 - `travel_distance = 0.0` cuando la sede del partido no se puede geocodificar (campo neutral / dato faltante).
 - El snapshot Transfermarkt es manual (no scraping en vivo); fecha en `scraper.SQUAD_VALUES_SNAPSHOT_DATE`.
 
