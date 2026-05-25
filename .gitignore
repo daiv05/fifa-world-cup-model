@@ -30,3 +30,22 @@ build/
 
 # Archivos de entorno Python
 .env
+
+# Temporary files from TeX/LaTeX
+*.aux
+*.bbl
+*.blg
+*.brf
+*.idx
+*.ilg
+*.ind
+*.lof
+*.lol
+*.lot
+*.maf
+*.mtc*
+*.toc
+*.fmt
+*.fot
+*.cb
+*.lb

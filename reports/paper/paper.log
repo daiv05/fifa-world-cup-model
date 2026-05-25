@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.5.24)  24 MAY 2026 20:53
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.5.24)  24 MAY 2026 21:14
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -550,31 +550,28 @@ Underfull \hbox (badness 10000) in paragraph at lines 150--151
 
 
 ]
-<figs/eda_05_elo_diff.png, id=139, 1003.5894pt x 351.714pt>
+<figs/eda_05_elo_diff.png, id=142, 1003.5894pt x 351.714pt>
 File: figs/eda_05_elo_diff.png Graphic file (type png)
 <use figs/eda_05_elo_diff.png>
 Package pdftex.def Info: figs/eda_05_elo_diff.png  used on input line 216.
 (pdftex.def)             Requested size: 252.0pt x 88.31468pt.
-<figs/eda_07_elo_history.png, id=141, 859.0494pt x 423.984pt>
+<figs/eda_07_elo_history.png, id=144, 859.0494pt x 423.984pt>
 File: figs/eda_07_elo_history.png Graphic file (type png)
 <use figs/eda_07_elo_history.png>
 Package pdftex.def Info: figs/eda_07_elo_history.png  used on input line 225.
 (pdftex.def)             Requested size: 252.0pt x 124.36902pt.
-
-Underfull \vbox (badness 1735) has occurred while \output is active []
-
-<figs/eda_04_target_distribution.png, id=143, 497.6994pt x 351.714pt>
+<figs/eda_04_target_distribution.png, id=146, 497.6994pt x 351.714pt>
 File: figs/eda_04_target_distribution.png Graphic file (type png)
 <use figs/eda_04_target_distribution.png>
 Package pdftex.def Info: figs/eda_04_target_distribution.png  used on input line 249.
 (pdftex.def)             Requested size: 252.0pt x 178.08376pt.
-<figs/eda_06_correlation_matrix.png, id=144, 615.7404pt x 498.663pt>
+<figs/eda_06_correlation_matrix.png, id=147, 615.7404pt x 498.663pt>
 File: figs/eda_06_correlation_matrix.png Graphic file (type png)
 <use figs/eda_06_correlation_matrix.png>
 Package pdftex.def Info: figs/eda_06_correlation_matrix.png  used on input line 257.
 (pdftex.def)             Requested size: 335.39685pt x 271.63278pt.
  [2 <./figs/eda_05_elo_diff.png> <./figs/eda_07_elo_history.png>]
-<figs/shap_summary.png, id=171, 534.43665pt x 316.5426pt>
+<figs/shap_summary.png, id=173, 534.43665pt x 316.5426pt>
 File: figs/shap_summary.png Graphic file (type png)
 <use figs/shap_summary.png>
 Package pdftex.def Info: figs/shap_summary.png  used on input line 281.
@@ -609,7 +606,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 306--306
 []\T1/pcr/m/n/8 date $\OMS/cmsy/m/n/8 ^^U$
  []
 
-<figs/calibration_curves.png, id=177, 1076.823pt x 279.9258pt>
+<figs/calibration_curves.png, id=179, 1076.823pt x 279.9258pt>
 File: figs/calibration_curves.png Graphic file (type png)
 <use figs/calibration_curves.png>
 Package pdftex.def Info: figs/calibration_curves.png  used on input line 379.
@@ -624,10 +621,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 441--442
 []\T1/ptm/m/it/10 Nota: re-vi-sar y sin-cro-ni-zar con
  []
 
-[3 <./figs/eda_04_target_distribution.png>]
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [4 <./figs/eda_06_correlation_matrix.png> <./figs/shap_summary.png> <./figs/calibration_curves.png>]
+[3 <./figs/eda_04_target_distribution.png>] [4 <./figs/eda_06_correlation_matrix.png> <./figs/shap_summary.png> <./figs/calibration_curves.png>]
 Underfull \hbox (badness 2205) in paragraph at lines 505--510
 \T1/pcr/m/n/10 analysis/\T1/ptm/m/n/10 , \T1/pcr/m/n/10 visualization/\T1/ptm/m/n/10 ), con CSVs ver-sio-na-
  []
@@ -637,11 +631,12 @@ Underfull \hbox (badness 3460) in paragraph at lines 505--510
 \T1/ptm/m/n/10 bles pro-du-ci-dos en \T1/pcr/m/n/10 data/processed/ \T1/ptm/m/n/10 y fi-gu-ras en
  []
 
-[5]
+
 Underfull \hbox (badness 2495) in paragraph at lines 624--627
 []\T1/ptm/m/n/8 M. Jü-ri-soo, ``In-ter-na-tio-nal foot-ball re-sults from 1872 to 2023,''
  []
 
+[5]
 
 ** Conference Paper **
 Before submitting the final camera ready copy, remember to:
@@ -669,13 +664,13 @@ Package rerunfilecheck Info: File `paper.out' has not changed.
 Here is how much of TeX's memory you used:
  13237 strings out of 467871
  208489 string characters out of 5418376
- 657738 words of memory out of 5000000
+ 658738 words of memory out of 5000000
  41862 multiletter control sequences out of 15000+600000
  749211 words of font info for 170 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 75i,14n,79p,399b,620s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,14n,79p,399b,621s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi10.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi5.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi6.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi7.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi8.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi9.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr10.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr7.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr8.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr9.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy7.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy8.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy9.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/urw/courier/ucrr8a.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/urw/courier/ucrro8a.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmb8a.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmbi8a.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmr8a.pfb><C:/Users/david/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmri8a.pfb>
-Output written on paper.pdf (6 pages, 836315 bytes).
+Output written on paper.pdf (6 pages, 836522 bytes).
 PDF statistics:
  342 PDF objects out of 1000 (max. 8388607)
  70 named destinations out of 1000 (max. 500000)
