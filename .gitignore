@@ -49,3 +49,8 @@ build/
 *.fot
 *.cb
 *.lb
+
+# Generated files from latexmk, arara, etc.
+*.fdb_latexmk
+*.fls
+*.synctex.gz
