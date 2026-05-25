@@ -3,6 +3,7 @@ from collections import defaultdict
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 INITIAL_RATING = 1500.0
 
@@ -48,7 +49,7 @@ def calculate_elo_ratings(matches_df: pd.DataFrame) -> pd.DataFrame:
     ratings: dict[str, float] = defaultdict(lambda: INITIAL_RATING)
     records = []
 
-    for _, row in df.iterrows():
+    for _, row in tqdm(df.iterrows(), total=len(df), desc="ELO", unit="match"):
         home = row["home_team"]
         away = row["away_team"]
         tournament = row.get("tournament", "Friendly")

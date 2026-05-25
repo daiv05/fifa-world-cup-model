@@ -1,0 +1,373 @@
+{
+  "Mexico": [
+    19.43,
+    -99.13
+  ],
+  "South Africa": [
+    -25.74,
+    28.19
+  ],
+  "South Korea": [
+    37.57,
+    126.98
+  ],
+  "Czech Republic": [
+    50.08,
+    14.44
+  ],
+  "Canada": [
+    45.42,
+    -75.7
+  ],
+  "Bosnia & Herzegovina": [
+    43.85,
+    18.36
+  ],
+  "Qatar": [
+    25.29,
+    51.53
+  ],
+  "Switzerland": [
+    46.95,
+    7.45
+  ],
+  "Brazil": [
+    -15.78,
+    -47.93
+  ],
+  "Morocco": [
+    34.02,
+    -6.84
+  ],
+  "Haiti": [
+    18.54,
+    -72.34
+  ],
+  "Scotland": [
+    55.95,
+    -3.19
+  ],
+  "United States": [
+    38.89,
+    -77.03
+  ],
+  "Paraguay": [
+    -25.28,
+    -57.64
+  ],
+  "Australia": [
+    -35.28,
+    149.13
+  ],
+  "Turkey": [
+    39.93,
+    32.86
+  ],
+  "Germany": [
+    52.52,
+    13.41
+  ],
+  "Curacao": [
+    12.11,
+    -68.93
+  ],
+  "Ivory Coast": [
+    5.36,
+    -4.01
+  ],
+  "Ecuador": [
+    -0.23,
+    -78.52
+  ],
+  "Netherlands": [
+    52.37,
+    4.9
+  ],
+  "Japan": [
+    35.69,
+    139.69
+  ],
+  "Sweden": [
+    59.33,
+    18.06
+  ],
+  "Tunisia": [
+    36.82,
+    10.17
+  ],
+  "Belgium": [
+    50.85,
+    4.35
+  ],
+  "Egypt": [
+    30.04,
+    31.24
+  ],
+  "Iran": [
+    35.69,
+    51.39
+  ],
+  "New Zealand": [
+    -41.29,
+    174.78
+  ],
+  "Spain": [
+    40.41,
+    -3.7
+  ],
+  "Cape Verde": [
+    14.93,
+    -23.51
+  ],
+  "Saudi Arabia": [
+    24.69,
+    46.72
+  ],
+  "Uruguay": [
+    -34.9,
+    -56.19
+  ],
+  "France": [
+    48.85,
+    2.35
+  ],
+  "Senegal": [
+    14.71,
+    -17.47
+  ],
+  "Iraq": [
+    33.34,
+    44.4
+  ],
+  "Norway": [
+    59.91,
+    10.75
+  ],
+  "Argentina": [
+    -34.61,
+    -58.38
+  ],
+  "Algeria": [
+    36.74,
+    3.06
+  ],
+  "Austria": [
+    48.21,
+    16.37
+  ],
+  "Jordan": [
+    31.95,
+    35.93
+  ],
+  "Portugal": [
+    38.72,
+    -9.14
+  ],
+  "DR Congo": [
+    -4.32,
+    15.32
+  ],
+  "Uzbekistan": [
+    41.3,
+    69.24
+  ],
+  "Colombia": [
+    4.71,
+    -74.07
+  ],
+  "England": [
+    51.51,
+    -0.13
+  ],
+  "Croatia": [
+    45.81,
+    15.98
+  ],
+  "Ghana": [
+    5.55,
+    -0.2
+  ],
+  "Panama": [
+    8.99,
+    -79.52
+  ],
+  "Angola": null,
+  "Tanzania": null,
+  "Benin": null,
+  "Botswana": null,
+  "Burundi": null,
+  "Ethiopia": null,
+  "Mozambique": null,
+  "Namibia": null,
+  "Eswatini": null,
+  "Togo": null,
+  "Zambia": null,
+  "Malta": null,
+  "Congo": null,
+  "Zimbabwe": null,
+  "Cyprus": null,
+  "Albania": null,
+  "Greece": null,
+  "Israel": null,
+  "Kenya": null,
+  "Nigeria": null,
+  "Niger": null,
+  "Cameroon": null,
+  "San Marino": null,
+  "Italy": null,
+  "Denmark": null,
+  "Hungary": null,
+  "Republic of Ireland": null,
+  "Wales": null,
+  "El Salvador": null,
+  "Honduras": null,
+  "Lithuania": null,
+  "Luxembourg": null,
+  "Romania": null,
+  "Singapore": null,
+  "Bulgaria": null,
+  "Czechoslovakia": null,
+  "Poland": null,
+  "Russia": null,
+  "United Arab Emirates": null,
+  "Malaysia": null,
+  "Guinea": null,
+  "Lebanon": null,
+  "Estonia": null,
+  "Finland": null,
+  "Latvia": null,
+  "Iceland": null,
+  "Faroe Islands": null,
+  "China": null,
+  "Syria": null,
+  "Venezuela": null,
+  "Bolivia": null,
+  "Peru": null,
+  "Northern Ireland": null,
+  "Georgia": null,
+  "Liechtenstein": null,
+  "North Macedonia": null,
+  "Slovakia": null,
+  "Slovenia": null,
+  "Ukraine": null,
+  "Armenia": null,
+  "Belarus": null,
+  "Moldova": null,
+  "Hong Kong": null,
+  "Dominica": null,
+  "Turkmenistan": null,
+  "Kuwait": null,
+  "Dominican Republic": null,
+  "Guyana": null,
+  "Antigua & Barbuda": null,
+  "Aruba": null,
+  "Suriname": null,
+  "Grenada": null,
+  "Jamaica": null,
+  "Serbia": null,
+  "Puerto Rico": null,
+  "Nicaragua": null,
+  "Saint Kitts and Nevis": null,
+  "Tajikistan": null,
+  "Guatemala": null,
+  "Saint Vincent and the Grenadines": null,
+  "Cayman Islands": null,
+  "Barbados": null,
+  "Saint Lucia": null,
+  "Mauritania": null,
+  "Gambia": null,
+  "Guinea-Bissau": null,
+  "Malawi": null,
+  "Sudan": null,
+  "Uganda": null,
+  "Belize": null,
+  "Madagascar": null,
+  "Mauritius": null,
+  "Rwanda": null,
+  "Kazakhstan": null,
+  "Burkina Faso": null,
+  "Gabon": null,
+  "Sierra Leone": null,
+  "Oman": null,
+  "Trinidad & Tobago": null,
+  "Thailand": null,
+  "Chile": null,
+  "Vietnam": null,
+  "Azerbaijan": null,
+  "Papua New Guinea": null,
+  "Costa Rica": null,
+  "Tonga": null,
+  "Solomon Islands": null,
+  "Indonesia": null,
+  "Bahrain": null,
+  "Cambodia": null,
+  "Yemen": null,
+  "Pakistan": null,
+  "Fiji": null,
+  "Liberia": null,
+  "Andorra": null,
+  "Macau": null,
+  "Anguilla": null,
+  "British Virgin Islands": null,
+  "Cuba": null,
+  "Bahamas": null,
+  "Bermuda": null,
+  "United States Virgin Islands": null,
+  "Djibouti": null,
+  "Central African Republic": null,
+  "São Tomé and Príncipe": null,
+  "Seychelles": null,
+  "Chad": null,
+  "Equatorial Guinea": null,
+  "Eritrea": null,
+  "Lesotho": null,
+  "Libya": null,
+  "Mali": null,
+  "Maldives": null,
+  "Brunei": null,
+  "India": null,
+  "Laos": null,
+  "Philippines": null,
+  "Nepal": null,
+  "Sri Lanka": null,
+  "North Korea": null,
+  "Bhutan": null,
+  "Afghanistan": null,
+  "Taiwan": null,
+  "Bangladesh": null,
+  "Mongolia": null,
+  "Kyrgyzstan": null,
+  "Montserrat": null,
+  "Samoa": null,
+  "Comoros": null,
+  "Turks and Caicos Islands": null,
+  "Montenegro": null,
+  "Myanmar": null,
+  "Palestine": null,
+  "New Caledonia": null,
+  "Tahiti": null,
+  "Timor-Leste": null,
+  "Guam": null,
+  "South Sudan": null,
+  "Gibraltar": null,
+  "Kosovo": null,
+  "French Guiana": null,
+  "Martinique": null,
+  "Guadeloupe": null,
+  "Bonaire": null,
+  "Vanuatu": null,
+  "Cook Islands": null,
+  "Somalia": null,
+  "American Samoa": null,
+  "Sint Maarten": null,
+  "Saint Martin": null,
+  "Zaïre": null,
+  "Swaziland": null,
+  "China PR": null,
+  "Antigua and Barbuda": null,
+  "FR Yugoslavia": null,
+  "Curaçao": null,
+  "Trinidad and Tobago": null,
+  "Bosnia and Herzegovina": null,
+  "Serbia and Montenegro": null
+}

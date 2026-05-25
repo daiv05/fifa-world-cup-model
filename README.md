@@ -110,24 +110,7 @@ streamlit run src/visualization/dashboard.py
 
 ### EDA
 
-```bash
-jupyter notebook notebooks/01_eda.ipynb
-# o ejecutar de un golpe:
-jupyter nbconvert --to notebook --execute notebooks/01_eda.ipynb --output 01_eda.executed.ipynb
-```
-
-El notebook genera ~15 figuras en `reports/figures/eda_*.png` que documentan
-calidad de datos, distribución del target, análisis univariado por feature,
-correlaciones, evolución del ELO, SHAP y limitaciones del dataset.
-
-Outputs principales:
-- `data/processed/features.csv` - dataset de entrenamiento.
-- `data/processed/models/*.joblib` - LogReg, XGBoost, LightGBM, XGBoost calibrado, XGBoost pre-2022.
-- `data/processed/model_evaluation.csv` - log-loss / Brier.
-- `data/processed/simulation_results.csv` - P(campeón) con IC Clopper-Pearson.
-- `data/processed/tournament_progression.csv` - P(avanzar) por fase.
-- `data/processed/sensitivity_injuries.csv` - análisis de sensibilidad.
-- `reports/figures/shap_summary.png`.
+Abrir notebook en VSCode con la extensión de Jupyter para ejecutar `notebooks/01_eda.ipynb`. El análisis exploratorio cubre calidad de datos, distribución del target, análisis univariado por feature, correlaciones, evolución del ELO, SHAP y limitaciones del dataset.
 
 ---
 

@@ -111,7 +111,6 @@ def train_baseline(
             random_state=42,
             solver="lbfgs",
             C=1.0,
-            class_weight="balanced",
         )),
     ])
     if isinstance(X, np.ndarray):
@@ -197,8 +196,12 @@ def run_optuna_study(
             "reg_lambda": trial.suggest_float("reg_lambda", 1e-4, 10.0, log=True),
         }
         if model_type == "xgboost":
+            params["min_child_weight"] = trial.suggest_float("min_child_weight", 1.0, 15.0)
+            params["gamma"] = trial.suggest_float("gamma", 0.0, 5.0)
             model = train_xgboost(X, y, weights, params)
         else:
+            params["min_child_samples"] = trial.suggest_int("min_child_samples", 5, 50)
+            params["min_split_gain"] = trial.suggest_float("min_split_gain", 0.0, 1.0)
             model = train_lightgbm(X, y, weights, params)
         return _cv_score(model, X, y, weights)
 
@@ -251,16 +254,30 @@ def _full_training_pipeline(
     trials: int,
     cutoff: pd.Timestamp | None = None,
     suffix: str = "",
+    min_year: int | None = 2010,
 ) -> None:
     """
     Si `cutoff` se pasa, se entrena solo con date < cutoff y los modelos
     se guardan con `suffix` (p.ej. "_pre2022").
+
+    `min_year` recorta el dataset por abajo (default 2010). Razones:
+      - los features estáticos (xg_*, squad_value, ranking moderno) no son
+        representativos del fútbol pre-2010.
+      - TimeSeriesSplit sobre datos multi-década promedia regímenes
+        incomparables y empuja a hiperparámetros sub-óptimos.
+      - el time_decay con lambda=0.001 ya hace que los partidos pre-2010
+        pesen <2%, así que el recorte explícito no pierde señal real.
     """
     df = df.dropna(subset=FEATURE_COLS + ["target"]).copy()
+    df["date"] = pd.to_datetime(df["date"])
+    if min_year is not None:
+        before = len(df)
+        df = df[df["date"].dt.year >= min_year].reset_index(drop=True)
+        print(f"  Recorte temporal (>= {min_year}): {before:,} -> {len(df):,} partidos")
     # Ordenar por fecha es requisito para TimeSeriesSplit dentro del CV de Optuna.
     df = df.sort_values("date", kind="mergesort").reset_index(drop=True)
     if cutoff is not None:
-        df = df[pd.to_datetime(df["date"]) < cutoff].reset_index(drop=True)
+        df = df[df["date"] < cutoff].reset_index(drop=True)
 
     train_mask, val_mask, test_mask = temporal_split(df)
     print(f"  Train: {train_mask.sum():,} | Val: {val_mask.sum():,} | Test: {test_mask.sum():,}")
@@ -312,8 +329,10 @@ def _full_training_pipeline(
 
     # Calibración sobre val (no leakage)
     if X_val.size > 0:
-        print("Calibrando XGBoost (isotonic, cv=prefit) sobre validación temporal...")
-        xgb_cal = calibrate_model(xgb_model, X_val, y_val, method="isotonic")
+        # Sigmoid (Platt) en vez de isotonic: con ~1 año de validación e
+        # isotonic 3-clase, isotonic sobreajusta y degrada log-loss en test.
+        print("Calibrando XGBoost (sigmoid/Platt, prefit) sobre validación temporal...")
+        xgb_cal = calibrate_model(xgb_model, X_val, y_val, method="sigmoid")
         save_model(xgb_cal, f"xgboost_calibrated{suffix}")
 
 
@@ -323,17 +342,22 @@ if __name__ == "__main__":
     parser.add_argument("--cutoff", type=str, default=None,
                         help="Si se pasa (YYYY-MM-DD), entrena solo con date < cutoff "
                              "y guarda con suffix _pre<YYYY>")
+    parser.add_argument("--min-year", type=int, default=2010,
+                        help="Año mínimo a incluir en el entrenamiento (default 2010). "
+                             "Pasa 0 para usar todo el histórico.")
     args = parser.parse_args()
 
     from src.features.features import PROCESSED_DIR
     df = pd.read_csv(PROCESSED_DIR / "features.csv")
+    min_year = args.min_year if args.min_year and args.min_year > 0 else None
 
     print(f"\n=== Pipeline principal (sin cutoff) ===")
-    _full_training_pipeline(df, trials=args.trials, suffix="")
+    _full_training_pipeline(df, trials=args.trials, suffix="", min_year=min_year)
 
     cutoff_pre22 = pd.Timestamp(args.cutoff) if args.cutoff else pd.Timestamp("2022-01-01")
     suffix = f"_pre{cutoff_pre22.year}"
     print(f"\n=== Pipeline pre-{cutoff_pre22.year} (para validar WC sin leakage) ===")
-    _full_training_pipeline(df, trials=args.trials, cutoff=cutoff_pre22, suffix=suffix)
+    _full_training_pipeline(df, trials=args.trials, cutoff=cutoff_pre22, suffix=suffix,
+                             min_year=min_year)
 
     print("\nOK - modelos guardados en", MODELS_DIR)

@@ -2,15 +2,43 @@
 Combina ELO, time decay, valor de plantilla, xG, distancia geográfica y ranking FIFA
 """
 
+import json
+import os
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from tqdm import tqdm
+
+USE_NOMINATIM = os.environ.get("USE_NOMINATIM", "0") == "1"
 
 from src.features.elo import calculate_elo_ratings, INITIAL_RATING
 from src.features.time_decay import compute_time_decay_weights, REFERENCE_DATE, DEFAULT_LAMBDA
 
 PROCESSED_DIR = Path(__file__).parents[2] / "data" / "processed"
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+
+GEO_CACHE_PATH = PROCESSED_DIR / "geo_coords_cache.json"
+
+
+def _load_geo_cache() -> dict[str, tuple[float, float] | None]:
+    if not GEO_CACHE_PATH.exists():
+        return {}
+    try:
+        raw = json.loads(GEO_CACHE_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    out: dict[str, tuple[float, float] | None] = {}
+    for k, v in raw.items():
+        if v is None:
+            out[k] = None
+        else:
+            out[k] = (float(v[0]), float(v[1]))
+    return out
+
+
+def _save_geo_cache(cache: dict[str, tuple[float, float] | None]) -> None:
+    serializable = {k: (list(v) if v is not None else None) for k, v in cache.items()}
+    GEO_CACHE_PATH.write_text(json.dumps(serializable, ensure_ascii=False, indent=2), encoding="utf-8")
 
 WC2026_HOST_CITIES = {
     "United States": (38.9, -77.0),
@@ -84,11 +112,12 @@ WC_TEAM_CAPITAL_COORDS: dict[str, tuple[float, float]] = {
 }
 
 
-def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+def _haversine_km(lat1, lon1, lat2, lon2):
+    """Acepta escalares o arrays numpy; devuelve el mismo tipo."""
     R = 6371.0
     phi1, phi2 = np.radians(lat1), np.radians(lat2)
-    dphi = np.radians(lat2 - lat1)
-    dlambda = np.radians(lon2 - lon1)
+    dphi = np.radians(np.asarray(lat2) - np.asarray(lat1))
+    dlambda = np.radians(np.asarray(lon2) - np.asarray(lon1))
     a = np.sin(dphi / 2) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(dlambda / 2) ** 2
     return 2 * R * np.arcsin(np.sqrt(a))
 
@@ -98,10 +127,13 @@ def _get_team_coords(team: str) -> tuple[float, float] | None:
     Devuelve coordenadas (lat, lon) de la capital del equipo.
     Primero consulta WC_TEAM_CAPITAL_COORDS (instantáneo, sin red) para los 48
     clasificados al WC 2026. Para equipos históricos fuera del torneo usa
-    Nominatim como fallback.
+    Nominatim como fallback SOLO si USE_NOMINATIM=1 (opt-in, por la latencia
+    de red con sleep de 0.5s por petición).
     """
     if team in WC_TEAM_CAPITAL_COORDS:
         return WC_TEAM_CAPITAL_COORDS[team]
+    if not USE_NOMINATIM:
+        return None
     try:
         from geopy.geocoders import Nominatim
         import time
@@ -183,6 +215,24 @@ def _vectorized_elo_diff(
     return (merged["home_elo_before"] - merged["away_elo_before"]).values
 
 
+def _resolve_coords_for_names(
+    names: list[str],
+    coords_cache: dict[str, tuple[float, float] | None],
+) -> None:
+    """
+    Llena `coords_cache` con coordenadas para cada nombre único en `names`.
+    Solo va a Nominatim para nombres que ni están en cache ni en
+    WC_TEAM_CAPITAL_COORDS. Mutates `coords_cache` en sitio.
+    """
+    for name in names:
+        if name in coords_cache:
+            continue
+        if name in WC_TEAM_CAPITAL_COORDS:
+            coords_cache[name] = WC_TEAM_CAPITAL_COORDS[name]
+            continue
+        coords_cache[name] = _get_team_coords(name)
+
+
 def _vectorized_travel_distances(
     matches_df: pd.DataFrame,
     team_coords_cache: dict,
@@ -192,6 +242,9 @@ def _vectorized_travel_distances(
     Para cada partido, calcula distancia desde la capital del equipo a la
     sede real del partido (`country`). Si el campo `neutral` es True o el
     país no se puede geocodificar, devuelve 0.0 (campo neutral).
+
+    Resolución de coordenadas: una sola pasada por nombres únicos (con cache
+    persistente en disco). El cálculo de haversine es totalmente vectorizado.
     """
     n = len(matches_df)
     home_dist = np.zeros(n, dtype=np.float64)
@@ -199,34 +252,85 @@ def _vectorized_travel_distances(
 
     has_country = "country" in matches_df.columns
     has_neutral = "neutral" in matches_df.columns
+    if not has_country:
+        return home_dist, away_dist
 
-    homes = matches_df["home_team"].values
-    aways = matches_df["away_team"].values
-    countries = matches_df["country"].values if has_country else [None] * n
-    neutrals = matches_df["neutral"].values if has_neutral else [False] * n
+    homes = matches_df["home_team"].astype(str).values
+    aways = matches_df["away_team"].astype(str).values
+    countries = matches_df["country"].astype(object).values
+    if has_neutral:
+        neutrals = matches_df["neutral"].fillna(False).astype(bool).values
+    else:
+        neutrals = np.zeros(n, dtype=bool)
 
-    for i in range(n):
-        if not has_country or neutrals[i] or pd.isna(countries[i]):
-            continue
-        venue = _get_country_coords(countries[i], country_coords_cache)
-        if venue is None:
-            continue
+    country_nan = pd.isna(countries)
+    active = ~(neutrals | country_nan)
 
-        h_coords = team_coords_cache.get(homes[i])
-        if h_coords is None:
-            h_coords = _get_team_coords(homes[i])
-            team_coords_cache[homes[i]] = h_coords
-        a_coords = team_coords_cache.get(aways[i])
-        if a_coords is None:
-            a_coords = _get_team_coords(aways[i])
-            team_coords_cache[aways[i]] = a_coords
+    if not active.any():
+        return home_dist, away_dist
 
-        if h_coords is not None:
-            home_dist[i] = _haversine_km(h_coords[0], h_coords[1], venue[0], venue[1])
-        if a_coords is not None:
-            away_dist[i] = _haversine_km(a_coords[0], a_coords[1], venue[0], venue[1])
+    unique_teams = pd.unique(np.concatenate([homes[active], aways[active]]))
+    unique_countries = pd.unique(countries[active].astype(str))
+
+    _resolve_coords_for_names(list(unique_teams), team_coords_cache)
+    _resolve_coords_for_names(list(unique_countries), country_coords_cache)
+
+    def _coord_arrays(names: np.ndarray, cache: dict) -> tuple[np.ndarray, np.ndarray]:
+        lat_map = {k: (v[0] if v is not None else np.nan) for k, v in cache.items()}
+        lon_map = {k: (v[1] if v is not None else np.nan) for k, v in cache.items()}
+        s = pd.Series(names)
+        return (
+            np.asarray(s.map(lat_map), dtype=np.float64).copy(),
+            np.asarray(s.map(lon_map), dtype=np.float64).copy(),
+        )
+
+    home_lat, home_lon = _coord_arrays(homes, team_coords_cache)
+    away_lat, away_lon = _coord_arrays(aways, team_coords_cache)
+    venue_lat, venue_lon = _coord_arrays(countries.astype(str), country_coords_cache)
+
+    inactive = ~active
+    home_lat[inactive] = np.nan
+    away_lat[inactive] = np.nan
+    venue_lat[inactive] = np.nan
+
+    h = _haversine_km(home_lat, home_lon, venue_lat, venue_lon)
+    a = _haversine_km(away_lat, away_lon, venue_lat, venue_lon)
+    home_dist = np.where(np.isnan(h), 0.0, h)
+    away_dist = np.where(np.isnan(a), 0.0, a)
 
     return home_dist, away_dist
+
+
+def _vectorized_ranking_diff(
+    matches_df: pd.DataFrame,
+    ranking_df: pd.DataFrame,
+    default_rank: int = 78,
+) -> np.ndarray:
+    """
+    Calcula `away_rank - home_rank` para cada partido usando `pd.merge_asof`,
+    evitando el O(n) en Python puro del bisect por fila.
+    """
+    r = ranking_df.dropna(subset=["rank"])[["team", "rank_date", "rank"]].copy()
+    r["rank_date"] = pd.to_datetime(r["rank_date"])
+    r["rank"] = r["rank"].astype(float)
+    r = r.sort_values("rank_date").rename(columns={"rank_date": "date"})
+
+    left = matches_df[["date", "home_team", "away_team"]].copy()
+    left["date"] = pd.to_datetime(left["date"])
+    left["_row"] = np.arange(len(left))
+
+    def _lookup(team_col: str) -> np.ndarray:
+        side = left[["_row", "date", team_col]].rename(columns={team_col: "team"})
+        side = side.sort_values("date")
+        merged = pd.merge_asof(
+            side, r, on="date", by="team", direction="backward",
+        )
+        s = merged.set_index("_row")["rank"].reindex(np.arange(len(left)))
+        return s.fillna(default_rank).to_numpy()
+
+    ranks_h = _lookup("home_team")
+    ranks_a = _lookup("away_team")
+    return (ranks_a - ranks_h).astype(float)
 
 
 def data_quality_report(df: pd.DataFrame, name: str = "dataset") -> None:
@@ -275,18 +379,26 @@ def build_match_features(
         subset=["home_score", "away_score"]
     ).reset_index(drop=True)
 
-    print("Calculando ELO histórico (una sola pasada cronológica)...")
+    steps = tqdm(
+        total=6,
+        desc="build_match_features",
+        unit="step",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {desc}",
+    )
+
+    steps.set_description("ELO histórico")
     all_for_elo = matches_df.copy()
     all_for_elo["date"] = pd.to_datetime(all_for_elo["date"])
     all_for_elo = all_for_elo.sort_values("date")
     elo_df = calculate_elo_ratings(all_for_elo)
+    steps.update(1)
 
-    print("Mergeando ELO por partido (vectorizado)...")
+    steps.set_description("Merge ELO + time decay")
     df["elo_diff"] = _vectorized_elo_diff(df, elo_df)
-
-    print("Calculando time decay weights...")
     df["time_weight"] = compute_time_decay_weights(df["date"], lambda_=lambda_decay)
+    steps.update(1)
 
+    steps.set_description("xG / squad value")
     if xg_df is not None and not xg_df.empty:
         xg_map_for = xg_df.set_index("team")["xg_for"].to_dict()
         xg_map_against = xg_df.set_index("team")["xg_against"].to_dict()
@@ -312,35 +424,34 @@ def build_match_features(
         )
     else:
         df["squad_value_diff"] = 0.0
+    steps.update(1)
 
+    steps.set_description("ranking_diff")
     if ranking_df is not None and not ranking_df.empty:
-        from src.data.data_loader import build_ranking_dict, get_ranking_at_date
-        ranking_dict = build_ranking_dict(ranking_df)
-
-        print("Calculando ranking_diff...")
-        ranks_h = df.apply(
-            lambda r: get_ranking_at_date(ranking_dict, r["home_team"], r["date"]),
-            axis=1,
-        )
-        ranks_a = df.apply(
-            lambda r: get_ranking_at_date(ranking_dict, r["away_team"], r["date"]),
-            axis=1,
-        )
-        df["ranking_diff"] = (ranks_a - ranks_h).astype(float)
+        df["ranking_diff"] = _vectorized_ranking_diff(df, ranking_df)
     else:
         df["ranking_diff"] = 0.0
+    steps.update(1)
 
-    print("Calculando distancias de viaje (sede real del partido)...")
-    team_coords_cache: dict = {}
-    country_coords_cache: dict = {}
-    # Precalentar cache con equipos del WC 2026
-    for t in WC_TEAM_CAPITAL_COORDS:
-        team_coords_cache[t] = WC_TEAM_CAPITAL_COORDS[t]
+    steps.set_description("distancias de viaje")
+    persistent_cache = _load_geo_cache()
+    team_coords_cache: dict = dict(persistent_cache)
+    country_coords_cache: dict = dict(persistent_cache)
+    for t, c in WC_TEAM_CAPITAL_COORDS.items():
+        team_coords_cache[t] = c
     home_dist, away_dist = _vectorized_travel_distances(
         df, team_coords_cache, country_coords_cache
     )
     df["travel_distance_home"] = home_dist
     df["travel_distance_away"] = away_dist
+
+    merged_cache = {**persistent_cache, **team_coords_cache, **country_coords_cache}
+    if merged_cache != persistent_cache:
+        _save_geo_cache(merged_cache)
+    steps.update(1)
+    steps.set_description("target + finalización")
+    steps.update(1)
+    steps.close()
 
     df["target"] = encode_target(df)
 
@@ -412,7 +523,9 @@ def build_team_features_for_simulation(
     else:
         get_rank = lambda team: 78
 
-    coords_cache: dict = dict(WC_TEAM_CAPITAL_COORDS)
+    persistent_cache = _load_geo_cache()
+    coords_cache: dict = dict(persistent_cache)
+    coords_cache.update(WC_TEAM_CAPITAL_COORDS)
     records = []
     for team in all_teams:
         records.append({
@@ -424,6 +537,10 @@ def build_team_features_for_simulation(
             "host_distance": compute_host_distance_wc2026(team, coords_cache),
             "rank": get_rank(team),
         })
+
+    merged_cache = {**persistent_cache, **coords_cache}
+    if len(merged_cache) != len(persistent_cache):
+        _save_geo_cache(merged_cache)
 
     return pd.DataFrame(records)
 
