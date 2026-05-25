@@ -156,7 +156,7 @@ elif page == "Análisis de Features":
 
         shap_img = REPORTS_DIR / "shap_summary.png"
         if shap_img.exists():
-            st.subheader("SHAP — Importancia de variables (XGBoost)")
+            st.subheader("SHAP - Importancia agregada de variables (XGBoost)")
             st.image(str(shap_img))
 
 

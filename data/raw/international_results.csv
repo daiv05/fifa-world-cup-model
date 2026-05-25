@@ -14936,7 +14936,7 @@ date,home_team,away_team,home_score,away_score,tournament,city,country,neutral
 1985-08-18,Ivory Coast,Ghana,2.0,0.0,African Cup of Nations qualification,Abidjan,Ivory Coast,False
 1985-08-18,Zambia,Nigeria,1.0,0.0,African Cup of Nations qualification,Lusaka,Zambia,False
 1985-08-18,Zimbabwe,Senegal,1.0,0.0,African Cup of Nations qualification,Harare,Zimbabwe,False
-1985-08-21,France,Uruguay,2.0,0.0,CONMEBOL–UEFA Cup of Champions,Paris,France,False
+1985-08-21,France,Uruguay,2.0,0.0,CONMEBOL-UEFA Cup of Champions,Paris,France,False
 1985-08-21,Sweden,Poland,1.0,0.0,Friendly,Malmö,Sweden,False
 1985-08-23,Libya,Mozambique,2.0,1.0,African Cup of Nations qualification,Benghazi,Libya,False
 1985-08-25,Honduras,Canada,0.0,1.0,CONCACAF Championship,Tegucigalpa,Honduras,False
@@ -18792,7 +18792,7 @@ date,home_team,away_team,home_score,away_score,tournament,city,country,neutral
 1993-02-21,Estonia,Latvia,0.0,2.0,Four Nations Tournament,Vantaa,Finland,True
 1993-02-21,Finland,Lithuania,3.0,0.0,Four Nations Tournament,Vantaa,Finland,False
 1993-02-21,United States,Russia,0.0,0.0,Friendly,Palo Alto,United States,False
-1993-02-24,Argentina,Denmark,1.0,1.0,CONMEBOL–UEFA Cup of Champions,Mar del Plata,Argentina,False
+1993-02-24,Argentina,Denmark,1.0,1.0,CONMEBOL-UEFA Cup of Champions,Mar del Plata,Argentina,False
 1993-02-24,Kuwait,China PR,1.0,0.0,Friendly,Kuwait City,Kuwait,False
 1993-02-24,Netherlands,Turkey,3.0,1.0,FIFA World Cup qualification,Utrecht,Netherlands,False
 1993-02-24,Portugal,Italy,1.0,3.0,FIFA World Cup qualification,Porto,Portugal,False
@@ -45148,7 +45148,7 @@ date,home_team,away_team,home_score,away_score,tournament,city,country,neutral
 2022-05-30,Ethiopia,Lesotho,1.0,1.0,Friendly,Adama,Ethiopia,False
 2022-05-30,Trinidad and Tobago,Saint Lucia,1.0,0.0,Friendly,San Fernando,Trinidad and Tobago,False
 2022-05-31,Thailand,Bahrain,1.0,2.0,Friendly,Pathum Thani,Thailand,False
-2022-06-01,Italy,Argentina,0.0,3.0,CONMEBOL–UEFA Cup of Champions,Paris,France,True
+2022-06-01,Italy,Argentina,0.0,3.0,CONMEBOL-UEFA Cup of Champions,Paris,France,True
 2022-06-01,Scotland,Ukraine,1.0,3.0,FIFA World Cup qualification,Glasgow,Scotland,False
 2022-06-01,Angola,Central African Republic,2.0,1.0,African Cup of Nations qualification,Luanda,Angola,False
 2022-06-01,Ghana,Madagascar,3.0,0.0,African Cup of Nations qualification,Cape Coast,Ghana,False

@@ -109,7 +109,7 @@ def run_simulation(
     start = time.perf_counter()
     _ = simulate_full_tournament(predict_fn, team_xg)
     first_iter_ms = (time.perf_counter() - start) * 1000
-    print(f"Primera iteración: {first_iter_ms:.1f} ms — "
+    print(f"Primera iteración: {first_iter_ms:.1f} ms - "
           f"estimado total: {first_iter_ms * n_iterations / 1000:.0f}s")
 
     # phase_counts[phase][team] = nº de veces que el equipo llegó a esa fase
@@ -170,13 +170,13 @@ def save_results(
     p_prog = RESULTS_DIR / "tournament_progression.csv"
     champions_df.to_csv(p_champ, index=False)
     progression_df.to_csv(p_prog, index=False)
-    print(f"Campeones    → {p_champ}")
-    print(f"Progresión   → {p_prog}")
+    print(f"Campeones    - {p_champ}")
+    print(f"Progresión   - {p_prog}")
     return p_champ, p_prog
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Motor Monte Carlo — Mundial 2026")
+    parser = argparse.ArgumentParser(description="Motor Monte Carlo - Mundial 2026")
     parser.add_argument("--iterations", type=int, default=10_000)
     parser.add_argument("--model", type=str, default=None,
                         help="Nombre del modelo en data/processed/models/")
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     print("\n=== TOP 10 candidatos al campeonato ===")
     print(champions_df.head(10).to_string(index=False))
 
-    print("\n=== TOP 10 — Probabilidad de llegar a la final ===")
+    print("\n=== TOP 10 - Probabilidad de llegar a la final ===")
     print(
         progression_df[["team", "final_pct", "champion_pct"]]
         .sort_values("final_pct", ascending=False)

@@ -1,7 +1,7 @@
 """
 Lógica del torneo FIFA Mundial 2026.
 12 grupos de 4. Avanzan 2 primeros de cada grupo + 8 mejores terceros = 32 equipos.
-Llaves eliminatorias R32 → R16 → QF → SF → Final.
+Llaves eliminatorias R32 - R16 - QF - SF - Final.
 
 Las fases trackeadas: "group_stage", "round_of_32", "round_of_16",
 "quarterfinals", "semifinals", "final", "champion".

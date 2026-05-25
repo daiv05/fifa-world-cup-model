@@ -1,0 +1,666 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\PassOptionsToPackage{hyphens}{url}
+\usepackage{url}
+\usepackage{hyperref}
+
+\graphicspath{{figs/}}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Predicci\'on Probabil\'istica del Mundial de F\'utbol FIFA 2026 \\
+mediante Gradient Boosting y Simulaci\'on Monte Carlo}
+
+\author{\IEEEauthorblockN{David Deras}
+\IEEEauthorblockA{\textit{Proyecto fifa-world-cup-model} \\
+\textit{Repositorio: github.com/daiv05/fifa-world-cup-model}\\
+davidderas50@gmail.com}}
+
+\maketitle
+
+\begin{abstract}
+Se presenta un sistema end-to-end para estimar la probabilidad de
+campeonato de cada una de las 48 selecciones que disputar\'an la Copa
+Mundial de la FIFA 2026 bajo el nuevo formato de 12 grupos. El pipeline
+integra cuatro fuentes heterog\'eneas (resultados internacionales
+1872--2024, \emph{Expected Goals} de StatsBomb, valor de mercado de
+Transfermarkt y ranking FIFA hist\'orico) para construir siete
+caracter\'isticas que alimentan tres clasificadores multiclase
+(Regresi\'on Log\'istica, XGBoost y LightGBM) entrenados con
+ponderaci\'on por decaimiento temporal exponencial y rebalanceo de
+clases. El mejor modelo (XGBoost calibrado isot\'onicamente) obtiene
+un Brier $\approx 0{,}17$ sobre un conjunto de prueba temporal y se
+acopla a un motor Monte Carlo de $10{,}000$ iteraciones que respeta el
+reglamento 2026 (2 primeros de grupo + 8 mejores terceros, desempates
+puntos$\to$DG$\to$GF, definici\'on por penales). Los intervalos de
+confianza de Clopper--Pearson sit\'uan a un grupo reducido de selecciones
+hist\'oricamente fuertes entre los favoritos. Una secci\'on dedicada discute las limitaciones del
+modelo: equipos debutantes sin historial, cobertura parcial de xG y
+ausencia de modelado estructural de lesiones.
+\end{abstract}
+
+\begin{IEEEkeywords}
+F\'utbol, predicci\'on probabil\'istica, XGBoost, Monte Carlo,
+ranking ELO, Mundial 2026, calibraci\'on isot\'onica.
+\end{IEEEkeywords}
+
+\section{Introducci\'on}
+\label{sec:intro}
+
+La Copa Mundial de la FIFA 2026 estrena el mayor cambio estructural de
+su historia: $48$ selecciones repartidas en $12$ grupos de $4$, de los
+cuales avanzan los dos primeros lugares m\'as los ocho mejores terceros,
+totalizando $32$ equipos en la fase eliminatoria. El torneo agrega una
+ronda adicional (\textit{Round of 32}) y eleva el total de partidos a
+$104$ \cite{fifa2026}. Este cambio reglamentario invalida directamente
+los modelos calibrados sobre formatos de $32$ equipos y motiva un
+rediseño del motor de simulaci\'on.
+
+Este trabajo introduce un sistema reproducible para estimar la
+probabilidad de t\'itulo de cada selecci\'on. Las contribuciones son:
+(i) un pipeline de datos automatizado que combina cuatro fuentes
+hist\'oricas y modernas; (ii) un benchmark de tres clasificadores
+multiclase entrenados con \emph{time decay} exponencial y calibraci\'on
+isot\'onica sobre un \emph{hold-out} temporal; (iii) un motor Monte
+Carlo que implementa fielmente el reglamento 2026, incluyendo el
+desempate de los ocho mejores terceros y la simetr\'ia local/visitante
+con excepci\'on para los anfitriones; (iv) una validaci\'on hist\'orica
+sobre el Mundial 2022 sin \emph{data leakage} y un an\'alisis de
+sensibilidad a lesiones ($-30$\,\% del valor de plantilla).
+
+\section{Trabajo relacionado}
+\label{sec:related}
+
+El \'arbol gen\'etico de la predicci\'on futbol\'istica parte del
+modelo Poisson de Maher \cite{maher1982} y de su refinamiento
+Dixon--Coles \cite{dixon1997}, que captura la correlaci\'on de
+marcadores bajos. El sistema de puntuaci\'on Elo \cite{elo1978}
+proporciona una m\'etrica de fuerza relativa actualizable partido a
+partido, hoy estandarizada para selecciones nacionales. Trabajos m\'as
+recientes combinan \emph{Random Forest} con \emph{ratings} de equipo
+para Mundiales y Eurocopas \cite{groll2019}. La popularizaci\'on de
+XGBoost \cite{chen2016xgboost} y LightGBM \cite{ke2017lightgbm} ha
+desplazado la frontera hacia modelos de \emph{gradient boosting},
+mientras que SHAP \cite{lundberg2017shap} permite interpretar sus
+predicciones. Para evaluar la calibraci\'on de probabilidades el
+est\'andar son el Log-Loss y el Brier score \cite{brier1950}, complementados
+con calibraci\'on isot\'onica o de Platt \cite{platt1999,niculescu2005}.
+
+\section{Pipeline de datos}
+\label{sec:data}
+
+Los datos crudos se descargan o cargan en \texttt{src/data/} y se
+materializan en \texttt{data/raw/}; la limpieza y la uni\'on producen
+\texttt{data/processed/features.csv}. El pipeline integra tres
+categor\'ias de fuentes (datasets hist\'oricos, APIs y scraping),
+resumidas en la Tabla~\ref{tab:sources}.
+
+\begin{table}[!t]
+\caption{Fuentes de datos integradas en el pipeline}
+\label{tab:sources}
+\centering
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabular}{@{}p{2.0cm}p{2.9cm}p{2.3cm}@{}}
+\toprule
+\textbf{Fuente} & \textbf{Contenido} & \textbf{Cobertura}\\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Datasets hist\'oricos}}\\[2pt]
+martj42 \cite{martj42,kaggle_martj42}
+  & Resultados internacionales & 1872--2024, ${\approx}49\,000$ partidos\\
+FIFA Ranking \cite{kaggle_fifaranking}
+  & Posici\'on y puntos & 1993--2023, ${\approx}210$ selecc.\\
+WC Matches \cite{kaggle_wcmatches}
+  & Partidos Mundiales & 1974--2022\\
+WC\,2026 Baseline \cite{kaggle_wc2026baseline}
+  & Prob. base Elo WC\,2026 & 48 equipos, fase grupos\\
+openfootball \cite{openfootball}
+  & Fixtures y resultados WC & Todas las ediciones\\
+StatsBomb \cite{statsbomb}
+  & xG por equipo & 109 selecc.\\[4pt]
+\multicolumn{3}{@{}l}{\textit{APIs (datos actualizados)}}\\[2pt]
+API-Football \cite{apifootball}
+  & Estad\'isticas de jugadores, xG & Ligas europeas\\
+Football-Data.org \cite{footballdata}
+  & Ligas dom\'esticas de convocados & Europa y Am\'erica\\[4pt]
+\multicolumn{3}{@{}l}{\textit{Web scraping}}\\[2pt]
+FBref \cite{fbref}
+  & xA, presiones, progresiones & Internac. y ligas\\
+Transfermarkt \cite{transfermarkt}
+  & Valor de mercado plantilla & 60 selecc., snapshot\\
+EloRatings.net \cite{eloratings}
+  & ELO hist\'orico verificado & ${\approx}200$ selecc.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textit{Nota: revisar y sincronizar con \texttt{data/processed/model\_evaluation.csv}.}
+
+\textbf{Fuente principal de resultados.} El dataset de
+Mart~J\"urisoo~\cite{martj42} disponible tanto en GitHub como en
+Kaggle~\cite{kaggle_martj42} constituye el n\'ucleo del entrenamiento
+con ${\approx}49{,}000$ partidos internacionales (1872--2024). Se complementa
+con los resultados de Mundiales 1974--2022~\cite{kaggle_wcmatches} y
+los datos estructurados de openfootball~\cite{openfootball} para
+validar el formato del torneo. El ranking FIFA hist\'orico
+\cite{kaggle_fifaranking} y el dataset de probabilidades base WC\,2026
+basado en Elo~\cite{kaggle_wc2026baseline} se usan como referencia
+cruzada para calibrar el feature \texttt{ranking\_diff}.
+
+\textbf{Fuentes de estad\'isticas avanzadas.} Los xG hist\'oricos
+provienen del \emph{open data} de StatsBomb~\cite{statsbomb},
+consumido v\'ia \texttt{statsbombpy}. Para selecciones con escasa
+cobertura StatsBomb se consultan FBref~\cite{fbref} (xA, presiones,
+progresiones de pase) y API-Football~\cite{apifootball} (estad\'isticas
+de jugadores en ligas europeas). Football-Data.org~\cite{footballdata}
+complementa el seguimiento de los convocados en ligas dom\'esticas.
+Los ratings Elo se contrastan con EloRatings.net~\cite{eloratings},
+cuyo sistema din\'amico es considerado m\'as preciso que el ranking
+FIFA est\'atico. El valor de mercado de las plantillas se obtiene con
+un \emph{snapshot} manual de Transfermarkt~\cite{transfermarkt}.
+
+\textbf{Limpieza y uni\'on.} El proceso incluye: estandarizaci\'on de
+nombres de pa\'ises a un \emph{canonical name} (\textit{USA}$\to$\textit{United
+States}), deduplicaci\'on por \texttt{(date, home, away)},
+geocodificaci\'on de sedes con \texttt{geopy} (distancia $0$ cuando
+falla), \emph{forward-fill} del ranking FIFA entre publicaciones e
+imputaci\'on del xG con la media global (${\approx}1{,}2$) para selecc.\
+sin cobertura StatsBomb.
+
+\section{Ingenier\'ia de caracter\'isticas}
+\label{sec:features}
+
+Se construyen siete caracter\'isticas justificadas tanto te\'oricamente
+como mediante EDA (Tabla \ref{tab:features}). La Fig.\
+\ref{fig:elo_history} ilustra la dinamica del ELO en cinco selecciones
+representativas; la Fig.\ \ref{fig:corr} muestra colinealidad alta entre
+\texttt{elo\_diff} y \texttt{ranking\_diff} ($r\approx 0{,}84$), mientras
+que el resto de pares se mantiene en niveles moderados.
+
+\begin{table}[!t]
+\caption{Caracter\'isticas del modelo y su justificaci\'on}
+\label{tab:features}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\footnotesize
+\begin{tabular}{@{}p{2.9cm}p{4.4cm}@{}}
+\toprule
+\textbf{Feature} & \textbf{Justificaci\'on}\\
+\midrule
+\texttt{elo\_diff}           & ELO local $-$ ELO visitante; m\'etrica din\'amica superior al ranking FIFA est\'atico \cite{elo1978}\\
+\texttt{squad\_value\_diff}  & $\log(\text{val}_L)-\log(\text{val}_V)$; proxy de calidad de plantilla\\
+\texttt{xg\_avg\_for}        & xG prom.\ a favor: local $-$ visitante; eficiencia ofensiva\\
+\texttt{xg\_avg\_against}    & xG prom.\ en contra: local $-$ visitante; solidez defensiva\\
+\texttt{travel\_dist\_home}  & km de la capital del local a la sede; fatiga de viaje\\
+\texttt{travel\_dist\_away}  & \'Idem para el visitante\\
+\texttt{ranking\_diff}       & $\text{rank}_V - \text{rank}_L$; saltos del ranking FIFA\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eda_05_elo_diff.png}
+\caption{Distribuci\'on de \texttt{elo\_diff} por clase de resultado
+(H/E/V). La separaci\'on monot\'onica entre las tres distribuciones
+respalda el poder predictivo del feature.}
+\label{fig:elo_diff}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eda_07_elo_history.png}
+\caption{Evoluci\'on del rating ELO para cinco selecciones
+representativas a lo largo de cuatro d\'ecadas.}
+\label{fig:elo_history}
+\end{figure}
+
+\subsection{Decaimiento temporal y ponderaci\'on de clases}
+\label{sec:timedecay}
+
+Cada partido contribuye al entrenamiento con un peso
+\begin{equation}
+W(t) \;=\; e^{-\lambda \,\Delta t}\;\cdot\;c_{y_i},
+\quad \lambda = 2\times 10^{-3}\ \text{d\'ias}^{-1},
+\end{equation}
+donde $\Delta t$ son los d\'ias entre la fecha del partido y la m\'as
+reciente del dataset, y $c_{y_i}$ es el peso \texttt{balanced} de
+\texttt{sklearn} sobre la etiqueta $y_i\in\{H,E,V\}$. Esto corrige el
+desbalance natural $H\!\approx\!49$\,\%, $E\!\approx\!21$\,\%, $V\!\approx\!30$\,\%
+(Fig.\ \ref{fig:target}) y prioriza la se\~nal reciente. Los pesos se
+renormalizan por su media para que el aprendizaje permanezca a escala
+unitaria.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eda_04_target_distribution.png}
+\caption{Distribuci\'on de la variable objetivo. El desbalance hacia la
+clase \emph{Local} motiva la ponderaci\'on \texttt{class\_weight=\,balanced}.}
+\label{fig:target}
+\end{figure}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.65\textwidth]{eda_06_correlation_matrix.png}
+\caption{Matriz de correlaci\'on de las siete caracter\'isticas. Se observa
+colinealidad alta entre \texttt{elo\_diff} y \texttt{ranking\_diff}; el
+resto de pares se mantiene en rangos moderados.}
+\label{fig:corr}
+\end{figure*}
+
+\section{Modelado}
+\label{sec:modeling}
+
+El problema se formula como clasificaci\'on multiclase a nivel de
+partido $\{H,E,V\}$. Se entrenan tres modelos: Regresi\'on Log\'istica
+multinomial (\emph{baseline}, con \texttt{StandardScaler}), XGBoost
+(\texttt{multi:softprob}) y LightGBM. La b\'usqueda de hiperpar\'ametros
+emplea Optuna \cite{akiba2019optuna} con $100$ \emph{trials} y
+\texttt{TimeSeriesSplit}$(n=5)$ interno sobre el conjunto de
+entrenamiento, optimizando \texttt{neg\_log\_loss}. La Fig.\
+\ref{fig:shap} resume la importancia SHAP agregada (mean |SHAP|) y muestra
+que \texttt{elo\_diff} domina, seguido por \texttt{ranking\_diff};
+\texttt{travel\_distance\_away} aporta en un segundo nivel, mientras que
+\texttt{squad\_value\_diff} queda por debajo de lo esperado.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{shap_summary.png}
+\caption{Resumen SHAP agregado (mean |SHAP|) del XGBoost. \texttt{elo\_diff}
+domina la contribuci\'on, con \texttt{ranking\_diff} en segundo lugar y
+\texttt{travel\_distance\_away} en un tercer nivel.}
+\label{fig:shap}
+\end{figure}
+
+\subsection{Divisi\'on temporal del dataset}
+
+Se evita rigurosamente el \emph{data leakage} mediante un split
+estrictamente temporal (Tabla \ref{tab:split}). La calibraci\'on
+isot\'onica del XGBoost se ajusta sobre la franja 2021 (validaci\'on)
+para no contaminar el conjunto de prueba.
+
+\begin{table}[!t]
+\caption{Split temporal y uso de cada conjunto}
+\label{tab:split}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}p{1.5cm}p{2.3cm}p{3.4cm}@{}}
+\toprule
+\textbf{Conjunto} & \textbf{Filtro} & \textbf{Uso}\\
+\midrule
+Train        & \texttt{date < 2021-01-01}                       & LogReg, XGBoost, LightGBM\\
+Validaci\'on & \texttt{2021-01-01 $\le$ date $<$ 2022-01-01}    & Calibraci\'on isot\'onica\\
+Test         & \texttt{date $\ge$ 2022-01-01}                   & Evaluaci\'on final\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Doble pipeline.} Para validar el Mundial 2022 sin leakage se
+re-ejecuta el entrenamiento con \texttt{cutoff = 2022-01-01},
+produciendo \texttt{xgboost\_pre2022.joblib}. Cuando este \emph{cutoff}
+vac\'ia el conjunto de validaci\'on temporal, se activa un \emph{fallback}
+$85/15$ que reserva el \'ultimo 15\,\% temporal del \emph{train} para
+la calibraci\'on.
+
+\section{Motor de simulaci\'on del torneo}
+\label{sec:simulation}
+
+El motor (\texttt{src/simulation/}) ejecuta $N{=}10{,}000$ realizaciones
+del torneo completo ($104$ partidos $\times\,N\!=\!1{,}04\!\times\!10^6$
+partidos simulados). Cada partido $i,j$ pasa por las siguientes etapas:
+
+\begin{enumerate}
+\item \textbf{Probabilidades sim\'etricas.} Salvo cuando uno de los
+equipos es anfitri\'on jugando en su pa\'is, se promedia
+$P(i\text{ vs }j)$ con la inversi\'on de $P(j\text{ vs }i)$ para
+eliminar el sesgo home/away heredado del dataset.
+\item \textbf{Marcador y outcome.} El \emph{outcome} $\{H,E,V\}$ se sortea
+con las probabilidades del modelo. En fase de grupos se generan goles
+$g_i \sim \text{Poisson}(\mu_i)$, $g_j \sim \text{Poisson}(\mu_j)$ con
+$\mu$ basado en xG a favor/en contra, y el marcador se ajusta para ser
+coherente con el outcome (desempates por DG/GF).
+\item \textbf{Fase de grupos.} $12$ grupos de $4$; clasifican los dos
+primeros m\'as los $8$ mejores terceros, con desempates
+\textbf{puntos $\to$ diferencia de goles $\to$ goles a favor}
+seg\'un el reglamento FIFA 2026 \cite{fifa2026}.
+\item \textbf{Eliminatorias.} \emph{Round of 32} $\to$ \emph{Round of 16}
+$\to$ Cuartos $\to$ Semifinales $\to$ Final. Si hay empate tras los $90'$,
+la definici\'on por penales se modela como $\text{Bernoulli}(0{,}5)$.
+\end{enumerate}
+
+Se contabilizan, por equipo, las veces que alcanza cada ronda y los
+intervalos de confianza al 90\,\% se calculan con el m\'etodo binomial
+exacto de Clopper--Pearson \cite{clopper1934} v\'ia
+\texttt{scipy.stats.beta}.
+
+\section{Evaluaci\'on}
+\label{sec:eval}
+
+Se reportan Log-Loss y Brier score sobre el conjunto de prueba
+($\texttt{date}\ge 2022$). Se evita \texttt{accuracy} por ser
+inadecuada para predicciones probabil\'isticas desbalanceadas
+\cite{brier1950}. La Tabla \ref{tab:eval} muestra que LogReg y XGBoost
+calibrado son competitivos; el XGBoost calibrado tiende a mejorar el Brier a costa de
+un Log-Loss algo mayor, el \emph{trade-off} esperado al recalibrar
+probabilidades.
+
+\begin{table}[!t]
+\caption{M\'etricas de evaluaci\'on sobre test temporal ($\ge$2022)}
+\label{tab:eval}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Modelo} & \textbf{Log-Loss} $\downarrow$ & \textbf{Brier} $\downarrow$\\
+\midrule
+LogReg              & 0{,}8894 & 0{,}1741\\
+XGBoost             & 0{,}8948 & 0{,}1755\\
+LightGBM            & 0{,}9005 & 0{,}1772\\
+\textbf{XGBoost-Cal} & 1{,}0242 & \textbf{0{,}1716}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{calibration_curves.png}
+\caption{Curvas de calibraci\'on. El XGBoost calibrado isot\'onicamente
+es el que m\'as se aproxima a la diagonal ideal.}
+\label{fig:calibration}
+\end{figure}
+
+\textbf{Validaci\'on hist\'orica.} El modelo \texttt{xgboost\_pre2022}
+(entrenado exclusivamente con \texttt{date<2022-01-01}) se evalu\'a
+sobre los partidos del Mundial 2022, sirviendo como prueba
+\emph{out-of-time} sin contaminaci\'on. Los resultados num\'ericos se
+imprimen en consola al ejecutar \texttt{make evaluate}.
+
+\section{Resultados de la simulaci\'on}
+\label{sec:results}
+
+La Tabla \ref{tab:top10} lista el Top-10 de candidatos al t\'itulo y la
+Tabla \ref{tab:hosts} resume la progresi\'on por fase de los tres
+anfitriones, ambos con intervalos Clopper--Pearson al 90\,\%.
+
+\begin{table}[!t]
+\caption{Top-10 candidatos a campe\'on (10\,000 iteraciones)}
+\label{tab:top10}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Equipo} & \textbf{P(Campe\'on)} & \textbf{IC 90\,\%}\\
+\midrule
+Espa\~na         & 14{,}12\,\% & [13{,}55, 14{,}71]\\
+Argentina        & 11{,}20\,\% & [10{,}68, 11{,}73]\\
+Brasil           & 8{,}32\,\%  & [7{,}87, 8{,}79]\\
+Francia          & 8{,}01\,\%  & [7{,}57, 8{,}47]\\
+Inglaterra       & 6{,}30\,\%  & [5{,}90, 6{,}71]\\
+M\'exico         & 6{,}06\,\%  & [5{,}67, 6{,}47]\\
+Estados Unidos   & 5{,}69\,\%  & [5{,}31, 6{,}09]\\
+Jap\'on          & 4{,}03\,\%  & [3{,}71, 4{,}37]\\
+Portugal         & 3{,}72\,\%  & [3{,}41, 4{,}05]\\
+Alemania         & 3{,}01\,\%  & [2{,}73, 3{,}31]\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textit{Nota: revisar y sincronizar con \texttt{data/processed/simulation\_results.csv}.}
+
+\begin{table}[!t]
+\caption{Progresi\'on por fase de los anfitriones (\%, IC 90\,\%)}
+\label{tab:hosts}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Fase} & \textbf{M\'exico} & \textbf{EE.UU.} & \textbf{Canad\'a}\\
+\midrule
+Round of 16   & 64{,}9 & 48{,}7 & 51{,}4\\
+Cuartos       & 35{,}6 & 31{,}1 & 26{,}9\\
+Semifinales   & 21{,}0 & 19{,}1 & 12{,}9\\
+Final         & 11{,}6 & 10{,}3 &  5{,}6\\
+Campe\'on     &  6{,}1 &  5{,}7 &  2{,}4\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textit{Nota: revisar y sincronizar con \texttt{data/processed/tournament\_progression.csv}.}
+
+\subsection{An\'alisis de sensibilidad a lesiones}
+
+Aunque las lesiones no se modelan estructuralmente, el script
+\texttt{src/analysis/sensitivity.py} aplica una perturbaci\'on de
+$-30$\,\% sobre \texttt{squad\_value} para cada equipo del top-5 y
+re-ejecuta la simulaci\'on. La Tabla \ref{tab:sens} muestra que el
+efecto es modesto ($|\Delta|\!<\!0{,}7$ pp en todos los casos), lo cual
+es consistente con la observaci\'on de que el feature \texttt{elo\_diff}
+domina la importancia SHAP (Fig.\ \ref{fig:shap}).
+
+\begin{table}[!t]
+\caption{Sensibilidad a una reducci\'on del 30\,\% en el valor de plantilla}
+\label{tab:sens}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Equipo} & \textbf{Base \%} & \textbf{Lesi\'on \%} & \textbf{$\Delta$ pp}\\
+\midrule
+Espa\~na      & 14{,}12 & 13{,}91 & $-0{,}21$\\
+Argentina     & 11{,}20 & 10{,}51 & $-0{,}69$\\
+Brasil        &  8{,}32 &  8{,}69 & $+0{,}37$\\
+Francia       &  8{,}01 &  8{,}08 & $+0{,}07$\\
+Inglaterra    &  6{,}30 &  6{,}62 & $+0{,}32$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Limitaciones}
+\label{sec:limits}
+
+El modelo presenta cinco limitaciones reconocidas:
+
+\begin{enumerate}
+\item \textbf{Debutantes.} Equipos como Uzbekist\'an, Curazao o Cabo
+Verde tienen historial internacional escaso; su ELO se inicializa con
+el valor neutro $1500$ y converge lentamente, lo que probablemente
+\emph{infla} su probabilidad relativa frente a rivales subestimados de
+la misma confederaci\'on.
+\item \textbf{Cobertura xG.} El \emph{open data} de StatsBomb
+\cite{statsbomb} privilegia torneos UEFA/CONMEBOL; las selecciones de
+AFC, CAF y CONCACAF reciben un xG por defecto de $1{,}2$, que es la
+media global. Esto subestima la varianza inter-equipos en estas
+confederaciones.
+\item \textbf{Snapshot Transfermarkt.} El valor de mercado es una
+fotograf\'ia manual a una fecha fija (no \emph{live scraping}); cambios
+posteriores (transferencias, retiros) no se reflejan hasta el siguiente
+\emph{snapshot}.
+\item \textbf{Geocodificaci\'on.} Cuando la sede del partido no es
+geocodificable se asigna \texttt{travel\_distance = 0}, indistinguible
+de un campo neutro o de un partido en casa, lo que diluye levemente la
+se\~nal de fatiga.
+\item \textbf{Lesiones de \'ultima hora.} No hay modelado estructural
+de bajas individuales; el \texttt{sensitivity.py} es \'unicamente un
+\emph{stress test} agregado sobre \texttt{squad\_value}. Una baja
+clave en una posici\'on espec\'ifica (e.g., portero titular) tiene un
+impacto que el modelo no puede capturar.
+\end{enumerate}
+
+\section{Reproducibilidad}
+\label{sec:reproducibility}
+
+El repositorio mantiene una arquitectura modular bajo \texttt{src/}
+(\texttt{data/}, \texttt{features/}, \texttt{models/}, \texttt{simulation/},
+\texttt{analysis/}, \texttt{visualization/}), con CSVs versionables
+producidos en \texttt{data/processed/} y figuras en
+\texttt{reports/figures/}. Toda la cadena se reproduce con:
+
+\begin{verbatim}
+pip install -e .
+make all   # features -> train -> evaluate
+           # -> simulate -> sensitivity
+streamlit run \
+  src/visualization/dashboard.py
+\end{verbatim}
+
+La cobertura de pruebas (\texttt{pytest tests/ -v}) valida la mec\'anica
+del ELO, la l\'ogica de desempates de grupos y el muestreo Poisson de
+goles. Un \emph{dashboard} Streamlit se publica en
+\url{https://fifa-world-cup-model.streamlit.app/}.
+
+\section{Conclusiones y trabajo futuro}
+\label{sec:conclusion}
+
+Se ha presentado un sistema reproducible para predecir la Copa Mundial
+2026 que cumple con los requisitos planteados: m\'ultiples fuentes
+limpias, siete caracter\'isticas justificadas, \emph{benchmark} de tres
+modelos con calibraci\'on temporal y un motor Monte Carlo de
+$10{,}000$ iteraciones fiel al nuevo reglamento. Las simulaciones ubican
+a selecciones tradicionalmente fuertes en el primer grupo de
+probabilidades, mientras que los anfitriones muestran una ventaja
+coherente sin distorsionar el escenario global.
+
+Trabajo futuro: (i) incorporar un modelo Dixon--Coles \cite{dixon1997}
+para los marcadores en lugar de Poisson independiente; (ii) reemplazar
+el \emph{snapshot} Transfermarkt por un \emph{scraper} programado;
+(iii) acelerar el bucle Monte Carlo con NumPy vectorizado o un binario
+en Rust invocado v\'ia FFI, lo que permitir\'ia escalar a $10^5\!-\!10^6$
+iteraciones; y (iv) modelar lesiones a nivel de jugador integrando
+\emph{features} de minutos disputados y posici\'on.
+
+\begin{thebibliography}{99}
+
+\bibitem{elo1978}
+A.~E. Elo, \emph{The Rating of Chessplayers, Past and Present}.\hskip 1em plus
+  0.5em minus 0.4em\relax New York: Arco Publishing, 1978.
+
+\bibitem{dixon1997}
+M.~J. Dixon and S.~G. Coles, ``Modelling association football scores and
+  inefficiencies in the football betting market,'' \emph{Journal of the Royal
+  Statistical Society: Series C (Applied Statistics)}, vol.~46, no.~2, pp.
+  265--280, 1997.
+
+\bibitem{chen2016xgboost}
+T.~Chen and C.~Guestrin, ``{XGBoost}: A scalable tree boosting system,'' in
+  \emph{Proc. 22nd ACM SIGKDD Int. Conf. on Knowledge Discovery and Data
+  Mining}, 2016, pp. 785--794.
+
+\bibitem{ke2017lightgbm}
+G.~Ke \emph{et~al.}, ``{LightGBM}: A highly efficient gradient boosting
+  decision tree,'' in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)},
+  vol.~30, 2017.
+
+\bibitem{lundberg2017shap}
+S.~M. Lundberg and S.-I. Lee, ``A unified approach to interpreting model
+  predictions,'' in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, vol.~30,
+  2017.
+
+\bibitem{brier1950}
+G.~W. Brier, ``Verification of forecasts expressed in terms of probability,''
+  \emph{Monthly Weather Review}, vol.~78, no.~1, pp. 1--3, 1950.
+
+\bibitem{clopper1934}
+C.~J. Clopper and E.~S. Pearson, ``The use of confidence or fiducial limits
+  illustrated in the case of the binomial,'' \emph{Biometrika}, vol.~26, no.~4,
+  pp. 404--413, 1934.
+
+\bibitem{platt1999}
+J.~C. Platt, ``Probabilistic outputs for support vector machines and
+  comparisons to regularized likelihood methods,'' in \emph{Advances in Large
+  Margin Classifiers}, 1999, pp. 61--74.
+
+\bibitem{niculescu2005}
+A.~Niculescu-Mizil and R.~Caruana, ``Predicting good probabilities with
+  supervised learning,'' in \emph{Proc. 22nd Int. Conf. on Machine Learning
+  (ICML)}, 2005, pp. 625--632.
+
+\bibitem{akiba2019optuna}
+T.~Akiba, S.~Sano, T.~Yanase, T.~Ohta, and M.~Koyama, ``{Optuna}: A
+  next-generation hyperparameter optimization framework,'' in \emph{Proc. 25th
+  ACM SIGKDD Int. Conf. on Knowledge Discovery and Data Mining}, 2019, pp.
+  2623--2631.
+
+\bibitem{fifa2026}
+{F\'ed\'eration Internationale de Football Association}, ``{FIFA} World Cup
+  2026 competition format and regulations,'' 2023, accessed 2026-05-24.
+  [Online]. Available:
+  \url{https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026}
+
+\bibitem{martj42}
+M.~J\"urisoo, ``International football results from 1872 to 2024,'' 2024.
+  [Online]. Available: \url{https://github.com/martj42/international_results}
+
+\bibitem{statsbomb}
+{StatsBomb}, ``{StatsBomb} open data,'' 2024. [Online]. Available:
+  \url{https://github.com/statsbomb/open-data}
+
+\bibitem{transfermarkt}
+{Transfermarkt}, ``National teams market values,'' 2026, manual snapshot.
+  [Online]. Available: \url{https://www.transfermarkt.com}
+
+\bibitem{groll2019}
+A.~Groll, C.~Ley, G.~Schauberger, and H.~Van Eetvelde, ``A hybrid random
+  forest to predict soccer matches in international tournaments,'' \emph{J.
+  Quant. Anal. Sports}, vol.~15, no.~4, pp. 271--287, 2019.
+
+\bibitem{maher1982}
+M.~J. Maher, ``Modelling association football scores,'' \emph{Statistica
+  Neerlandica}, vol.~36, no.~3, pp. 109--118, 1982.
+
+\bibitem{kaggle_martj42}
+M.~J\"urisoo, ``International football results from 1872 to 2023,''
+  \emph{Kaggle}, 2023. [Online]. Available:
+  \url{https://kaggle.com/datasets/martj42/international-football-results-from-1872-to-2017}
+
+\bibitem{kaggle_fifaranking}
+cashncarry, ``{FIFA} world ranking 1993--2023,'' \emph{Kaggle}, 2023.
+  [Online]. Available:
+  \url{https://www.kaggle.com/datasets/cashncarry/fifaworldranking}
+
+\bibitem{kaggle_wcmatches}
+I.~Shahrukh, ``{FIFA} world cup matches 1974--2022,'' \emph{Kaggle}, 2023.
+  [Online]. Available:
+  \url{https://www.kaggle.com/datasets/ibrahimshahrukh/fifa-world-cup-matches-19742022-dataset}
+
+\bibitem{kaggle_wc2026baseline}
+S.~Zahran, ``{WC2026} match probability baseline dataset,'' \emph{Kaggle},
+  2024. [Online]. Available:
+  \url{https://www.kaggle.com/datasets/sarazahran1/wc2026-match-probability-baseline-dataset}
+
+\bibitem{openfootball}
+{openfootball contributors}, ``World cup data repository,'' GitHub, 2024.
+  [Online]. Available: \url{https://github.com/openfootball/worldcup}
+
+\bibitem{apifootball}
+{RapidAPI / API-Football}, ``{API-Football}: Football statistics and live
+  scores,'' 2024. [Online]. Available:
+  \url{https://rapidapi.com/collection/football-soccer}
+
+\bibitem{footballdata}
+{Football-Data.org}, ``Football data and results,'' 2024. [Online].
+  Available: \url{https://www.football-data.org/}
+
+\bibitem{fbref}
+{Sports Reference LLC}, ``{FBref}: Football statistics and history,'' 2024.
+  [Online]. Available: \url{https://fbref.com/en/}
+
+\bibitem{eloratings}
+{EloRatings.net}, ``World football {Elo} ratings,'' 2024. [Online].
+  Available: \url{https://www.eloratings.net/}
+
+\end{thebibliography}
+
+\end{document}

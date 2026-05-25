@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "wc2026-model"
 version = "0.1.0"
-description = "FIFA World Cup 2026 prediction model — ML + Monte Carlo"
+description = "FIFA World Cup 2026 prediction model - ML + Monte Carlo"
 requires-python = ">=3.10"
 readme = "README.md"
 dependencies = [

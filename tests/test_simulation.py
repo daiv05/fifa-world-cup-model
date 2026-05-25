@@ -48,7 +48,7 @@ def test_group_stage_total_points_range():
     for _ in range(10):
         table = simulate_group_stage(group, uniform_predict_fn)
         total = table["points"].sum()
-        # 6 partidos: cada decisivo = 3 pts, cada empate = 2 pts → [12, 18]
+        # 6 partidos: cada decisivo = 3 pts, cada empate = 2 pts - [12, 18]
         assert 12 <= total <= 18, f"Total inesperado: {total}"
 
 
@@ -115,7 +115,7 @@ def test_no_home_away_bias_in_groups():
     """
     group_no_host = [t for t in list(GROUPS_2026.values())[2] if t not in ("United States", "Mexico", "Canada")]
     if len(group_no_host) < 2:
-        pytest.skip("Grupo con anfitriones — no se puede testear sesgo neutro")
+        pytest.skip("Grupo con anfitriones - no se puede testear sesgo neutro")
 
     np.random.seed(42)
     # Contar puntos del primer equipo alfabético del grupo vs último

@@ -25,6 +25,8 @@ def simulate_injury_scenario(
     para -30%), corre la simulación y devuelve el DataFrame de campeones.
     """
     tf = base_team_features.copy()
+    # Ensure float dtype so percentage reductions do not raise on assignment.
+    tf["squad_value_eur"] = tf["squad_value_eur"].astype(float)
     mask = tf["team"] == team
     if not mask.any():
         raise ValueError(f"Equipo no encontrado en team_features: {team}")
@@ -68,7 +70,7 @@ def run_sensitivity_top_n(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Sensibilidad a lesiones — top 5")
+    parser = argparse.ArgumentParser(description="Sensibilidad a lesiones - top 5")
     parser.add_argument("--iterations", type=int, default=10_000)
     parser.add_argument("--model", type=str, default="xgboost_calibrated")
     parser.add_argument("--reduction", type=float, default=0.30)

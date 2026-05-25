@@ -72,7 +72,7 @@ def plot_calibration_curves(
             ax.plot(mean_predicted, fraction_of_positives, marker="o", label=name)
 
         ax.plot([0, 1], [0, 1], "k--", label="Perfect calibration")
-        ax.set_title(f"Calibración — {CLASS_NAMES.get(cls, cls)}")
+        ax.set_title(f"Calibración - {CLASS_NAMES.get(cls, cls)}")
         ax.set_xlabel("Probabilidad predicha promedio")
         ax.set_ylabel("Fracción de positivos")
         ax.legend(fontsize=8)
@@ -87,15 +87,53 @@ def shap_analysis(model, X_train, feature_names: list[str] | None = None):
     if feature_names is None:
         feature_names = FEATURE_COLS
 
+    plt.close("all")
+    X_df = _to_df(X_train)
     explainer = shap.TreeExplainer(model)
-    shap_values = explainer(X_train, check_additivity=False)
+    shap_values = explainer(X_df, check_additivity=False)
 
     print("Generando SHAP summary plot...")
-    shap.summary_plot(shap_values, X_train, feature_names=feature_names, show=False)
-    plt.tight_layout()
+    values = shap_values.values if hasattr(shap_values, "values") else shap_values
+    if hasattr(values, "ndim") and values.ndim == 3:
+        mean_abs = np.abs(values).mean(axis=2)
+        max_val = float(np.max(mean_abs)) if mean_abs.size else 0.0
+        shap.summary_plot(
+            mean_abs,
+            X_df,
+            feature_names=feature_names,
+            plot_type="bar",
+            show=False,
+        )
+        plt.title("Importancia SHAP agregada (mean |SHAP|)")
+    else:
+        mean_abs = np.abs(values).mean(axis=0) if hasattr(values, "ndim") else np.array([])
+        max_val = float(np.max(mean_abs)) if mean_abs.size else 0.0
+        shap.summary_plot(
+            shap_values,
+            X_df,
+            feature_names=feature_names,
+            plot_type="bar",
+            show=False,
+        )
+
+    ax = plt.gca()
+    if max_val > 0:
+        ax.set_xlim(0, max_val * 1.15)
+
+    fig = plt.gcf()
+    fig.set_size_inches(7.5, 4.5)
+    fig.tight_layout()
     out_path = REPORTS_DIR / "shap_summary.png"
-    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    fig.savefig(out_path, dpi=200, bbox_inches="tight")
     print(f"  Guardado en {out_path}")
+
+    paper_figs_dir = REPORTS_DIR.parent / "paper" / "figs"
+    if paper_figs_dir.exists():
+        paper_path = paper_figs_dir / "shap_summary.png"
+        fig.savefig(paper_path, dpi=200, bbox_inches="tight")
+        print(f"  Copiado en {paper_path}")
+
+    plt.close(fig)
 
     return shap_values
 
@@ -106,7 +144,7 @@ def validate_wc2022(
 ) -> pd.DataFrame:
     """
     Evalúa el modelo `xgboost_pre2022` (entrenado solo con date < 2022)
-    sobre todos los partidos de 2022 — el Mundial 2022 incluido.
+    sobre todos los partidos de 2022 - el Mundial 2022 incluido.
     """
     df = features_df.copy()
     df["date"] = pd.to_datetime(df["date"])
@@ -128,7 +166,7 @@ def validate_wc2022(
 
     accuracy = result["correct"].mean()
     ll = log_loss(y, proba)
-    print(f"WC/2022 Accuracy (modelo pre-2022, sin leakage): {accuracy:.1%}  |  Log-Loss: {ll:.4f}")
+    print(f"WC/2022 Accuracy (modelo pre-2022): {accuracy:.1%}  |  Log-Loss: {ll:.4f}")
     return result
 
 
@@ -162,6 +200,7 @@ if __name__ == "__main__":
     fig = plot_calibration_curves(models, X_test, y_test)
     fig.savefig(REPORTS_DIR / "calibration_curves.png", dpi=150, bbox_inches="tight")
     print(f"  Guardado en {REPORTS_DIR / 'calibration_curves.png'}")
+    plt.close(fig)
 
     print("\n=== SHAP Analysis (XGBoost) ===")
     train_mask, _, _ = temporal_split(df)
@@ -169,11 +208,11 @@ if __name__ == "__main__":
     xgb_raw = load_model("xgboost")
     shap_analysis(xgb_raw, X_train[:5000])  # limitar para velocidad
 
-    print("\n=== Validación WC2022 (modelo pre-2022, sin leakage) ===")
+    print("\n=== Validación WC2022 (modelo pre-2022) ===")
     try:
         xgb_pre22 = load_model("xgboost_pre2022")
     except FileNotFoundError:
-        print("xgboost_pre2022 no encontrado — ejecuta `python -m src.models.train --cutoff 2022-01-01`")
+        print("xgboost_pre2022 no encontrado - ejecuta `python -m src.models.train --cutoff 2022-01-01`")
     else:
         wc22_results = validate_wc2022(df, xgb_pre22)
         if not wc22_results.empty:

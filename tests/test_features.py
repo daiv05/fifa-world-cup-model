@@ -86,7 +86,7 @@ def test_halflife_lambda_roundtrip():
 
 def test_encode_target_vectorized(three_matches):
     target = encode_target(three_matches)
-    # row 0: 2-1 home wins → 2; row 1: 1-0 home wins → 2; row 2: 0-1 away wins → 0
+    # row 0: 2-1 home wins - 2; row 1: 1-0 home wins - 2; row 2: 0-1 away wins - 0
     assert target[0] == 2
     assert target[1] == 2
     assert target[2] == 0

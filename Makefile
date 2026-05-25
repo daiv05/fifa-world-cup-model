@@ -1,4 +1,4 @@
-# Makefile — fifa-world-cup-model
+# Makefile - fifa-world-cup-model
 # Ejecutar desde la raiz del proyecto
 
 PY ?= python

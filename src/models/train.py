@@ -83,7 +83,7 @@ def temporal_split(
 def _cv_score(model, X, y, weights, cv=5) -> float:
     # TimeSeriesSplit preserva el orden temporal: cada fold entrena con el
     # pasado y valida en un bloque futuro contiguo. Coherente con el split
-    # externo train/val/test por fecha — evita que Optuna elija
+    # externo train/val/test por fecha - evita que Optuna elija
     # hiperparámetros bajo un supuesto i.i.d. que el diseño externo niega.
     splitter = TimeSeriesSplit(n_splits=cv)
     kwargs = {"cv": splitter, "scoring": "neg_log_loss"}
@@ -274,7 +274,7 @@ def _full_training_pipeline(
         val_mask = np.zeros_like(train_mask)
         val_mask[train_idx[split_at:]] = True
         train_mask = train_mask & ~val_mask
-        print(f"  Sin val_mask 2021 — fallback 85/15 dentro de train: "
+        print(f"  Sin val_mask 2021 - fallback 85/15 dentro de train: "
               f"Train={train_mask.sum():,}, Val={val_mask.sum():,}")
 
     X_all = df[FEATURE_COLS].values.astype(np.float32)
@@ -289,7 +289,7 @@ def _full_training_pipeline(
     tw_train = tw_all[train_mask] if tw_all is not None else None
 
     weights_train = compute_combined_weights(y_train, tw_train)
-    print(f"  Pesos combinados — media: {weights_train.mean():.3f}, max: {weights_train.max():.3f}")
+    print(f"  Pesos combinados - media: {weights_train.mean():.3f}, max: {weights_train.max():.3f}")
 
     # Baseline
     print("Entrenando baseline (LogReg)...")
@@ -336,4 +336,4 @@ if __name__ == "__main__":
     print(f"\n=== Pipeline pre-{cutoff_pre22.year} (para validar WC sin leakage) ===")
     _full_training_pipeline(df, trials=args.trials, cutoff=cutoff_pre22, suffix=suffix)
 
-    print("\nOK — modelos guardados en", MODELS_DIR)
+    print("\nOK - modelos guardados en", MODELS_DIR)

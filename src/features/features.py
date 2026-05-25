@@ -246,7 +246,7 @@ def data_quality_report(df: pd.DataFrame, name: str = "dataset") -> None:
     print(f"  Duplicados exactos: {dups}")
     if "date" in df.columns:
         d = pd.to_datetime(df["date"])
-        print(f"  Rango de fechas: {d.min().date()} → {d.max().date()}")
+        print(f"  Rango de fechas: {d.min().date()} - {d.max().date()}")
     for col in ("home_team", "away_team", "team"):
         if col in df.columns:
             print(f"  Equipos únicos en {col}: {df[col].nunique()}")
@@ -373,7 +373,7 @@ def build_team_features_for_simulation(
     elo_df = calculate_elo_ratings(matches_df.sort_values("date"))
     ref_date = REFERENCE_DATE
 
-    # Construir un mapping team → último ELO antes de ref_date
+    # Construir un mapping team - último ELO antes de ref_date
     elo_long = pd.concat([
         elo_df[["date", "home_team", "home_elo_after"]].rename(
             columns={"home_team": "team", "home_elo_after": "elo"}
