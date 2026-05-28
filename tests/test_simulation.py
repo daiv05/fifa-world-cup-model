@@ -138,7 +138,8 @@ def test_no_home_away_bias_in_groups():
 
 
 def test_clopper_pearson_basic():
-    lo, hi = _clopper_pearson(100, 1000, alpha=0.10)
+    # Default alpha=0.05 (IC 95%, estándar en la literatura)
+    lo, hi = _clopper_pearson(100, 1000)
     # 10% ± algo razonable
     assert lo < 10.0 < hi
     assert 7.5 < lo < 10.0

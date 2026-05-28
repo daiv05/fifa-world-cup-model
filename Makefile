@@ -6,7 +6,7 @@ ITER ?= 10000
 MODEL ?= xgboost_calibrated
 TRIALS ?= 100
 
-.PHONY: install features train evaluate simulate sensitivity dashboard test all clean
+.PHONY: install features train evaluate ablation simulate sensitivity dashboard test all clean
 
 install:
 	$(PY) -m pip install -e .
@@ -19,6 +19,9 @@ train:
 
 evaluate:
 	$(PY) -m src.models.evaluate
+
+ablation:
+	$(PY) -m src.analysis.ablation
 
 simulate:
 	$(PY) -m src.simulation.simulate --iterations $(ITER) --model $(MODEL)

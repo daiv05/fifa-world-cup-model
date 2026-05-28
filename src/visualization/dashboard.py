@@ -58,7 +58,7 @@ if page == "Probabilidades de Campeonato":
             ),
         ))
         fig.update_layout(
-            title=f"Top {top_n} candidatos al campeonato (IC 90% Clopper-Pearson)",
+            title=f"Top {top_n} candidatos al campeonato (IC 95% Clopper-Pearson)",
             xaxis_title="Probabilidad de ser campeón (%)",
             yaxis=dict(autorange="reversed"),
             height=max(400, top_n * 28),

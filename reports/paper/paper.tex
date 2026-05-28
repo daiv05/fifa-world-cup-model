@@ -179,6 +179,14 @@ falla), \emph{forward-fill} del ranking FIFA entre publicaciones e
 imputaci\'on del xG con la media global (${\approx}1{,}2$) para selecc.\
 sin cobertura StatsBomb.
 
+\textbf{Licencias de datos.} Los xG provienen del \emph{open data} de
+StatsBomb~\cite{statsbomb}, empleado bajo su licencia de uso no
+comercial con atribuci\'on. El valor de mercado de Transfermarkt
+\cite{transfermarkt} es un \emph{snapshot} manual utilizado
+exclusivamente con fines acad\'emicos, sin redistribuci\'on del dato
+original. El resto de fuentes son datasets p\'ublicos o APIs con planes
+gratuitos para investigaci\'on.
+
 \section{Ingenier\'ia de caracter\'isticas}
 \label{sec:features}
 
@@ -355,7 +363,7 @@ la definici\'on por penales se modela como $\text{Bernoulli}(0{,}5)$.
 \end{enumerate}
 
 Se contabilizan, por equipo, las veces que alcanza cada ronda y los
-intervalos de confianza al 90\,\% se calculan con el m\'etodo binomial
+intervalos de confianza al 95\,\% se calculan con el m\'etodo binomial
 exacto de Clopper--Pearson \cite{clopper1934} v\'ia
 \texttt{scipy.stats.beta}.
 
@@ -365,7 +373,18 @@ exacto de Clopper--Pearson \cite{clopper1934} v\'ia
 Se reportan Log-Loss y Brier score sobre el conjunto de prueba
 ($\texttt{date}\ge 2022$). Se evita \texttt{accuracy} por ser
 inadecuada para predicciones probabil\'isticas desbalanceadas
-\cite{brier1950}. La Tabla \ref{tab:eval} muestra que XGBoost calibrado es el mejor modelo
+\cite{brier1950}.
+
+\textbf{Nota metodol\'ogica sobre el Brier.} El valor reportado es el
+promedio de los tres scores binarios \emph{one-vs-rest} (cada clase
+$\{H,E,V\}$ contra el resto), de modo que se sit\'ua en el rango
+$[0,1]$ y no en la formulaci\'on multiclase de suma de diferencias
+cuadr\'aticas (rango $[0,2]$). Ambas medidas son equivalentes salvo un
+factor: el Brier de suma multiclase es $K$ veces el promediado, con
+$K=3$ clases; as\'i, el $0{,}170$ reportado corresponde a $0{,}509$ en
+la escala $[0,2]$.
+
+La Tabla \ref{tab:eval} muestra que XGBoost calibrado es el mejor modelo
 en ambas m\'etricas — el \'unico que supera a todos los dem\'as
 simult\'aneamente en Log-Loss y Brier. La calibraci\'on Platt sobre datos
 de validaci\'on 2021 corrige la sobreconfianza del XGBoost base sin degradar
@@ -400,6 +419,39 @@ de la baja correlaci\'on entre features y empates ($|r|<0{,}07$).}
 \label{fig:calibration}
 \end{figure}
 
+\subsection{Estudio de ablaci\'on}
+\label{sec:ablation}
+
+Para cuantificar la contribuci\'on marginal de las features m\'as
+discutidas (xG y valor de plantilla) se reentrena el XGBoost calibrado
+manteniendo fijos el split temporal, los pesos (\emph{time decay} +
+\texttt{balanced}) y los hiperpar\'ametros \'optimos; lo \'unico que
+var\'ia entre filas es el conjunto de features. La Tabla
+\ref{tab:ablation} muestra que retirar ambos grupos degrada las dos
+m\'etricas, pero el efecto es peque\~no ($\Delta\,\text{Log-Loss}\le
+0{,}0017$, $\Delta\,\text{Brier}\le 0{,}0004$), coherente con su
+posici\'on secundaria en el an\'alisis SHAP (Fig.\ \ref{fig:shap}) y con
+la baja sensibilidad observada ante reducciones de plantilla (Tabla
+\ref{tab:sens}). El signo positivo de ambos $\Delta$ confirma que las
+features aportan se\~nal \'util, aunque modesta, por encima del n\'ucleo
+\texttt{elo\_diff}\,/\,\texttt{ranking\_diff}.
+
+\begin{table}[!t]
+\caption{Ablaci\'on de grupos de features (XGBoost calibrado, test $\ge$2022)}
+\label{tab:ablation}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Configuraci\'on} & \textbf{Log-Loss} & \textbf{Brier} & \textbf{$\Delta$LL} & \textbf{$\Delta$Brier}\\
+\midrule
+Completo (7 feat.) & 0{,}8700 & 0{,}1696 & --- & ---\\
+Sin xG             & 0{,}8717 & 0{,}1700 & $+0{,}0017$ & $+0{,}0004$\\
+Sin squad\_value   & 0{,}8713 & 0{,}1699 & $+0{,}0013$ & $+0{,}0003$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \textbf{Validaci\'on hist\'orica.} El modelo \texttt{xgboost\_pre2022}
 (entrenado exclusivamente con \texttt{date<2022-01-01}) se evalu\'a
 sobre los partidos del Mundial 2022, sirviendo como prueba
@@ -411,7 +463,7 @@ imprimen en consola al ejecutar \texttt{make evaluate}.
 
 La Tabla \ref{tab:top10} lista el Top-10 de candidatos al t\'itulo y la
 Tabla \ref{tab:hosts} resume la progresi\'on por fase de los tres
-anfitriones, ambos con intervalos Clopper--Pearson al 90\,\%.
+anfitriones, ambos con intervalos Clopper--Pearson al 95\,\%.
 
 \begin{table}[!t]
 \caption{Top-10 candidatos a campe\'on (10\,000 iteraciones)}
@@ -420,24 +472,24 @@ anfitriones, ambos con intervalos Clopper--Pearson al 90\,\%.
 \renewcommand{\arraystretch}{1.15}
 \begin{tabular}{@{}lcc@{}}
 \toprule
-\textbf{Equipo} & \textbf{P(Campe\'on)} & \textbf{IC 90\,\%}\\
+\textbf{Equipo} & \textbf{P(Campe\'on)} & \textbf{IC 95\,\%}\\
 \midrule
-Espa\~na         & 14{,}30\,\% & [13{,}73, 14{,}89]\\
-Francia          & 11{,}11\,\% & [10{,}60, 11{,}64]\\
-Argentina        &  9{,}55\,\% & [ 9{,}07, 10{,}05]\\
-Inglaterra       &  7{,}96\,\% & [ 7{,}52,  8{,}42]\\
-Brasil           &  6{,}11\,\% & [ 5{,}72,  6{,}52]\\
-Portugal         &  4{,}16\,\% & [ 3{,}84,  4{,}50]\\
-Canad\'a         &  4{,}09\,\% & [ 3{,}77,  4{,}43]\\
-Estados Unidos   &  4{,}06\,\% & [ 3{,}74,  4{,}40]\\
-Alemania         &  3{,}83\,\% & [ 3{,}52,  4{,}16]\\
-M\'exico         &  3{,}74\,\% & [ 3{,}43,  4{,}07]\\
+Espa\~na         & 14{,}30\,\% & [13{,}62, 15{,}00]\\
+Francia          & 11{,}11\,\% & [10{,}50, 11{,}74]\\
+Argentina        &  9{,}55\,\% & [ 8{,}98, 10{,}14]\\
+Inglaterra       &  7{,}96\,\% & [ 7{,}44,  8{,}51]\\
+Brasil           &  6{,}11\,\% & [ 5{,}65,  6{,}60]\\
+Portugal         &  4{,}16\,\% & [ 3{,}78,  4{,}57]\\
+Canad\'a         &  4{,}09\,\% & [ 3{,}71,  4{,}50]\\
+Estados Unidos   &  4{,}06\,\% & [ 3{,}68,  4{,}47]\\
+Alemania         &  3{,}83\,\% & [ 3{,}46,  4{,}22]\\
+M\'exico         &  3{,}74\,\% & [ 3{,}38,  4{,}13]\\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[!t]
-\caption{Progresi\'on por fase de los anfitriones (\%, IC 90\,\%)}
+\caption{Progresi\'on por fase de los anfitriones (\%, IC 95\,\%)}
 \label{tab:hosts}
 \centering
 \renewcommand{\arraystretch}{1.15}
@@ -565,20 +617,38 @@ iteraciones; y (iv) modelar lesiones a nivel de jugador integrando
 
 \begin{thebibliography}{99}
 
-\bibitem{elo1978}
-A.~E. Elo, \emph{The Rating of Chessplayers, Past and Present}.\hskip 1em plus
-  0.5em minus 0.4em\relax New York: Arco Publishing, 1978.
+\bibitem{fifa2026}
+{F\'ed\'eration Internationale de Football Association}, ``{FIFA} World Cup
+  2026 competition format and regulations,'' 2023. [Online]. Available:
+  \url{https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026}
+  (accessed 2026-05-24).
+
+\bibitem{maher1982}
+M.~J. Maher, ``Modelling association football scores,'' \emph{Statistica
+  Neerlandica}, vol.~36, no.~3, pp. 109--118, 1982, doi:
+  \url{https://doi.org/10.1111/j.1467-9574.1982.tb00782.x}.
 
 \bibitem{dixon1997}
 M.~J. Dixon and S.~G. Coles, ``Modelling association football scores and
   inefficiencies in the football betting market,'' \emph{Journal of the Royal
   Statistical Society: Series C (Applied Statistics)}, vol.~46, no.~2, pp.
-  265--280, 1997.
+  265--280, 1997, doi: \url{https://doi.org/10.1111/1467-9876.00065}.
+
+\bibitem{elo1978}
+A.~E. Elo, \emph{The Rating of Chessplayers, Past and Present}.\hskip 1em plus
+  0.5em minus 0.4em\relax New York: Arco Publishing, 1978.
+
+\bibitem{groll2019}
+A.~Groll, C.~Ley, G.~Schauberger, and H.~Van Eetvelde, ``A hybrid random
+  forest to predict soccer matches in international tournaments,'' \emph{J.
+  Quant. Anal. Sports}, vol.~15, no.~4, pp. 271--287, 2019, doi:
+  \url{https://doi.org/10.1515/jqas-2018-0060}.
 
 \bibitem{chen2016xgboost}
 T.~Chen and C.~Guestrin, ``{XGBoost}: A scalable tree boosting system,'' in
   \emph{Proc. 22nd ACM SIGKDD Int. Conf. on Knowledge Discovery and Data
-  Mining}, 2016, pp. 785--794.
+  Mining}, 2016, pp. 785--794, doi:
+  \url{https://doi.org/10.1145/2939672.2939785}.
 
 \bibitem{ke2017lightgbm}
 G.~Ke \emph{et~al.}, ``{LightGBM}: A highly efficient gradient boosting
@@ -592,12 +662,8 @@ S.~M. Lundberg and S.-I. Lee, ``A unified approach to interpreting model
 
 \bibitem{brier1950}
 G.~W. Brier, ``Verification of forecasts expressed in terms of probability,''
-  \emph{Monthly Weather Review}, vol.~78, no.~1, pp. 1--3, 1950.
-
-\bibitem{clopper1934}
-C.~J. Clopper and E.~S. Pearson, ``The use of confidence or fiducial limits
-  illustrated in the case of the binomial,'' \emph{Biometrika}, vol.~26, no.~4,
-  pp. 404--413, 1934.
+  \emph{Monthly Weather Review}, vol.~78, no.~1, pp. 1--3, 1950, doi:
+  \url{https://doi.org/10.1175/1520-0493(1950)078<0001:VOFEIT>2.0.CO;2}.
 
 \bibitem{platt1999}
 J.~C. Platt, ``Probabilistic outputs for support vector machines and
@@ -607,81 +673,78 @@ J.~C. Platt, ``Probabilistic outputs for support vector machines and
 \bibitem{niculescu2005}
 A.~Niculescu-Mizil and R.~Caruana, ``Predicting good probabilities with
   supervised learning,'' in \emph{Proc. 22nd Int. Conf. on Machine Learning
-  (ICML)}, 2005, pp. 625--632.
-
-\bibitem{akiba2019optuna}
-T.~Akiba, S.~Sano, T.~Yanase, T.~Ohta, and M.~Koyama, ``{Optuna}: A
-  next-generation hyperparameter optimization framework,'' in \emph{Proc. 25th
-  ACM SIGKDD Int. Conf. on Knowledge Discovery and Data Mining}, 2019, pp.
-  2623--2631.
-
-\bibitem{fifa2026}
-{F\'ed\'eration Internationale de Football Association}, ``{FIFA} World Cup
-  2026 competition format and regulations,'' 2023, accessed 2026-05-24.
-  [Online]. Available:
-  \url{https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026}
+  (ICML)}, 2005, pp. 625--632, doi:
+  \url{https://doi.org/10.1145/1102351.1102430}.
 
 \bibitem{martj42}
 M.~J\"urisoo, ``International football results from 1872 to 2024,'' 2024.
   [Online]. Available: \url{https://github.com/martj42/international_results}
-
-\bibitem{statsbomb}
-{StatsBomb}, ``{StatsBomb} open data,'' 2024. [Online]. Available:
-  \url{https://github.com/statsbomb/open-data}
-
-\bibitem{transfermarkt}
-{Transfermarkt}, ``National teams market values,'' 2026, manual snapshot.
-  [Online]. Available: \url{https://www.transfermarkt.com}
-
-\bibitem{groll2019}
-A.~Groll, C.~Ley, G.~Schauberger, and H.~Van Eetvelde, ``A hybrid random
-  forest to predict soccer matches in international tournaments,'' \emph{J.
-  Quant. Anal. Sports}, vol.~15, no.~4, pp. 271--287, 2019.
-
-\bibitem{maher1982}
-M.~J. Maher, ``Modelling association football scores,'' \emph{Statistica
-  Neerlandica}, vol.~36, no.~3, pp. 109--118, 1982.
+  (accessed 2026-05-24).
 
 \bibitem{kaggle_martj42}
-M.~J\"urisoo, ``International football results from 1872 to 2023,''
-  \emph{Kaggle}, 2023. [Online]. Available:
-  \url{https://kaggle.com/datasets/martj42/international-football-results-from-1872-to-2017}
+M.~J\"urisoo, ``International football results from 1872 to 2024,''
+  \emph{Kaggle}, 2024. [Online]. Available:
+  \url{https://www.kaggle.com/datasets/martj42/international-football-results-from-1872-to-2017}
+  (accessed 2026-05-24).
 
 \bibitem{kaggle_fifaranking}
 cashncarry, ``{FIFA} world ranking 1993--2023,'' \emph{Kaggle}, 2023.
   [Online]. Available:
   \url{https://www.kaggle.com/datasets/cashncarry/fifaworldranking}
+  (accessed 2026-05-24).
 
 \bibitem{kaggle_wcmatches}
 I.~Shahrukh, ``{FIFA} world cup matches 1974--2022,'' \emph{Kaggle}, 2023.
   [Online]. Available:
   \url{https://www.kaggle.com/datasets/ibrahimshahrukh/fifa-world-cup-matches-19742022-dataset}
+  (accessed 2026-05-24).
 
 \bibitem{kaggle_wc2026baseline}
 S.~Zahran, ``{WC2026} match probability baseline dataset,'' \emph{Kaggle},
   2024. [Online]. Available:
   \url{https://www.kaggle.com/datasets/sarazahran1/wc2026-match-probability-baseline-dataset}
+  (accessed 2026-05-24).
 
 \bibitem{openfootball}
 {openfootball contributors}, ``World cup data repository,'' GitHub, 2024.
   [Online]. Available: \url{https://github.com/openfootball/worldcup}
+  (accessed 2026-05-24).
+
+\bibitem{statsbomb}
+{StatsBomb}, ``{StatsBomb} open data,'' 2024. [Online]. Available:
+  \url{https://github.com/statsbomb/open-data} (accessed 2026-05-24).
 
 \bibitem{apifootball}
 {RapidAPI / API-Football}, ``{API-Football}: Football statistics and live
   scores,'' 2024. [Online]. Available:
-  \url{https://rapidapi.com/collection/football-soccer}
+  \url{https://rapidapi.com/collection/football-soccer} (accessed 2026-05-24).
 
 \bibitem{footballdata}
 {Football-Data.org}, ``Football data and results,'' 2024. [Online].
-  Available: \url{https://www.football-data.org/}
+  Available: \url{https://www.football-data.org/} (accessed 2026-05-24).
 
 \bibitem{fbref}
 {Sports Reference LLC}, ``{FBref}: Football statistics and history,'' 2024.
-  [Online]. Available: \url{https://fbref.com/en/}
+  [Online]. Available: \url{https://fbref.com/en/} (accessed 2026-05-24).
+
+\bibitem{transfermarkt}
+{Transfermarkt}, ``National teams market values,'' 2026, manual snapshot.
+  [Online]. Available: \url{https://www.transfermarkt.com} (accessed 2026-05-24).
 
 \bibitem{eloratings}
 {EloRatings.net}, ``World football {Elo} ratings,'' 2024. [Online].
-  Available: \url{https://www.eloratings.net/}
+  Available: \url{https://www.eloratings.net/} (accessed 2026-05-24).
+
+\bibitem{akiba2019optuna}
+T.~Akiba, S.~Sano, T.~Yanase, T.~Ohta, and M.~Koyama, ``{Optuna}: A
+  next-generation hyperparameter optimization framework,'' in \emph{Proc. 25th
+  ACM SIGKDD Int. Conf. on Knowledge Discovery and Data Mining}, 2019, pp.
+  2623--2631, doi: \url{https://doi.org/10.1145/3292500.3330701}.
+
+\bibitem{clopper1934}
+C.~J. Clopper and E.~S. Pearson, ``The use of confidence or fiducial limits
+  illustrated in the case of the binomial,'' \emph{Biometrika}, vol.~26, no.~4,
+  pp. 404--413, 1934, doi: \url{https://doi.org/10.1093/biomet/26.4.404}.
 
 \end{thebibliography}
 

@@ -77,7 +77,7 @@ def _dummy_predict_fn(home: str, away: str) -> np.ndarray:
     return np.array([0.40, 0.25, 0.35])
 
 
-def _clopper_pearson(c: int, n: int, alpha: float = 0.10) -> tuple[float, float]:
+def _clopper_pearson(c: int, n: int, alpha: float = 0.05) -> tuple[float, float]:
     """IC bilateral Clopper-Pearson (1-alpha) sobre proporción c/n, en %."""
     lo = beta.ppf(alpha / 2, c, n - c + 1) if c > 0 else 0.0
     hi = beta.ppf(1 - alpha / 2, c + 1, n - c) if c < n else 1.0
