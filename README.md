@@ -16,11 +16,13 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 
 | Equipo | P(Campeón) | IC 95% |
 |--------|:----------:|:------:|
-| Spain | 14.3% | [13.62%, 15.0%] |
-| France | 11.11% | [10.5%, 11.74%] |
-| Argentina | 9.55% | [8.98%, 10.14%] |
-| England | 7.96% | [7.44%, 8.51%] |
-| Brazil | 6.11% | [5.65%, 6.6%] |
+| Spain | 14.49% | [13.81%, 15.20%] |
+| Argentina | 10.56% | [9.96%, 11.18%] |
+| France | 10.52% | [9.93%, 11.14%] |
+| England | 7.63% | [7.12%, 8.17%] |
+| Brazil | 6.05% | [5.59%, 6.54%] |
+
+> Argentina y France quedan en **empate técnico** (intervalos de confianza solapados); su orden relativo no es estadísticamente distinguible.
 
 ---
 
@@ -156,7 +158,7 @@ Split **temporal** implementado en `temporal_split` ([src/models/train.py](src/m
 - XGBoost pre-2022 - entrenado solo con `date < 2022-01-01` para validar el Mundial 2022 sin data leakage.
 
 ### Estudio de ablación
-`src/analysis/ablation.py` reentrena el XGBoost calibrado quitando grupos de features (xG y `squad_value`) mientras mantiene fijos el split temporal, los pesos y los hiperparámetros óptimos, para aislar la contribución marginal de cada grupo sobre Log-Loss y Brier (resultados en `data/processed/ablation_results.csv`). Retirar cualquiera de los dos grupos degrada ambas métricas de forma modesta (ΔLog-Loss ≤ 0.0017, ΔBrier ≤ 0.0004), coherente con su posición secundaria en SHAP.
+`src/analysis/ablation.py` reentrena el XGBoost calibrado quitando grupos de features (xG y `squad_value`) mientras mantiene fijos el split temporal, los pesos y los hiperparámetros óptimos, para aislar la contribución marginal de cada grupo sobre Log-Loss y Brier (resultados en `data/processed/ablation_results.csv`). Retirar cualquiera de los dos grupos degrada ambas métricas de forma modesta (ΔLog-Loss ≤ 0.0017, ΔBrier ≤ 0.0003). El xG aporta la mayor señal marginal; `squad_value_diff` es prácticamente redundante en el test (ΔBrier = 0), coherente con su posición secundaria en SHAP.
 
 ### Simulación Monte Carlo
 - **10,000 iteraciones** del torneo completo (104 partidos c/u).
@@ -174,7 +176,7 @@ El modelo `xgboost_pre2022` se entrena exclusivamente con `date < 2022-01-01` y 
 ## Limitaciones conocidas
 - Los equipos debutantes (Uzbekistán, Curaçao, etc.) tienen muy pocos partidos históricos - ELO inicial por defecto (1500).
 - Las lesiones de última hora no están modeladas de forma estructural, pero `src/analysis/sensitivity.py` simula escenarios `-30% squad_value` sobre el top-5 (ver `data/processed/sensitivity_injuries.csv`).
-- El xG de StatsBomb cubre principalmente torneos UEFA/FIFA; equipos de otras confederaciones usan `1.2` por defecto (media global aproximada).
+- El xG de StatsBomb cubre principalmente torneos UEFA/FIFA; las selecciones sin cobertura usan `1.2` por defecto (media global). En el fixture WC 2026 esto afecta a **13 de 48 equipos** (~27%, incluyendo Noruega, Costa de Marfil, Argelia, Uzbekistán), cuyo marcador se simula con ataque/defensa promedio — ruido que se propaga vía la clasificación por terceros.
 - `travel_distance = 0.0` cuando la sede del partido no se puede geocodificar (campo neutral / dato faltante).
 - El snapshot Transfermarkt es manual (no scraping en vivo); fecha en `scraper.SQUAD_VALUES_SNAPSHOT_DATE`.
 

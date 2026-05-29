@@ -7,17 +7,26 @@ import time
 import numpy as np
 import pandas as pd
 from collections import defaultdict
+from math import ceil
 from pathlib import Path
 from tqdm import tqdm
 from scipy.stats import beta
+from joblib import Parallel, delayed
 
 from src.simulation.tournament import (
     GROUPS_2026, ALL_TEAMS, PHASES,
-    simulate_full_tournament,
+    _simulate_full_fast,
 )
 
 RESULTS_DIR = Path(__file__).parents[2] / "data" / "processed"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Tamaño de bloque de iteraciones. El particionado en bloques de tamaño fijo,
+# con una semilla hija por bloque (SeedSequence.spawn), hace que el resultado
+# dependa solo de (seed, n_iterations) y NO del número de procesos: cualquier
+# n_jobs produce exactamente los mismos conteos (la agregación es una suma de
+# enteros, conmutativa). n_jobs solo afecta la velocidad, nunca los números.
+CHUNK_SIZE = 500
 
 _FEATURE_COLS = [
     "elo_diff", "squad_value_diff", "xg_avg_for",
@@ -77,6 +86,28 @@ def _dummy_predict_fn(home: str, away: str) -> np.ndarray:
     return np.array([0.40, 0.25, 0.35])
 
 
+def _simulate_chunk(
+    count: int,
+    predict_fn,
+    team_xg: dict,
+    seedseq: np.random.SeedSequence,
+) -> dict[str, dict[str, int]]:
+    """Ejecuta `count` torneos con un Generator derivado de `seedseq` y
+    devuelve los conteos por fase. Función de nivel de módulo (picklable) para
+    poder distribuirse con joblib/loky."""
+    rng = np.random.default_rng(seedseq)
+    counts: dict[str, dict[str, int]] = {p: defaultdict(int) for p in PHASES}
+    for _ in range(count):
+        result = _simulate_full_fast(predict_fn, team_xg, rng)
+        for phase in PHASES:
+            if phase == "champion":
+                counts["champion"][result["champion"]] += 1
+            else:
+                for team in result[phase]:
+                    counts[phase][team] += 1
+    return counts
+
+
 def _clopper_pearson(c: int, n: int, alpha: float = 0.05) -> tuple[float, float]:
     """IC bilateral Clopper-Pearson (1-alpha) sobre proporción c/n, en %."""
     lo = beta.ppf(alpha / 2, c, n - c + 1) if c > 0 else 0.0
@@ -89,14 +120,17 @@ def run_simulation(
     model=None,
     team_features: pd.DataFrame | None = None,
     seed: int = 42,
+    n_jobs: int = -1,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Devuelve (champions_df, progression_df):
       - champions_df: team, champion_count, champion_pct, champion_ci_low/high
       - progression_df: team + porcentaje + IC por fase (group_stage, R32, R16, QF, SF, Final, Champion)
-    """
-    np.random.seed(seed)
 
+    `n_jobs` controla el paralelismo (joblib/loky). El resultado es idéntico
+    para cualquier n_jobs gracias al particionado determinista por bloques
+    (ver CHUNK_SIZE); n_jobs=-1 usa todos los núcleos.
+    """
     if model is not None and team_features is not None:
         predict_fn = build_predict_fn(model, team_features)
         team_xg = _build_team_xg(team_features)
@@ -105,24 +139,40 @@ def run_simulation(
         predict_fn = _dummy_predict_fn
         team_xg = {}
 
-    # Sanity: una iteración para timing
+    # Particionado determinista en bloques de tamaño fijo + una semilla hija
+    # independiente por bloque. Reproducible e independiente de n_jobs.
+    n_chunks = max(1, ceil(n_iterations / CHUNK_SIZE))
+    chunk_sizes = [
+        min(CHUNK_SIZE, n_iterations - i * CHUNK_SIZE) for i in range(n_chunks)
+    ]
+    child_seeds = np.random.SeedSequence(seed).spawn(n_chunks)
+
+    # Sanity: una iteración (con RNG aparte) para no tocar los streams sembrados.
     start = time.perf_counter()
-    _ = simulate_full_tournament(predict_fn, team_xg)
+    _ = _simulate_full_fast(predict_fn, team_xg, np.random.default_rng())
     first_iter_ms = (time.perf_counter() - start) * 1000
     print(f"Primera iteración: {first_iter_ms:.1f} ms - "
-          f"estimado total: {first_iter_ms * n_iterations / 1000:.0f}s")
+          f"estimado serie: {first_iter_ms * n_iterations / 1000:.0f}s "
+          f"({n_chunks} bloques, n_jobs={n_jobs})")
 
-    # phase_counts[phase][team] = nº de veces que el equipo llegó a esa fase
+    tasks = list(zip(chunk_sizes, child_seeds))
+    if n_jobs == 1:
+        chunk_results = [
+            _simulate_chunk(c, predict_fn, team_xg, ss)
+            for c, ss in tqdm(tasks, desc="Simulando torneos (bloques)")
+        ]
+    else:
+        chunk_results = Parallel(n_jobs=n_jobs)(
+            delayed(_simulate_chunk)(c, predict_fn, team_xg, ss)
+            for c, ss in tasks
+        )
+
+    # Agregación (suma de enteros, conmutativa -> orden irrelevante)
     phase_counts: dict[str, dict[str, int]] = {p: defaultdict(int) for p in PHASES}
-
-    for _ in tqdm(range(n_iterations), desc="Simulando torneos"):
-        result = simulate_full_tournament(predict_fn, team_xg)
+    for cr in chunk_results:
         for phase in PHASES:
-            if phase == "champion":
-                phase_counts["champion"][result["champion"]] += 1
-            else:
-                for team in result[phase]:
-                    phase_counts[phase][team] += 1
+            for team, c in cr[phase].items():
+                phase_counts[phase][team] += c
 
     # ----- Tabla de campeones (con IC Clopper-Pearson) -----
     champ_rows = []
@@ -181,6 +231,8 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default=None,
                         help="Nombre del modelo en data/processed/models/")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--jobs", type=int, default=-1,
+                        help="Procesos paralelos (joblib). -1 = todos los núcleos, 1 = serie.")
     args = parser.parse_args()
 
     model = None
@@ -198,6 +250,7 @@ if __name__ == "__main__":
         model=model,
         team_features=team_features,
         seed=args.seed,
+        n_jobs=args.jobs,
     )
 
     print("\n=== TOP 10 candidatos al campeonato ===")

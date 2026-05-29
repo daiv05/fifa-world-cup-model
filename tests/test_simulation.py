@@ -10,7 +10,7 @@ from src.simulation.tournament import (
     select_best_thirds,
     simulate_full_tournament,
 )
-from src.simulation.simulate import _clopper_pearson
+from src.simulation.simulate import _clopper_pearson, run_simulation
 
 
 def uniform_predict_fn(home, away):
@@ -94,11 +94,12 @@ def test_full_tournament_phase_sizes():
 
 
 def test_simulation_reproducible_with_seed():
-    np.random.seed(0)
-    r1 = simulate_full_tournament(uniform_predict_fn)
-    np.random.seed(0)
-    r2 = simulate_full_tournament(uniform_predict_fn)
+    r1 = simulate_full_tournament(uniform_predict_fn, rng=np.random.default_rng(0))
+    r2 = simulate_full_tournament(uniform_predict_fn, rng=np.random.default_rng(0))
     assert r1["champion"] == r2["champion"]
+    # La reproducibilidad ahora es total (mismo Generator -> mismo resultado).
+    assert r1["round_of_16"] == r2["round_of_16"]
+    assert r1["semifinals"] == r2["semifinals"]
 
 
 def test_probabilities_sum_to_one():
@@ -117,7 +118,7 @@ def test_no_home_away_bias_in_groups():
     if len(group_no_host) < 2:
         pytest.skip("Grupo con anfitriones - no se puede testear sesgo neutro")
 
-    np.random.seed(42)
+    rng = np.random.default_rng(42)
     # Contar puntos del primer equipo alfabético del grupo vs último
     first = sorted(group_no_host)[0]
     last = sorted(group_no_host)[-1]
@@ -125,7 +126,7 @@ def test_no_home_away_bias_in_groups():
     wins_last = 0
     n = 500
     for _ in range(n):
-        table = simulate_group_stage(group_no_host, biased_first_team_wins)
+        table = simulate_group_stage(group_no_host, biased_first_team_wins, rng=rng)
         pts = table.set_index("team")["points"].to_dict()
         if pts.get(first, 0) > pts.get(last, 0):
             wins_first += 1
@@ -144,6 +145,15 @@ def test_clopper_pearson_basic():
     assert lo < 10.0 < hi
     assert 7.5 < lo < 10.0
     assert 10.0 < hi < 12.5
+
+
+def test_run_simulation_deterministic_across_n_jobs():
+    """Los conteos deben ser idénticos para cualquier n_jobs: el particionado
+    por bloques con SeedSequence.spawn desacopla resultado de paralelismo."""
+    s_serial, _ = run_simulation(800, seed=42, n_jobs=1)
+    s_par, _ = run_simulation(800, seed=42, n_jobs=2)
+    merged = s_serial.merge(s_par, on="team", suffixes=("_s", "_p"))
+    assert (merged["champion_count_s"] == merged["champion_count_p"]).all()
 
 
 def test_clopper_pearson_edges():

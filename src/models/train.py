@@ -18,7 +18,8 @@ from pathlib import Path
 
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import TimeSeriesSplit, cross_val_score
+from sklearn.metrics import log_loss
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.class_weight import compute_class_weight
@@ -80,22 +81,62 @@ def temporal_split(
     return train_mask.values, val_mask.values, test_mask.values
 
 
-def _cv_score(model, X, y, weights, cv=5) -> float:
-    # TimeSeriesSplit preserva el orden temporal: cada fold entrena con el
-    # pasado y valida en un bloque futuro contiguo. Coherente con el split
-    # externo train/val/test por fecha - evita que Optuna elija
-    # hiperparámetros bajo un supuesto i.i.d. que el diseño externo niega.
+def _cv_score_pruned(
+    trial,
+    params: dict,
+    X,
+    y: np.ndarray,
+    weights: np.ndarray | None,
+    model_type: str,
+    cv: int = 5,
+) -> float:
+    """
+    CV temporal con reporte por fold para habilitar el pruning de Optuna.
+
+    TimeSeriesSplit preserva el orden temporal: cada fold entrena con el pasado
+    y valida en un bloque futuro contiguo, coherente con el split externo por
+    fecha. Tras cada fold se reporta el neg_log_loss medio acumulado y se
+    consulta `trial.should_prune()`: los trials claramente peores que la mediana
+    se abortan temprano (MedianPruner), ahorrando folds inútiles.
+
+    Devuelve el neg_log_loss medio (a maximizar). Las columnas de probabilidad
+    se reordenan a [0,1,2] para que `log_loss` sea robusto si algún fold no ve
+    las tres clases.
+    """
     splitter = TimeSeriesSplit(n_splits=cv)
-    kwargs = {"cv": splitter, "scoring": "neg_log_loss"}
-    if weights is not None:
-        # sklearn >=1.6 usa `params`; versiones previas usan `fit_params`.
-        try:
-            scores = cross_val_score(model, X, y, params={"sample_weight": weights}, **kwargs)
-        except TypeError:
-            scores = cross_val_score(model, X, y, fit_params={"sample_weight": weights}, **kwargs)
-    else:
-        scores = cross_val_score(model, X, y, **kwargs)
-    return float(scores.mean())
+    # Mantener X como DataFrame con nombres de columna en fit y predict evita el
+    # warning "X does not have valid feature names" y es coherente con cómo se
+    # entrenan los modelos finales y se consultan en la simulación.
+    X_df = X if hasattr(X, "iloc") else pd.DataFrame(np.asarray(X), columns=FEATURE_COLS)
+    y_arr = np.asarray(y)
+    w_arr = np.asarray(weights) if weights is not None else None
+
+    fold_scores: list[float] = []
+    for step, (tr_idx, va_idx) in enumerate(splitter.split(X_df)):
+        X_tr, X_va = X_df.iloc[tr_idx], X_df.iloc[va_idx]
+        y_tr, y_va = y_arr[tr_idx], y_arr[va_idx]
+        w_tr = w_arr[tr_idx] if w_arr is not None else None
+
+        if model_type == "xgboost":
+            model = train_xgboost(X_tr, y_tr, w_tr, params)
+        else:
+            model = train_lightgbm(X_tr, y_tr, w_tr, params)
+
+        proba = model.predict_proba(X_va)
+        proba_full = np.zeros((proba.shape[0], 3), dtype=float)
+        for col, cls in enumerate(model.classes_):
+            proba_full[:, int(cls)] = proba[:, col]
+        # Renormaliza a suma 1 (float64): corrige el error de redondeo de las
+        # probabilidades float32 del modelo, que para ciertos hiperparámetros
+        # excede la tolerancia de log_loss y dispararía un UserWarning.
+        proba_full /= proba_full.sum(axis=1, keepdims=True)
+        fold_scores.append(-log_loss(y_va, proba_full, labels=[0, 1, 2]))
+
+        trial.report(float(np.mean(fold_scores)), step=step)
+        if trial.should_prune():
+            raise optuna.TrialPruned()
+
+    return float(np.mean(fold_scores))
 
 
 def train_baseline(
@@ -198,19 +239,23 @@ def run_optuna_study(
         if model_type == "xgboost":
             params["min_child_weight"] = trial.suggest_float("min_child_weight", 1.0, 15.0)
             params["gamma"] = trial.suggest_float("gamma", 0.0, 5.0)
-            model = train_xgboost(X, y, weights, params)
         else:
             params["min_child_samples"] = trial.suggest_int("min_child_samples", 5, 50)
             params["min_split_gain"] = trial.suggest_float("min_split_gain", 0.0, 1.0)
-            model = train_lightgbm(X, y, weights, params)
-        return _cv_score(model, X, y, weights)
+        return _cv_score_pruned(trial, params, X, y, weights, model_type)
 
+    # MedianPruner: aborta un trial cuando su score intermedio cae por debajo de
+    # la mediana de los trials previos en el mismo fold. n_startup_trials evita
+    # podar antes de tener una base; n_warmup_steps no poda en los primeros folds.
     study = optuna.create_study(
         direction="maximize",
         study_name=f"{model_type}_study",
         sampler=optuna.samplers.TPESampler(seed=42),
+        pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=2),
     )
     study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
+    n_pruned = len([t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED])
+    print(f"  Optuna {model_type}: {n_pruned}/{len(study.trials)} trials podados")
     return study.best_params, study
 
 
@@ -259,10 +304,18 @@ def _full_training_pipeline(
     cutoff: pd.Timestamp | None = None,
     suffix: str = "",
     min_year: int | None = 2010,
-) -> None:
+    reuse_params: dict[str, dict] | None = None,
+) -> dict[str, dict]:
     """
     Si `cutoff` se pasa, se entrena solo con date < cutoff y los modelos
     se guardan con `suffix` (p.ej. "_pre2022").
+
+    `reuse_params` permite saltarse la optimización Optuna reutilizando
+    hiperparámetros ya hallados (claves "xgboost" y "lightgbm"). Se usa para
+    el pipeline pre-cutoff: los parámetros del pipeline principal se ajustan
+    con CV sobre datos < 2021 (subconjunto de lo permitido aquí, < cutoff),
+    así que reutilizarlos NO introduce leakage del test y evita repetir una
+    búsqueda redundante. Devuelve los best_params efectivamente usados.
 
     `min_year` recorta el dataset por abajo (default 2010). Razones:
       - los features estáticos (xg_*, squad_value, ranking moderno) no son
@@ -317,16 +370,24 @@ def _full_training_pipeline(
     baseline = train_baseline(X_train, y_train, weights_train)
     save_model(baseline, f"logreg_baseline{suffix}")
 
-    # XGBoost con Optuna
-    print(f"Optuna XGBoost ({trials} trials)...")
-    best_xgb, _ = run_optuna_study(X_train, y_train, weights_train, n_trials=trials, model_type="xgboost")
+    # XGBoost: Optuna o reutilización de hiperparámetros
+    if reuse_params and "xgboost" in reuse_params:
+        best_xgb = reuse_params["xgboost"]
+        print("Reutilizando best_params XGBoost (sin Optuna)...")
+    else:
+        print(f"Optuna XGBoost ({trials} trials)...")
+        best_xgb, _ = run_optuna_study(X_train, y_train, weights_train, n_trials=trials, model_type="xgboost")
     save_best_params(best_xgb, f"xgboost{suffix}")
     xgb_model = train_xgboost(X_train, y_train, weights_train, best_xgb)
     save_model(xgb_model, f"xgboost{suffix}")
 
-    # LightGBM con Optuna
-    print(f"Optuna LightGBM ({trials} trials)...")
-    best_lgb, _ = run_optuna_study(X_train, y_train, weights_train, n_trials=trials, model_type="lightgbm")
+    # LightGBM: Optuna o reutilización de hiperparámetros
+    if reuse_params and "lightgbm" in reuse_params:
+        best_lgb = reuse_params["lightgbm"]
+        print("Reutilizando best_params LightGBM (sin Optuna)...")
+    else:
+        print(f"Optuna LightGBM ({trials} trials)...")
+        best_lgb, _ = run_optuna_study(X_train, y_train, weights_train, n_trials=trials, model_type="lightgbm")
     save_best_params(best_lgb, f"lightgbm{suffix}")
     lgb_model = train_lightgbm(X_train, y_train, weights_train, best_lgb)
     save_model(lgb_model, f"lightgbm{suffix}")
@@ -338,6 +399,8 @@ def _full_training_pipeline(
         print("Calibrando XGBoost (sigmoid/Platt, prefit) sobre validación temporal...")
         xgb_cal = calibrate_model(xgb_model, X_val, y_val, method="sigmoid")
         save_model(xgb_cal, f"xgboost_calibrated{suffix}")
+
+    return {"xgboost": best_xgb, "lightgbm": best_lgb}
 
 
 if __name__ == "__main__":
@@ -356,12 +419,15 @@ if __name__ == "__main__":
     min_year = args.min_year if args.min_year and args.min_year > 0 else None
 
     print(f"\n=== Pipeline principal (sin cutoff) ===")
-    _full_training_pipeline(df, trials=args.trials, suffix="", min_year=min_year)
+    best_params = _full_training_pipeline(df, trials=args.trials, suffix="", min_year=min_year)
 
     cutoff_pre22 = pd.Timestamp(args.cutoff) if args.cutoff else pd.Timestamp("2022-01-01")
     suffix = f"_pre{cutoff_pre22.year}"
     print(f"\n=== Pipeline pre-{cutoff_pre22.year} (para validar WC sin leakage) ===")
+    # Reutiliza los hiperparámetros del pipeline principal (leakage-safe: se
+    # ajustaron con CV sobre datos < 2021, subconjunto de date < cutoff) para
+    # evitar repetir Optuna y ~reducir a la mitad el tiempo de entrenamiento.
     _full_training_pipeline(df, trials=args.trials, cutoff=cutoff_pre22, suffix=suffix,
-                             min_year=min_year)
+                             min_year=min_year, reuse_params=best_params)
 
     print("\nOK - modelos guardados en", MODELS_DIR)

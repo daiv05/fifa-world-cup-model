@@ -19,7 +19,6 @@ Salida: `paper.pdf`.
 ## Contenido
 
 - `paper.tex` - fuente principal.
-- `references.bib` - bibliografía (Elo, Dixon-Coles, XGBoost, LightGBM, SHAP, Brier, Clopper-Pearson, FIFA 2026, fuentes de datos).
 - `figs/` - figuras EDA/SHAP/calibración copiadas de `reports/figures/`.
 
 Los números de las tablas (métricas, top-10, sensibilidad, progresión) provienen literalmente de `data/processed/*.csv` y deben regenerarse junto con esos CSV.
