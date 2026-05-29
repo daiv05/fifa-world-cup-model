@@ -7,6 +7,13 @@ from tqdm import tqdm
 
 INITIAL_RATING = 1500.0
 
+# Ventaja de localía (puntos ELO) sumada a la expectativa del local cuando el
+# partido NO es en sede neutral. Es el valor estándar del World Football Elo
+# (eloratings.net). Corrige el sesgo de que ~48% de los partidos los gana el
+# local: sin este término, las victorias locales inflan sistemáticamente los
+# ratings de quienes juegan más en casa.
+HOME_ADVANTAGE = 100.0
+
 K_FACTORS: dict[str, float] = {
     "FIFA World Cup": 60,
     "Confederations Cup": 50,
@@ -36,6 +43,17 @@ def _expected_score(rating_a: float, rating_b: float) -> float:
     return 1.0 / (1.0 + 10 ** ((rating_b - rating_a) / 400.0))
 
 
+def _goal_diff_multiplier(margin: int) -> float:
+    """Multiplicador por diferencia de goles del World Football Elo: amplifica
+    el ajuste cuando el marcador es contundente y atenúa el peso de un 1-0
+    fortuito. margin = |goles_local - goles_visitante|."""
+    if margin <= 1:
+        return 1.0
+    if margin == 2:
+        return 1.5
+    return (11.0 + margin) / 8.0
+
+
 def _result_score(home_goals: int, away_goals: int) -> tuple[float, float]:
     if home_goals > away_goals:
         return 1.0, 0.0
@@ -63,11 +81,15 @@ def calculate_elo_ratings(matches_df: pd.DataFrame) -> pd.DataFrame:
         except (ValueError, TypeError):
             continue
 
-        exp_h = _expected_score(r_h, r_a)
+        # Ventaja de localía solo si el partido no es en sede neutral.
+        neutral = bool(row["neutral"]) if "neutral" in row and not pd.isna(row["neutral"]) else False
+        home_bonus = 0.0 if neutral else HOME_ADVANTAGE
+
+        exp_h = _expected_score(r_h + home_bonus, r_a)
         exp_a = 1.0 - exp_h
         res_h, res_a = _result_score(h_goals, a_goals)
 
-        k = _get_k(tournament)
+        k = _get_k(tournament) * _goal_diff_multiplier(abs(h_goals - a_goals))
         new_r_h = r_h + k * (res_h - exp_h)
         new_r_a = r_a + k * (res_a - exp_a)
 

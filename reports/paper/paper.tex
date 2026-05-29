@@ -43,7 +43,7 @@ caracter\'isticas que alimentan cuatro modelos multiclase
 entrenados con
 ponderaci\'on por decaimiento temporal exponencial y rebalanceo de
 clases. El mejor modelo (XGBoost calibrado con m\'etodo Platt) obtiene
-un Log-Loss de $0{,}866$ y un Brier de $0{,}169$ sobre un conjunto de
+un Log-Loss de $0{,}858$ y un Brier de $0{,}167$ sobre un conjunto de
 prueba temporal y se acopla a un motor Monte Carlo de $10{,}000$ iteraciones que respeta el
 reglamento 2026 (2 primeros de grupo + 8 mejores terceros, desempates
 puntos$\to$DG$\to$GF, definici\'on por penales). Los intervalos de
@@ -191,11 +191,16 @@ gratuitos para investigaci\'on.
 \label{sec:features}
 
 Se construyen siete caracter\'isticas justificadas tanto te\'oricamente
-como mediante EDA (Tabla \ref{tab:features}). La Fig.\
-\ref{fig:elo_history} ilustra la dinamica del ELO en cinco selecciones
-representativas; la Fig.\ \ref{fig:corr} muestra colinealidad alta entre
-\texttt{elo\_diff} y \texttt{ranking\_diff} ($r\approx 0{,}84$), mientras
-que el resto de pares se mantiene en niveles moderados.
+como mediante EDA (Tabla \ref{tab:features}). El rating ELO se actualiza
+partido a partido siguiendo el \emph{World Football Elo}: factor $K$
+seg\'un la importancia del torneo (Mundial $60$, continentales $50$,
+clasificatorios $40$, amistosos $20$), ventaja de localía de $+100$
+puntos para el local salvo en sede neutral, y un multiplicador por
+diferencia de goles que amplifica el ajuste en marcadores contundentes.
+La Fig.\ \ref{fig:elo_history} ilustra la din\'amica del ELO en cinco
+selecciones representativas; la Fig.\ \ref{fig:corr} muestra colinealidad
+alta entre \texttt{elo\_diff} y \texttt{ranking\_diff} ($r\approx 0{,}84$),
+mientras que el resto de pares se mantiene en niveles moderados.
 
 \begin{table}[!t]
 \caption{Caracter\'isticas del modelo y su justificaci\'on}
@@ -277,10 +282,12 @@ multinomial (\emph{baseline}, con \texttt{StandardScaler}), XGBoost
 (\texttt{multi:softprob}) y LightGBM. La b\'usqueda de hiperpar\'ametros
 emplea Optuna \cite{akiba2019optuna} con $100$ \emph{trials} y
 \texttt{TimeSeriesSplit}$(n=5)$ interno sobre el conjunto de
-entrenamiento, optimizando \texttt{neg\_log\_loss}. La Fig.\
+entrenamiento, optimizando \texttt{neg\_log\_loss}, con poda por mediana
+(\emph{MedianPruner}) para abortar \emph{trials} poco prometedores y un
+muestreador sembrado que garantiza reproducibilidad. La Fig.\
 \ref{fig:shap} resume la importancia SHAP agregada (mean |SHAP|) y muestra
-que \texttt{elo\_diff} domina (${\approx}0{,}36$), seguido por
-\texttt{ranking\_diff} (${\approx}0{,}16$); las features de xG se
+que \texttt{elo\_diff} domina (${\approx}0{,}39$), seguido por
+\texttt{ranking\_diff} (${\approx}0{,}13$); las features de xG se
 sit\'uan en un segundo nivel (${\approx}0{,}03$ c/u), mientras que
 \texttt{squad\_value\_diff} (${\approx}0{,}01$) y
 \texttt{travel\_distance\_away} (${\approx}0{,}01$) aportan
@@ -383,17 +390,18 @@ $\{H,E,V\}$ contra el resto), de modo que se sit\'ua en el rango
 $[0,1]$ y no en la formulaci\'on multiclase de suma de diferencias
 cuadr\'aticas (rango $[0,2]$). Ambas medidas son equivalentes salvo un
 factor: el Brier de suma multiclase es $K$ veces el promediado, con
-$K=3$ clases; as\'i, el $0{,}169$ reportado corresponde a $0{,}506$ en
+$K=3$ clases; as\'i, el $0{,}167$ reportado corresponde a $0{,}501$ en
 la escala $[0,2]$.
 
 La Tabla \ref{tab:eval} muestra que XGBoost calibrado es el mejor modelo
 en ambas m\'etricas — el \'unico que supera a todos los dem\'as
 simult\'aneamente en Log-Loss y Brier. La calibraci\'on Platt sobre datos
 de validaci\'on 2021 corrige la sobreconfianza del XGBoost base sin degradar
-su discriminaci\'on. XGBoost y LightGBM sin calibrar quedan empatados en
-Log-Loss ($0{,}8888$), mientras que LogReg, pese a su simplicidad, obtiene
-incluso el mejor Brier entre los modelos no calibrados gracias al rebalanceo
-de clases y el time decay.
+su discriminaci\'on. Entre los modelos sin calibrar, XGBoost lidera
+($0{,}8808$/$0{,}1732$), seguido de cerca por LogReg
+($0{,}8855$/$0{,}1736$) gracias al rebalanceo de clases y el time decay;
+LightGBM queda \'ultimo ($0{,}8958$), lo que sugiere un ligero sobreajuste
+frente a la regularizaci\'on impl\'icita de los otros dos.
 
 \begin{table}[!t]
 \caption{M\'etricas de evaluaci\'on sobre test temporal ($\ge$2022)}
@@ -404,10 +412,10 @@ de clases y el time decay.
 \toprule
 \textbf{Modelo} & \textbf{Log-Loss} $\downarrow$ & \textbf{Brier} $\downarrow$\\
 \midrule
-\textbf{XGBoost-Cal} & \textbf{0{,}8655} & \textbf{0{,}1686}\\
-XGBoost             & 0{,}8888 & 0{,}1749\\
-LightGBM            & 0{,}8888 & 0{,}1751\\
-LogReg              & 0{,}8910 & 0{,}1748\\
+\textbf{XGBoost-Cal} & \textbf{0{,}8581} & \textbf{0{,}1670}\\
+XGBoost             & 0{,}8808 & 0{,}1732\\
+LogReg              & 0{,}8855 & 0{,}1736\\
+LightGBM            & 0{,}8958 & 0{,}1770\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -430,16 +438,17 @@ discutidas (xG y valor de plantilla) se reentrena el XGBoost calibrado
 manteniendo fijos el split temporal, los pesos (\emph{time decay} +
 \texttt{balanced}) y los hiperpar\'ametros \'optimos; lo \'unico que
 var\'ia entre filas es el conjunto de features. La Tabla
-\ref{tab:ablation} muestra que retirar ambos grupos degrada las dos
-m\'etricas, pero el efecto es peque\~no ($\Delta\,\text{Log-Loss}\le
-0{,}0017$, $\Delta\,\text{Brier}\le 0{,}0003$), coherente con su
-posici\'on secundaria en el an\'alisis SHAP (Fig.\ \ref{fig:shap}) y con
-la baja sensibilidad observada ante reducciones de plantilla (Tabla
-\ref{tab:sens}). El grupo de xG aporta la mayor se\~nal marginal
-($+0{,}0017$ en Log-Loss); \texttt{squad\_value\_diff}, en cambio, es
-pr\'acticamente redundante en este test ($\Delta\,\text{Brier}=0$), un
-aporte por encima del n\'ucleo \texttt{elo\_diff}\,/\,\texttt{ranking\_diff}
-que se mantiene principalmente por su justificaci\'on te\'orica.
+\ref{tab:ablation} confirma que el grupo de xG aporta la mayor se\~nal
+marginal: retirarlo degrada ambas m\'etricas ($+0{,}0027$ en Log-Loss,
+$+0{,}0005$ en Brier). \texttt{squad\_value\_diff}, en cambio, es
+\emph{redundante}: eliminarlo incluso \textbf{mejora} levemente el test
+($-0{,}0007$ en Log-Loss, $-0{,}0002$ en Brier), dentro del ruido pero
+sin aportar se\~nal por encima del n\'ucleo
+\texttt{elo\_diff}\,/\,\texttt{ranking\_diff}. Esto es coherente con su
+\'ultima posici\'on entre las features informativas en el an\'alisis SHAP
+(Fig.\ \ref{fig:shap}) y con la baja sensibilidad ante reducciones de
+plantilla (Tabla \ref{tab:sens}); se mantiene por su justificaci\'on
+te\'orica (capacidad econ\'omica vs.\ forma deportiva) y su coste nulo.
 
 \begin{table}[!t]
 \caption{Ablaci\'on de grupos de features (XGBoost calibrado, test $\ge$2022)}
@@ -450,9 +459,9 @@ que se mantiene principalmente por su justificaci\'on te\'orica.
 \toprule
 \textbf{Configuraci\'on} & \textbf{Log-Loss} & \textbf{Brier} & \textbf{$\Delta$LL} & \textbf{$\Delta$Brier}\\
 \midrule
-Completo (7 feat.) & 0{,}8655 & 0{,}1686 & --- & ---\\
-Sin xG             & 0{,}8672 & 0{,}1689 & $+0{,}0017$ & $+0{,}0003$\\
-Sin squad\_value   & 0{,}8659 & 0{,}1686 & $+0{,}0004$ & $0{,}0000$\\
+Completo (7 feat.) & 0{,}8581 & 0{,}1670 & --- & ---\\
+Sin xG             & 0{,}8608 & 0{,}1675 & $+0{,}0027$ & $+0{,}0005$\\
+Sin squad\_value   & 0{,}8574 & 0{,}1668 & $-0{,}0007$ & $-0{,}0002$\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -469,14 +478,14 @@ imprimen en consola al ejecutar \texttt{make evaluate}.
 La Tabla \ref{tab:top10} lista el Top-10 de candidatos al t\'itulo y la
 Tabla \ref{tab:hosts} resume la progresi\'on por fase de los tres
 anfitriones, ambos con intervalos Clopper--Pearson al 95\,\%. Espa\~na
-encabeza con claridad (14{,}5\,\%); en cambio Argentina (10{,}56\,\%) y
-Francia (10{,}52\,\%) presentan intervalos pr\'acticamente id\'enticos
-([9{,}96, 11{,}18] y [9{,}93, 11{,}14]), por lo que su orden relativo no es
-estad\'isticamente distinguible y deben considerarse en empate t\'ecnico.
-Entre los anfitriones, M\'exico (3{,}72\,\%) supera a Estados Unidos
-(2{,}87\,\%) y Canad\'a (2{,}56\,\%), reflejo de su mayor ELO y \emph{ranking};
-la ventaja de local es n\'itida en la fase de grupos (R32 entre 84 y 95\,\%)
-pero se diluye en rondas avanzadas.
+encabeza con claridad (16{,}0\,\%); le siguen Argentina (10{,}94\,\%) y
+Francia (10{,}38\,\%) con intervalos solapados ([10{,}33, 11{,}57] y
+[9{,}79, 10{,}99]), por lo que su orden no es estad\'isticamente
+distinguible (empate t\'ecnico). Lo mismo ocurre entre Brasil
+(7{,}80\,\%) e Inglaterra (7{,}72\,\%). Entre los anfitriones, M\'exico
+(3{,}14\,\%) supera a Estados Unidos (2{,}72\,\%) y Canad\'a (2{,}48\,\%);
+la ventaja de local es n\'itida en la fase de grupos (R32 entre 86 y
+95\,\%) pero se diluye en rondas avanzadas.
 
 \begin{table}[!t]
 \caption{Top-10 candidatos a campe\'on (10\,000 iteraciones)}
@@ -487,16 +496,16 @@ pero se diluye en rondas avanzadas.
 \toprule
 \textbf{Equipo} & \textbf{P(Campe\'on)} & \textbf{IC 95\,\%}\\
 \midrule
-Espa\~na         & 14{,}49\,\% & [13{,}81, 15{,}20]\\
-Argentina        & 10{,}56\,\% & [ 9{,}96, 11{,}18]\\
-Francia          & 10{,}52\,\% & [ 9{,}93, 11{,}14]\\
-Inglaterra       &  7{,}63\,\% & [ 7{,}12,  8{,}17]\\
-Brasil           &  6{,}05\,\% & [ 5{,}59,  6{,}54]\\
-Jap\'on          &  4{,}12\,\% & [ 3{,}74,  4{,}53]\\
-M\'exico         &  3{,}72\,\% & [ 3{,}36,  4{,}11]\\
-Portugal         &  3{,}62\,\% & [ 3{,}26,  4{,}00]\\
-Alemania         &  3{,}45\,\% & [ 3{,}10,  3{,}83]\\
-Estados Unidos   &  2{,}87\,\% & [ 2{,}55,  3{,}22]\\
+Espa\~na         & 16{,}01\,\% & [15{,}30, 16{,}74]\\
+Argentina        & 10{,}94\,\% & [10{,}33, 11{,}57]\\
+Francia          & 10{,}38\,\% & [ 9{,}79, 10{,}99]\\
+Brasil           &  7{,}80\,\% & [ 7{,}28,  8{,}34]\\
+Inglaterra       &  7{,}72\,\% & [ 7{,}20,  8{,}26]\\
+Jap\'on          &  3{,}57\,\% & [ 3{,}21,  3{,}95]\\
+Portugal         &  3{,}41\,\% & [ 3{,}06,  3{,}78]\\
+Pa\'ises Bajos   &  3{,}29\,\% & [ 2{,}95,  3{,}66]\\
+M\'exico         &  3{,}14\,\% & [ 2{,}81,  3{,}50]\\
+Estados Unidos   &  2{,}72\,\% & [ 2{,}41,  3{,}06]\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -510,12 +519,12 @@ Estados Unidos   &  2{,}87\,\% & [ 2{,}55,  3{,}22]\\
 \toprule
 \textbf{Fase} & \textbf{M\'exico} & \textbf{EE.UU.} & \textbf{Canad\'a}\\
 \midrule
-Round of 32   & 95{,}3 & 84{,}1 & 92{,}5\\
-Round of 16   & 60{,}3 & 44{,}2 & 48{,}3\\
-Cuartos       & 32{,}2 & 26{,}3 & 23{,}4\\
-Semifinales   & 16{,}4 & 13{,}3 & 11{,}4\\
-Final         &  8{,}0 &  6{,}2 &  5{,}3\\
-Campe\'on     &  3{,}7 &  2{,}9 &  2{,}6\\
+Round of 32   & 94{,}7 & 85{,}5 & 95{,}4\\
+Round of 16   & 59{,}5 & 44{,}1 & 52{,}2\\
+Cuartos       & 28{,}7 & 24{,}3 & 27{,}5\\
+Semifinales   & 14{,}3 & 12{,}2 & 12{,}6\\
+Final         &  7{,}0 &  5{,}6 &  5{,}7\\
+Campe\'on     &  3{,}1 &  2{,}7 &  2{,}5\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -526,7 +535,7 @@ Aunque las lesiones no se modelan estructuralmente, el script
 \texttt{src/analysis/sensitivity.py} aplica una perturbaci\'on de
 $-30$\,\% sobre \texttt{squad\_value} para cada equipo del top-5 y
 re-ejecuta la simulaci\'on. La Tabla \ref{tab:sens} muestra que el
-efecto es modesto y consistentemente negativo ($-0{,}25$ a $-0{,}49$ pp).
+efecto es modesto y consistentemente negativo ($-0{,}22$ a $-0{,}73$ pp).
 Esto es coherente con la importancia SHAP: \texttt{squad\_value\_diff}
 ocupa la quinta posici\'on (Fig.\ \ref{fig:shap}), muy por debajo de
 \texttt{elo\_diff} y \texttt{ranking\_diff}. El motor reutiliza la misma
@@ -544,11 +553,11 @@ una comparaci\'on con semillas independientes.
 \toprule
 \textbf{Equipo} & \textbf{Base \%} & \textbf{Lesi\'on \%} & \textbf{$\Delta$ pp}\\
 \midrule
-Espa\~na      & 14{,}49 & 14{,}06 & $-0{,}43$\\
-Argentina     & 10{,}56 & 10{,}07 & $-0{,}49$\\
-Francia       & 10{,}52 & 10{,}16 & $-0{,}36$\\
-Inglaterra    &  7{,}63 &  7{,}38 & $-0{,}25$\\
-Brasil        &  6{,}05 &  5{,}64 & $-0{,}41$\\
+Espa\~na      & 16{,}01 & 15{,}31 & $-0{,}70$\\
+Argentina     & 10{,}94 & 10{,}50 & $-0{,}44$\\
+Francia       & 10{,}38 &  9{,}65 & $-0{,}73$\\
+Brasil        &  7{,}80 &  7{,}33 & $-0{,}47$\\
+Inglaterra    &  7{,}72 &  7{,}50 & $-0{,}22$\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -556,7 +565,7 @@ Brasil        &  6{,}05 &  5{,}64 & $-0{,}41$\\
 \section{Limitaciones}
 \label{sec:limits}
 
-El modelo presenta seis limitaciones reconocidas:
+El modelo presenta siete limitaciones reconocidas:
 
 \begin{enumerate}
 \item \textbf{Debutantes.} Equipos como Uzbekist\'an, Curazao o Cabo
@@ -568,20 +577,22 @@ la misma confederaci\'on.
 de suma cero dentro de cada componente conexo de rivales; como los
 partidos inter-confederaci\'on son escasos (esencialmente Mundiales y
 amistosos), la escala \emph{relativa} entre confederaciones queda
-d\'ebilmente anclada. Las selecciones AFC fuertes en su zona (Jap\'on
-${\approx}1892$, Ir\'an ${\approx}1868$, Australia ${\approx}1863$) se
-agrupan por encima de europeas de fuerza comparable, y los choques de
-alto K-factor (p.\,ej.\ Jap\'on venciendo a Alemania y Espa\~na en 2022,
-$K=60$) inyectan saltos grandes que regresan despacio; esto
-probablemente sobre-estima la probabilidad de t\'itulo de Jap\'on
-($4{,}1$\,\%, 6.\textsuperscript{o}). El \emph{feature}
-\texttt{ranking\_diff} aten\'ua parcialmente el sesgo al aportar la
-ponderaci\'on cruzada del ranking FIFA. Mitigaciones posibles:
-incorporar ventaja de localía y un multiplicador por diferencia de
-goles al \emph{update} ELO (est\'andar en el \emph{World Football Elo}),
-o estimar \emph{offsets} por confederaci\'on a partir de los resultados
-inter-confederaci\'on; el ancla \'ultima, sin embargo, es disponer de
-m\'as juego inter-confederaci\'on, que solo el Mundial aporta.
+d\'ebilmente anclada. El \emph{update} ELO ya incorpora ventaja de
+localía ($+100$ al local salvo en sede neutral) y un multiplicador por
+diferencia de goles, ambos est\'andar en el \emph{World Football Elo};
+estas correcciones aten\'uan el sesgo —la probabilidad de t\'itulo de
+Jap\'on baj\'o de ${\approx}4{,}1$\,\% a $3{,}6$\,\%, ya claramente por
+debajo del bloque de favoritos— pero no lo eliminan: las selecciones AFC
+fuertes en su zona siguen agrup\'andose alto (Jap\'on ${\approx}1998$,
+Corea del Sur ${\approx}1943$, Australia ${\approx}1931$, Ir\'an
+${\approx}1925$) porque los choques de alto K-factor (p.\,ej.\ Jap\'on
+venciendo a Alemania y Espa\~na en 2022, $K=60$) inyectan saltos que
+regresan despacio. El \emph{feature} \texttt{ranking\_diff} aten\'ua
+adicionalmente el sesgo al aportar la ponderaci\'on cruzada del ranking
+FIFA. Un arreglo dirigido ser\'ian \emph{offsets} por confederaci\'on
+estimados de los resultados inter-confederaci\'on, aunque arriesga
+penalizar a selecciones AFC genuinamente fuertes; el ancla \'ultima es
+disponer de m\'as juego inter-confederaci\'on, que solo el Mundial aporta.
 \item \textbf{Cobertura xG.} El \emph{open data} de StatsBomb
 \cite{statsbomb} privilegia torneos UEFA/CONMEBOL; las selecciones sin
 cobertura reciben un xG por defecto de $1{,}2$ (la media global). En el
@@ -604,6 +615,20 @@ de bajas individuales; el \texttt{sensitivity.py} es \'unicamente un
 \emph{stress test} agregado sobre \texttt{squad\_value}. Una baja
 clave en una posici\'on espec\'ifica (e.g., portero titular) tiene un
 impacto que el modelo no puede capturar.
+\item \textbf{Snapshot del ranking FIFA desactualizado.} El dataset de
+ranking termina el 2024-06-20, unos 18 meses antes de la
+\texttt{REFERENCE\_DATE} (2026-01-01) y del \'ultimo partido de
+entrenamiento (2026-03-31). Como \texttt{ranking\_diff} se resuelve con
+el \'ultimo rango disponible ($\leq$ fecha del partido), los partidos
+recientes —los de mayor peso por \emph{time decay}— heredan rangos
+congelados en mediados de 2024; p.\,ej.\ Espa\~na figura en el puesto 8
+(pre-Eurocopa 2024) pese a que su ELO la sit\'ua primera. El impacto es
+acotado porque \texttt{ranking\_diff} ocupa un papel secundario
+(mean$|$SHAP$|\approx 0{,}13$, frente a $0{,}39$ de \texttt{elo\_diff}) y
+las selecciones sin entrada caen a un rango por defecto ($78$). Como
+artefacto menor de la fuente, dos selecciones comparten el puesto 12
+(Colombia y Marruecos). Refrescar el \emph{snapshot} a una versi\'on
+2025--2026 corregir\'ia el desfase.
 \end{enumerate}
 
 \section{Reproducibilidad}
@@ -618,15 +643,21 @@ producidos en \texttt{data/processed/} y figuras en
 \begin{verbatim}
 pip install -e .
 make all   # features -> train -> evaluate
-           # -> simulate -> sensitivity
+           # -> ablation -> simulate
+           # -> sensitivity
 streamlit run \
   src/visualization/dashboard.py
 \end{verbatim}
 
-La cobertura de pruebas (\texttt{pytest tests/ -v}) valida la mec\'anica
-del ELO, la l\'ogica de desempates de grupos y el muestreo Poisson de
-goles. Un \emph{dashboard} Streamlit se publica en
-\url{https://fifa-world-cup-model.streamlit.app/}.
+Toda la cadena es \textbf{determinista}: la b\'usqueda Optuna usa un
+muestreador sembrado, los modelos fijan \texttt{random\_state}, y el motor
+Monte Carlo deriva una semilla hija por bloque (\texttt{SeedSequence}), de
+modo que el resultado es id\'entico bit a bit en cada ejecuci\'on e
+\emph{independiente} del n\'umero de procesos paralelos. La cobertura de
+pruebas (\texttt{pytest tests/ -v}) valida la mec\'anica del ELO, la
+l\'ogica de desempates de grupos, el muestreo Poisson de goles y la
+invariancia de la simulaci\'on frente al paralelismo. Un \emph{dashboard}
+Streamlit se publica en \url{https://fifa-world-cup-model.streamlit.app/}.
 
 \section{Conclusiones y trabajo futuro}
 \label{sec:conclusion}
@@ -636,13 +667,14 @@ Se ha presentado un sistema reproducible para predecir la Copa Mundial
 limpias, siete caracter\'isticas justificadas por EDA y SHAP,
 \emph{benchmark} de cuatro modelos con calibraci\'on Platt sobre
 validaci\'on temporal y un motor Monte Carlo de $10{,}000$ iteraciones
-fiel al nuevo reglamento. El XGBoost calibrado logra Log-Loss de $0{,}866$
-y Brier de $0{,}169$ — mejor en ambas m\'etricas simult\'aneamente. Las
-simulaciones ubican a Espa\~na (14{,}5\,\%) como favorita clara, seguida de
-Argentina y Francia en un empate t\'ecnico ($\sim$10{,}5\,\%, con intervalos
-de confianza solapados que impiden ordenarlas). Los tres anfitriones
-alcanzan probabilidades de t\'itulo entre 2{,}6\,\% y 3{,}7\,\%, con
-ventaja de local coherente en rondas iniciales (R32 $\geq$84\,\%) pero
+fiel al nuevo reglamento. El XGBoost calibrado logra Log-Loss de $0{,}858$
+y Brier de $0{,}167$ — mejor en ambas m\'etricas simult\'aneamente. Las
+simulaciones ubican a Espa\~na (16{,}0\,\%) como favorita clara, seguida de
+Argentina (10{,}9\,\%) y Francia (10{,}4\,\%) en un empate t\'ecnico
+(intervalos de confianza solapados que impiden ordenarlas), y de un segundo
+grupo con Brasil e Inglaterra ($\sim$7{,}8\,\%). Los tres anfitriones
+alcanzan probabilidades de t\'itulo entre 2{,}5\,\% y 3{,}1\,\%, con
+ventaja de local coherente en rondas iniciales (R32 $\geq$86\,\%) pero
 convergencia en etapas avanzadas.
 
 Trabajo futuro: (i) incorporar un modelo Dixon--Coles \cite{dixon1997}

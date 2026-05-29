@@ -16,13 +16,13 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 
 | Equipo | P(Campeón) | IC 95% |
 |--------|:----------:|:------:|
-| Spain | 14.49% | [13.81%, 15.20%] |
-| Argentina | 10.56% | [9.96%, 11.18%] |
-| France | 10.52% | [9.93%, 11.14%] |
-| England | 7.63% | [7.12%, 8.17%] |
-| Brazil | 6.05% | [5.59%, 6.54%] |
+| Spain | 16.01% | [15.30%, 16.74%] |
+| Argentina | 10.94% | [10.33%, 11.57%] |
+| France | 10.38% | [9.79%, 10.99%] |
+| Brazil | 7.80% | [7.28%, 8.34%] |
+| England | 7.72% | [7.20%, 8.26%] |
 
-> Argentina y France quedan en **empate técnico** (intervalos de confianza solapados); su orden relativo no es estadísticamente distinguible.
+> Argentina y France (y, por separado, Brazil e England) quedan en **empate técnico** (intervalos de confianza solapados); su orden relativo no es estadísticamente distinguible.
 
 ---
 
@@ -130,7 +130,7 @@ python -m pytest tests/ -v
 ### Features (7)
 | Feature | Descripción | Justificación |
 |---------|-------------|---------------|
-| `elo_diff` | ELO local − ELO visitante | Métrica dinámica, superior al ranking FIFA estático |
+| `elo_diff` | ELO local − ELO visitante (update estilo *World Football Elo*: K por torneo, ventaja de localía +100 salvo sede neutral, multiplicador por diferencia de goles) | Métrica dinámica, superior al ranking FIFA estático |
 | `squad_value_diff` | log(valor_local) − log(valor_visitante) | Proxy de calidad individual de la plantilla |
 | `xg_avg_for` | xG promedio a favor: local − visitante | Eficiencia ofensiva reciente |
 | `xg_avg_against` | xG promedio en contra: local − visitante | Solidez defensiva reciente |
@@ -158,7 +158,7 @@ Split **temporal** implementado en `temporal_split` ([src/models/train.py](src/m
 - XGBoost pre-2022 - entrenado solo con `date < 2022-01-01` para validar el Mundial 2022 sin data leakage.
 
 ### Estudio de ablación
-`src/analysis/ablation.py` reentrena el XGBoost calibrado quitando grupos de features (xG y `squad_value`) mientras mantiene fijos el split temporal, los pesos y los hiperparámetros óptimos, para aislar la contribución marginal de cada grupo sobre Log-Loss y Brier (resultados en `data/processed/ablation_results.csv`). Retirar cualquiera de los dos grupos degrada ambas métricas de forma modesta (ΔLog-Loss ≤ 0.0017, ΔBrier ≤ 0.0003). El xG aporta la mayor señal marginal; `squad_value_diff` es prácticamente redundante en el test (ΔBrier = 0), coherente con su posición secundaria en SHAP.
+`src/analysis/ablation.py` reentrena el XGBoost calibrado quitando grupos de features (xG y `squad_value`) mientras mantiene fijos el split temporal, los pesos y los hiperparámetros óptimos, para aislar la contribución marginal de cada grupo sobre Log-Loss y Brier (resultados en `data/processed/ablation_results.csv`). El xG aporta la mayor señal marginal (quitarlo empeora Log-Loss en +0.0027). `squad_value_diff` es **redundante**: eliminarlo incluso mejora levemente el test (−0.0007 Log-Loss), dentro del ruido pero sin aportar señal por encima del núcleo `elo_diff`/`ranking_diff`. Se mantiene por su justificación teórica y coste nulo.
 
 ### Simulación Monte Carlo
 - **10,000 iteraciones** del torneo completo (104 partidos c/u).
@@ -179,6 +179,7 @@ El modelo `xgboost_pre2022` se entrena exclusivamente con `date < 2022-01-01` y 
 - El xG de StatsBomb cubre principalmente torneos UEFA/FIFA; las selecciones sin cobertura usan `1.2` por defecto (media global). En el fixture WC 2026 esto afecta a **13 de 48 equipos** (~27%, incluyendo Noruega, Costa de Marfil, Argelia, Uzbekistán), cuyo marcador se simula con ataque/defensa promedio — ruido que se propaga vía la clasificación por terceros.
 - `travel_distance = 0.0` cuando la sede del partido no se puede geocodificar (campo neutral / dato faltante).
 - El snapshot Transfermarkt es manual (no scraping en vivo); fecha en `scraper.SQUAD_VALUES_SNAPSHOT_DATE`.
+- El ranking FIFA (`data/raw/fifa_ranking.csv`) termina el **2024-06-20**, ~18 meses antes de `REFERENCE_DATE`; los partidos recientes heredan rangos congelados (p.ej. España aparece 8º, pre-Eurocopa 2024). Impacto acotado (`ranking_diff` es 3º en SHAP, ~0.13). Artefacto menor de la fuente: Colombia y Marruecos comparten el puesto 12. Conviene refrescar el snapshot a 2025-2026.
 
 ---
 

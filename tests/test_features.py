@@ -2,7 +2,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.features.elo import calculate_elo_ratings, INITIAL_RATING
+from src.features.elo import (
+    calculate_elo_ratings,
+    INITIAL_RATING,
+    HOME_ADVANTAGE,
+    _goal_diff_multiplier,
+)
 from src.features.time_decay import (
     compute_time_decay_weights,
     lambda_to_halflife_years,
@@ -55,6 +60,40 @@ def test_elo_ratings_are_finite(three_matches):
     result = calculate_elo_ratings(three_matches)
     for col in ["home_elo_after", "away_elo_after"]:
         assert np.all(np.isfinite(result[col].values))
+
+
+def test_goal_diff_multiplier_monotonic():
+    # margen 0/1 -> 1.0; 2 -> 1.5; >=3 crece
+    assert _goal_diff_multiplier(0) == 1.0
+    assert _goal_diff_multiplier(1) == 1.0
+    assert _goal_diff_multiplier(2) == 1.5
+    assert _goal_diff_multiplier(3) == pytest.approx(1.75)
+    assert _goal_diff_multiplier(5) > _goal_diff_multiplier(3) > _goal_diff_multiplier(2)
+
+
+def test_goal_diff_multiplier_amplifies_update():
+    """Una goleada mueve más el ELO que una victoria mínima (mismo torneo)."""
+    base = {"date": pd.to_datetime(["2020-01-01"]), "home_team": ["A"],
+            "away_team": ["B"], "tournament": ["Friendly"], "neutral": [False]}
+    narrow = calculate_elo_ratings(pd.DataFrame({**base, "home_score": [1], "away_score": [0]}))
+    blowout = calculate_elo_ratings(pd.DataFrame({**base, "home_score": [5], "away_score": [0]}))
+    gain_narrow = narrow.iloc[0]["home_elo_after"] - narrow.iloc[0]["home_elo_before"]
+    gain_blowout = blowout.iloc[0]["home_elo_after"] - blowout.iloc[0]["home_elo_before"]
+    assert gain_blowout > gain_narrow
+
+
+def test_home_advantage_neutral_vs_local():
+    """Una victoria 1-0 del local otorga MÁS puntos en sede neutral que en
+    casa, porque sin la ventaja de localía el resultado es más 'inesperado'."""
+    base = {"date": pd.to_datetime(["2020-01-01"]), "home_team": ["A"],
+            "away_team": ["B"], "home_score": [1], "away_score": [0],
+            "tournament": ["Friendly"]}
+    local = calculate_elo_ratings(pd.DataFrame({**base, "neutral": [False]}))
+    neutral = calculate_elo_ratings(pd.DataFrame({**base, "neutral": [True]}))
+    gain_local = local.iloc[0]["home_elo_after"] - local.iloc[0]["home_elo_before"]
+    gain_neutral = neutral.iloc[0]["home_elo_after"] - neutral.iloc[0]["home_elo_before"]
+    assert gain_neutral > gain_local
+    assert HOME_ADVANTAGE > 0
 
 
 def test_time_decay_range():
