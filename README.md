@@ -14,13 +14,13 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 
 ## Resultados principales
 
-| Equipo | P(Campeón) | IC 90% |
+| Equipo | P(Campeón) | IC 95% |
 |--------|:----------:|:------:|
-| Spain | 14.3% | [13.73%, 14.89%] |
-| France | 11.11% | [10.6%, 11.64%] |
-| Argentina | 9.55% | [9.07%, 10.05%] |
-| England | 7.96% | [7.52%, 8.42%] |
-| Brazil | 6.11% | [5.72%, 6.52%] |
+| Spain | 14.3% | [13.62%, 15.0%] |
+| France | 11.11% | [10.5%, 11.74%] |
+| Argentina | 9.55% | [8.98%, 10.14%] |
+| England | 7.96% | [7.44%, 8.51%] |
+| Brazil | 6.11% | [5.65%, 6.6%] |
 
 ---
 
@@ -42,6 +42,7 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 │       ├── tournament_progression.csv    # P(avanzar) por fase
 │       ├── sensitivity_injuries.csv      # Análisis de sensibilidad
 │       ├── model_evaluation.csv          # Log-loss / Brier por modelo
+│       ├── ablation_results.csv          # Ablación de grupos de features
 │       └── models/
 │           ├── logreg_baseline.joblib
 │           ├── xgboost.joblib
@@ -57,7 +58,7 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 │   ├── features/     # elo.py, time_decay.py, features.py
 │   ├── models/       # train.py, evaluate.py
 │   ├── simulation/   # tournament.py, simulate.py
-│   ├── analysis/     # sensitivity.py
+│   ├── analysis/     # sensitivity.py, ablation.py
 │   └── visualization/  # dashboard.py
 ├── tests/
 ├── conftest.py
@@ -94,6 +95,7 @@ Ejecutar desde la raíz del proyecto:
 python -m src.features.features
 python -m src.models.train --trials 100
 python -m src.models.evaluate
+python -m src.analysis.ablation
 python -m src.simulation.simulate --iterations 10000 --model xgboost_calibrated
 python -m src.analysis.sensitivity --iterations 10000 --model xgboost_calibrated
 streamlit run src/visualization/dashboard.py
@@ -152,6 +154,9 @@ Split **temporal** implementado en `temporal_split` ([src/models/train.py](src/m
 - LightGBM - optimizado con Optuna.
 - XGBoost calibrado con método Platt (sigmoid) sobre validación temporal (2021).
 - XGBoost pre-2022 - entrenado solo con `date < 2022-01-01` para validar el Mundial 2022 sin data leakage.
+
+### Estudio de ablación
+`src/analysis/ablation.py` reentrena el XGBoost calibrado quitando grupos de features (xG y `squad_value`) mientras mantiene fijos el split temporal, los pesos y los hiperparámetros óptimos, para aislar la contribución marginal de cada grupo sobre Log-Loss y Brier (resultados en `data/processed/ablation_results.csv`). Retirar cualquiera de los dos grupos degrada ambas métricas de forma modesta (ΔLog-Loss ≤ 0.0017, ΔBrier ≤ 0.0004), coherente con su posición secundaria en SHAP.
 
 ### Simulación Monte Carlo
 - **10,000 iteraciones** del torneo completo (104 partidos c/u).

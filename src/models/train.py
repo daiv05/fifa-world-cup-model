@@ -205,7 +205,11 @@ def run_optuna_study(
             model = train_lightgbm(X, y, weights, params)
         return _cv_score(model, X, y, weights)
 
-    study = optuna.create_study(direction="maximize", study_name=f"{model_type}_study")
+    study = optuna.create_study(
+        direction="maximize",
+        study_name=f"{model_type}_study",
+        sampler=optuna.samplers.TPESampler(seed=42),
+    )
     study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
     return study.best_params, study
 

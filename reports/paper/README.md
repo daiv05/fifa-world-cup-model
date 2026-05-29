@@ -10,6 +10,8 @@ Requiere una distribución LaTeX con la clase `IEEEtran` (incluida en TeX Live f
 pdflatex paper.tex
 ```
 
+> Se puede utilizar la herramienta `MikTeX Console` para utilizarse, pedirá instalación de paquetes adicionales al momento de ejecutar `pdflatex`.
+
 La bibliografía está **embebida** como `thebibliography` dentro de `paper.tex`, por lo que **no se requiere ejecutar `bibtex`/`biber`**. El archivo `references.bib` se conserva solo como referencia documental para futuras citas.
 
 Salida: `paper.pdf`.

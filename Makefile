@@ -35,7 +35,7 @@ dashboard:
 test:
 	$(PY) -m pytest tests/ -v
 
-all: features train evaluate simulate sensitivity
+all: features train evaluate ablation simulate sensitivity
 
 clean:
 	rm -rf data/processed/*.csv data/processed/models/*.joblib reports/figures/*.png

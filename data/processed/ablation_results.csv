@@ -1,4 +1,4 @@
 config,n_features,log_loss,brier_score,delta_log_loss,delta_brier
-Completo (7 features),7,0.87,0.1696,0.0,0.0
-Sin xG,5,0.8717,0.17,0.0017,0.0004
-Sin squad_value,6,0.8713,0.1699,0.0013,0.0003
+Completo (7 features),7,0.8655,0.1686,0.0,0.0
+Sin xG,5,0.8672,0.1689,0.0017,0.0003
+Sin squad_value,6,0.8659,0.1686,0.0004,0.0
