@@ -10,9 +10,14 @@
 \usepackage{textcomp}
 \usepackage{xcolor}
 \usepackage{booktabs}
+\usepackage{array}
 \PassOptionsToPackage{hyphens}{url}
 \usepackage{url}
 \usepackage{hyperref}
+\usepackage{microtype}
+\setlength{\emergencystretch}{2em}
+\hbadness=2000
+\newcolumntype{L}[1]{>{\raggedright\let\\=\tabularnewline}p{#1}}
 
 \graphicspath{{figs/}}
 
@@ -117,7 +122,7 @@ resumidas en la Tabla~\ref{tab:sources}.
 \centering
 \renewcommand{\arraystretch}{1.2}
 \small
-\begin{tabular}{@{}p{2.0cm}p{2.9cm}p{2.3cm}@{}}
+\begin{tabular}{@{}L{2.0cm}L{2.9cm}L{2.3cm}@{}}
 \toprule
 \textbf{Fuente} & \textbf{Contenido} & \textbf{Cobertura}\\
 \midrule
@@ -216,7 +221,7 @@ que el resto de pares se mantiene en niveles moderados.
 \centering
 \renewcommand{\arraystretch}{1.15}
 \footnotesize
-\begin{tabular}{@{}p{2.9cm}p{4.4cm}@{}}
+\begin{tabular}{@{}L{4.5cm}L{3.4cm}@{}}
 \toprule
 \textbf{Feature} & \textbf{Justificaci\'on}\\
 \midrule
@@ -293,20 +298,18 @@ multinomial (\emph{baseline}, con \texttt{StandardScaler}), XGBoost
 (\texttt{multi:softprob}) y LightGBM. La b\'usqueda de hiperpar\'ametros
 emplea Optuna \cite{akiba2019optuna} con $100$ \emph{trials} y
 \texttt{TimeSeriesSplit}$(n=5)$ interno sobre el conjunto de
-entrenamiento, optimizando \texttt{neg\_log\_loss}. La b\'usqueda admite
-paralelizaci\'on opcional de \emph{trials} (\texttt{--n-jobs}), con valor por
-defecto en serie para garantizar reproducibilidad bit a bit del TPE. La Fig.\
+entrenamiento, optimizando \texttt{neg\_log\_loss}; admite paralelizaci\'on
+opcional de~\emph{trials} (\texttt{--n-jobs}), con valor por defecto en serie
+para garantizar reproducibilidad bit a bit del TPE. La Fig.\
 \ref{fig:shap} resume la importancia SHAP agregada (mean |SHAP|) y muestra
 que \texttt{elo\_diff} domina (${\approx}1{,}48$), seguido --de forma
 notable-- por \texttt{striker\_concentration\_diff} (${\approx}0{,}36$) y
 \texttt{ranking\_diff} (${\approx}0{,}25$). La concentraci\'on de goleadores,
 derivada de los datos de eventos, captura un eje (estructura del ataque)
-ortogonal al nivel del equipo. Las features de xG y
-\texttt{penalty\_share\_diff} forman un tercer nivel
-(${\approx}0{,}10$--$0{,}12$), mientras que \texttt{shootout\_winrate\_diff}
-(${\approx}0{,}09$), \texttt{squad\_value\_diff} (${\approx}0{,}04$) y
-\texttt{travel\_distance\_diff} (${\approx}0{,}03$, coherente con su 82{,}5\,\%
-de ceros) aportan marginalmente.
+ortogonal al nivel del equipo. Las features de xG y \texttt{penalty\_share\_diff} forman un tercer nivel
+(${\approx}0{,}10$--$0{,}12$), mientras que \texttt{shootout\_winrate\_diff},
+\texttt{squad\_value\_diff} y \texttt{travel\_distance\_diff} aportan
+marginalmente (${\approx}0{,}09$, $0{,}04$ y $0{,}03$, respectivamente).
 
 \begin{figure}[!t]
 \centering
@@ -331,7 +334,8 @@ de calibraci\'on.
 \label{tab:split}
 \centering
 \renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{}p{1.5cm}p{2.3cm}p{3.4cm}@{}}
+\footnotesize
+\begin{tabular}{@{}L{1.7cm}L{2.6cm}L{3.1cm}@{}}
 \toprule
 \textbf{Conjunto} & \textbf{Filtro} & \textbf{Uso}\\
 \midrule
@@ -456,8 +460,8 @@ reentrena el XGBoost calibrado manteniendo fijos el split temporal, los pesos
 est\'aticas (xG + valor de plantilla, $\Delta\text{LL}=+0{,}0041$ al retirarlas)
 seguido de las features derivadas de eventos ($+0{,}0035$, impulsado sobre todo
 por \texttt{striker\_concentration\_diff}). Las features de aporte
-\emph{marginal} (\texttt{travel\_distance\_diff}, \texttt{penalty\_share\_diff},
-\texttt{shootout\_winrate\_diff}) se documentan con filas propias: sus $\Delta$
+\emph{marginal} (\texttt{travel\_distance\_diff}, \texttt{penalty\_share\_diff}
+y~\texttt{shootout\_winrate\_diff}) se documentan con filas propias: sus $\Delta$
 caen dentro del ruido de una sola corrida ($|\Delta\text{LL}|\le 0{,}0008$). En
 particular, \texttt{penalty\_share\_diff} muestra un $\Delta$ ligeramente
 negativo, indistinguible de cero. Una cuarta feature derivada evaluada
@@ -471,7 +475,7 @@ completo del modelo: su ablaci\'on \emph{leave-one-out} mostr\'o aporte
 \centering
 \renewcommand{\arraystretch}{1.15}
 \small
-\begin{tabular}{@{}lcccc@{}}
+\begin{tabular}{@{}L{2.7cm}cccc@{}}
 \toprule
 \textbf{Configuraci\'on} & \textbf{Log-Loss} & \textbf{Brier} & \textbf{$\Delta$LL} & \textbf{$\Delta$Brier}\\
 \midrule
@@ -614,9 +618,9 @@ impacto que el modelo no puede capturar.
 
 El repositorio mantiene una arquitectura modular bajo \texttt{src/}
 (\texttt{data/}, \texttt{features/}, \texttt{models/}, \texttt{simulation/},
-\texttt{analysis/}, \texttt{visualization/}), con CSVs versionables
-producidos en \texttt{data/processed/} y figuras en
-\texttt{reports/figures/}. Toda la cadena se reproduce con:
+\texttt{analysis/}, \texttt{visualization/}). Los CSVs versionables
+se producen en \texttt{data/processed/} y las figuras
+en \texttt{reports/figures/}. Toda la cadena se reproduce con:
 
 \begin{verbatim}
 pip install -e .
@@ -659,6 +663,7 @@ del bucle Monte Carlo (ya paralelizado con \texttt{joblib}); y (iv) modelar
 lesiones a nivel de jugador integrando \emph{features} de minutos disputados
 y posici\'on.
 
+\hbadness=2800
 \begin{thebibliography}{99}
 
 \bibitem{fifa2026}
