@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import brier_score_loss, log_loss
 
-from src.features.features import PROCESSED_DIR
+from src.features.features import PROCESSED_DIR, DERIVED_FEATURE_COLS
 from src.models.train import (
     FEATURE_COLS,
     MODELS_DIR,
@@ -24,10 +24,24 @@ from src.models.train import (
     train_xgboost,
 )
 
+# Features estáticas anacrónicas: xG y squad_value son snapshots aplicados a toda
+# la historia (ver nota en features.py). Esta fila cuantifica empíricamente su
+# aporte para juzgar si la limitación es material.
+_ANACHRONISTIC = [c for c in FEATURE_COLS if c.startswith("xg_") or c == "squad_value_diff"]
+
+# Estudio de ablación. Las features de aporte MARGINAL (según leave-one-out:
+# travel_distance_diff, penalty_share_diff, shootout_winrate_diff) se documentan
+# con su propia fila "Sin <feature>" para cuantificar su impacto individual.
+# `late_goal_ratio_diff` se eliminó por completo del pipeline (era ruido neto).
 ABLATIONS: dict[str, list[str]] = {
-    "Completo (7 features)": list(FEATURE_COLS),
+    f"Completo ({len(FEATURE_COLS)} features)": list(FEATURE_COLS),
     "Sin xG": [c for c in FEATURE_COLS if not c.startswith("xg_")],
     "Sin squad_value": [c for c in FEATURE_COLS if c != "squad_value_diff"],
+    "Sin features derivadas": [c for c in FEATURE_COLS if c not in DERIVED_FEATURE_COLS],
+    "Sin travel_distance (marginal)": [c for c in FEATURE_COLS if c != "travel_distance_diff"],
+    "Sin penalty_share (marginal)": [c for c in FEATURE_COLS if c != "penalty_share_diff"],
+    "Sin shootout (marginal)": [c for c in FEATURE_COLS if c != "shootout_winrate_diff"],
+    "Sin estáticas anacrónicas (xG+squad)": [c for c in FEATURE_COLS if c not in _ANACHRONISTIC],
 }
 
 

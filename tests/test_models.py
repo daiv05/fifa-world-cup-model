@@ -21,9 +21,11 @@ def synthetic_features():
         "squad_value_diff": rng.normal(0, 1, n),
         "xg_avg_for": rng.normal(0, 0.5, n),
         "xg_avg_against": rng.normal(0, 0.5, n),
-        "travel_distance_home": rng.uniform(0, 10000, n),
-        "travel_distance_away": rng.uniform(0, 10000, n),
+        "travel_distance_diff": rng.uniform(-10000, 10000, n),
         "ranking_diff": rng.normal(0, 50, n),
+        "penalty_share_diff": rng.normal(0, 0.05, n),
+        "striker_concentration_diff": rng.normal(0, 0.1, n),
+        "shootout_winrate_diff": rng.normal(0, 0.1, n),
         "time_weight": rng.uniform(0.5, 1.0, n),
         "target": rng.integers(0, 3, n),
     })

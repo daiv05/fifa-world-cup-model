@@ -15,42 +15,62 @@ from src.simulation.tournament import (
     GROUPS_2026, ALL_TEAMS, PHASES,
     simulate_full_tournament,
 )
+from src.features.features import FEATURE_COLS
 
 RESULTS_DIR = Path(__file__).parents[2] / "data" / "processed"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
-_FEATURE_COLS = [
-    "elo_diff", "squad_value_diff", "xg_avg_for",
-    "xg_avg_against", "travel_distance_home", "travel_distance_away",
-    "ranking_diff",
-]
+
+def _team_pair_to_feature_dict(h: dict, a: dict) -> dict[str, float]:
+    """
+    Construye el vector de features para un par (home `h`, away `a`) a partir de
+    sus filas en team_features, como un dict {columna -> valor}. El DataFrame
+    final se reindexa por `FEATURE_COLS`, de modo que el orden de columnas en la
+    simulación SIEMPRE coincide con el del entrenamiento aunque cambie el set de
+    features (evita el bug clásico de desalineación train/inferencia).
+
+    Convención de signo de los diffs: home - away (salvo ranking_diff, que es
+    away - home por diseño histórico: positivo = local mejor rankeado).
+
+    travel_distance_diff usa host_distance (distancia a la sede más cercana del
+    Mundial) como away - home, misma convención que a nivel de partido.
+    """
+    return {
+        "elo_diff": h.get("elo", 1500.0) - a.get("elo", 1500.0),
+        "squad_value_diff": (
+            np.log1p(h.get("squad_value_eur", 1e7))
+            - np.log1p(a.get("squad_value_eur", 1e7))
+        ),
+        "xg_avg_for": h.get("xg_for", 1.2) - a.get("xg_for", 1.2),
+        "xg_avg_against": h.get("xg_against", 1.2) - a.get("xg_against", 1.2),
+        "travel_distance_diff": a.get("host_distance", 5000.0) - h.get("host_distance", 5000.0),
+        "ranking_diff": a.get("rank", 78) - h.get("rank", 78),
+        # Features derivadas (diff home - away), desde columnas per-equipo de team_features.
+        "penalty_share_diff": h.get("penalty_share", 0.07) - a.get("penalty_share", 0.07),
+        "striker_concentration_diff": (
+            h.get("striker_concentration", 0.4) - a.get("striker_concentration", 0.4)
+        ),
+        "shootout_winrate_diff": h.get("shootout_winrate", 0.5) - a.get("shootout_winrate", 0.5),
+    }
 
 
 def build_predict_fn(model, team_features: pd.DataFrame):
     """
     Precalcula `predict_proba` para los 48*47 = 2256 pares ordenados de
     equipos del torneo. Devuelve una función que hace lookup O(1) por par.
-    `team_features` debe traer las columnas: elo, squad_value_eur, xg_for,
-    xg_against, host_distance, rank.
+    `team_features` debe traer las columnas por equipo: elo, squad_value_eur,
+    xg_for, xg_against, host_distance, rank.
     """
     feat_map = team_features.set_index("team").to_dict("index") if not team_features.empty else {}
     teams = list(feat_map.keys())
     pairs = [(h, a) for h in teams for a in teams if h != a]
-    rows = []
-    for home, away in pairs:
-        h = feat_map[home]
-        a = feat_map[away]
-        rows.append([
-            h.get("elo", 1500.0) - a.get("elo", 1500.0),
-            np.log1p(h.get("squad_value_eur", 1e7)) - np.log1p(a.get("squad_value_eur", 1e7)),
-            h.get("xg_for", 1.2) - a.get("xg_for", 1.2),
-            h.get("xg_against", 1.2) - a.get("xg_against", 1.2),
-            h.get("host_distance", 5000.0),
-            a.get("host_distance", 5000.0),
-            a.get("rank", 78) - h.get("rank", 78),
-        ])
+    rows = [
+        _team_pair_to_feature_dict(feat_map[home], feat_map[away])
+        for home, away in pairs
+    ]
 
-    X_all = pd.DataFrame(rows, columns=_FEATURE_COLS).astype(np.float32)
+    # Reindexar por FEATURE_COLS garantiza el orden y la identidad de columnas.
+    X_all = pd.DataFrame(rows)[FEATURE_COLS].astype(np.float32)
     probas_raw = model.predict_proba(X_all)
     # El modelo devuelve [class0=away_win, class1=draw, class2=home_win].
     # `predict_fn` debe devolver [home_win, draw, away_win].
@@ -186,8 +206,9 @@ if __name__ == "__main__":
     model = None
     team_features = None
     if args.model:
-        from src.models.train import load_model
+        from src.models.train import load_model, assert_model_feature_count
         model = load_model(args.model)
+        assert_model_feature_count(model, name=args.model)
         features_path = RESULTS_DIR / "team_features.csv"
         if features_path.exists():
             team_features = pd.read_csv(features_path)

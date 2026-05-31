@@ -7,6 +7,15 @@ DEFAULT_LAMBDA = 0.001
 # ejecuciones y consistentes con el horizonte de predicción.
 REFERENCE_DATE = pd.Timestamp("2026-01-01")
 
+# Fecha del snapshot de datos más reciente (ranking FIFA `fifa_rankings_2026.csv`
+# y as-of para extraer features a nivel de equipo en la simulación). Es distinta
+# de REFERENCE_DATE a propósito: REFERENCE_DATE define el horizonte del decay
+# temporal (peso de los partidos), mientras que SNAPSHOT_DATE es la fecha real
+# en que se observó el último estado del mundo (ranking, plantillas, stats).
+# Todos los partidos del Mundial 2026 ocurren después de SNAPSHOT_DATE, por lo
+# que usarla como as-of es libre de leakage.
+SNAPSHOT_DATE = pd.Timestamp("2026-05-30")
+
 
 def compute_time_decay_weights(
     dates: pd.Series,

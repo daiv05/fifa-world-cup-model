@@ -106,9 +106,41 @@ def test_build_match_features_no_nan(three_matches):
     feats = build_match_features(three_matches, year_cutoff=2019)
     required = [
         "elo_diff", "squad_value_diff", "xg_avg_for", "xg_avg_against",
-        "travel_distance_home", "travel_distance_away", "ranking_diff",
+        "travel_distance_diff", "ranking_diff",
         "time_weight", "target",
     ]
     for col in required:
         assert col in feats.columns
         assert feats[col].notna().all(), f"NaN encontrado en {col}"
+    # Las columnas viejas (home/away) ya no deben existir.
+    assert "travel_distance_home" not in feats.columns
+    assert "travel_distance_away" not in feats.columns
+
+
+def test_elo_universe_superset_changes_elo(three_matches):
+    """
+    Acción 1: el ELO debe acumularse sobre `elo_matches_df` (superconjunto), no
+    solo sobre las filas emitidas. Con historia previa, el elo_diff del último
+    partido difiere del calculado solo sobre el subconjunto filtrado.
+    """
+    # Historia previa: Brazil gana repetidamente antes de la ventana emitida.
+    prior = pd.DataFrame({
+        "date": pd.to_datetime(["2015-01-01", "2015-06-01", "2016-01-01"]),
+        "home_team": ["Brazil", "Brazil", "Brazil"],
+        "away_team": ["Germany", "Germany", "Germany"],
+        "home_score": [3, 2, 4],
+        "away_score": [0, 0, 1],
+        "tournament": ["Friendly", "Friendly", "Friendly"],
+        "country": ["Brazil", "Brazil", "Brazil"],
+        "neutral": [False, False, False],
+    })
+    universe = pd.concat([prior, three_matches], ignore_index=True)
+
+    feats_plain = build_match_features(three_matches, year_cutoff=2019)
+    feats_universe = build_match_features(
+        three_matches, year_cutoff=2019, elo_matches_df=universe,
+    )
+    # El partido Brazil vs Germany (índice 2) debe tener distinto elo_diff.
+    bg_plain = feats_plain[feats_plain["away_team"] == "Germany"].iloc[-1]["elo_diff"]
+    bg_universe = feats_universe[feats_universe["away_team"] == "Germany"].iloc[-1]["elo_diff"]
+    assert bg_plain != bg_universe

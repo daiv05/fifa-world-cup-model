@@ -5,6 +5,8 @@ import plotly.graph_objects as go
 import streamlit as st
 from pathlib import Path
 
+from src.features.features import FEATURE_COLS
+
 PROCESSED_DIR = Path(__file__).parents[2] / "data" / "processed"
 REPORTS_DIR = Path(__file__).parents[2] / "reports" / "figures"
 
@@ -135,11 +137,6 @@ elif page == "Análisis de Features":
     if df is None:
         st.warning("No se encontraron features. Ejecuta primero `features.py`.")
     else:
-        FEATURE_COLS = [
-            "elo_diff", "squad_value_diff", "xg_avg_for",
-            "xg_avg_against", "travel_distance_home", "travel_distance_away",
-            "ranking_diff",
-        ]
         available = [c for c in FEATURE_COLS if c in df.columns]
 
         st.subheader("Distribución de features por resultado")

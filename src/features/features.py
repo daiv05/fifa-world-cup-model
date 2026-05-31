@@ -12,12 +12,69 @@ from tqdm import tqdm
 USE_NOMINATIM = os.environ.get("USE_NOMINATIM", "0") == "1"
 
 from src.features.elo import calculate_elo_ratings, INITIAL_RATING
-from src.features.time_decay import compute_time_decay_weights, REFERENCE_DATE, DEFAULT_LAMBDA
+from src.features.time_decay import (
+    compute_time_decay_weights, REFERENCE_DATE, SNAPSHOT_DATE, DEFAULT_LAMBDA,
+)
 
 PROCESSED_DIR = Path(__file__).parents[2] / "data" / "processed"
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
 GEO_CACHE_PATH = PROCESSED_DIR / "geo_coords_cache.json"
+
+# --------------------------------------------------------------------------- #
+# Constantes de horizonte temporal del pipeline.
+#
+# Hay TRES cortes distintos, con semánticas diferentes; no deben colapsarse en
+# un único número:
+#
+#   ELO_HISTORY_START   -> universo sobre el que se acumula el ELO. None = TODA
+#                          la historia disponible (todos los torneos, incl.
+#                          amistosos, desde 1872). El ELO necesita la historia
+#                          completa para estar bien calibrado; recortarlo
+#                          reiniciaría los ratings y perdería señal.
+#   OUTPUT_ROW_START_YEAR -> primer año en que un partido se EMITE como fila de
+#                          entrenamiento. Pre-1993 la densidad de fixtures y la
+#                          metodología de ranking son poco representativas, así
+#                          que esos partidos alimentan el ELO (warm-up) pero no
+#                          se usan como filas.
+#   TRAIN_MIN_YEAR      -> piso de la ventana de MODELADO (train.py/ablation.py).
+#                          Las features estáticas modernas (xG, squad_value,
+#                          ranking actual) no representan el fútbol pre-2010, y
+#                          el time_decay ya pondera esos partidos <2%.
+# --------------------------------------------------------------------------- #
+ELO_HISTORY_START: int | None = None
+OUTPUT_ROW_START_YEAR = 1993
+TRAIN_MIN_YEAR = 2010
+
+# Fuente única de verdad para el conjunto de features de entrada al modelo.
+# Importado por train.py, evaluate.py, ablation.py, simulate.py y dashboard.py
+# para evitar listas duplicadas que se desincronicen.
+FEATURE_COLS = [
+    "elo_diff",
+    "squad_value_diff",
+    "xg_avg_for",
+    "xg_avg_against",
+    "travel_distance_diff",
+    "ranking_diff",
+    # Features derivadas de eventos (goleadores y tandas), as-of-date, leak-free.
+    "penalty_share_diff",
+    "striker_concentration_diff",
+    "shootout_winrate_diff",
+]
+
+# Subconjunto de FEATURE_COLS proveniente de derived_stats (para fallbacks/ablación).
+DERIVED_FEATURE_COLS = [
+    "penalty_share_diff",
+    "striker_concentration_diff",
+    "shootout_winrate_diff",
+]
+
+# Esquema completo del CSV a nivel de partido (features.csv).
+MATCH_OUTPUT_COLS = [
+    "date", "home_team", "away_team",
+    *FEATURE_COLS,
+    "time_weight", "target",
+]
 
 
 def _load_geo_cache() -> dict[str, tuple[float, float] | None]:
@@ -233,41 +290,43 @@ def _resolve_coords_for_names(
         coords_cache[name] = _get_team_coords(name)
 
 
-def _vectorized_travel_distances(
+def _vectorized_travel_distance_diff(
     matches_df: pd.DataFrame,
     team_coords_cache: dict,
     country_coords_cache: dict,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> np.ndarray:
     """
-    Para cada partido, calcula distancia desde la capital del equipo a la
-    sede real del partido (`country`). Si el campo `neutral` es True o el
-    país no se puede geocodificar, devuelve 0.0 (campo neutral).
+    Distancia de viaje diferencial por partido: `dist(away->sede) - dist(home->sede)`
+    (convención away - home), en km.
 
-    Resolución de coordenadas: una sola pasada por nombres únicos (con cache
-    persistente en disco). El cálculo de haversine es totalmente vectorizado.
+    Cambios de rigor frente a la versión anterior (que devolvía home/away por
+    separado y los forzaba a 0 en partidos neutrales):
+      - NO se anula en partidos neutrales. En un partido neutral ambos equipos
+        viajan de verdad, así que la diferencia es señal real (justo el caso de
+        los Mundiales, ~87% neutrales). La versión vieja dejaba la feature en 0
+        precisamente donde más importa.
+      - Para un partido de local normal, dist(home->sede)≈0, así que el diff ≈
+        dist(away). Sigue siendo informativo y con signo consistente.
+      - Si la sede (`country`) no se puede geocodificar, el diff de esa fila es
+        0.0 (sin sede no se puede fabricar señal).
+
+    Resolución de coordenadas: una sola pasada por nombres únicos (cache
+    persistente en disco). Haversine totalmente vectorizado.
     """
     n = len(matches_df)
-    home_dist = np.zeros(n, dtype=np.float64)
-    away_dist = np.zeros(n, dtype=np.float64)
+    diff = np.zeros(n, dtype=np.float64)
 
-    has_country = "country" in matches_df.columns
-    has_neutral = "neutral" in matches_df.columns
-    if not has_country:
-        return home_dist, away_dist
+    if "country" not in matches_df.columns:
+        return diff
 
     homes = matches_df["home_team"].astype(str).values
     aways = matches_df["away_team"].astype(str).values
     countries = matches_df["country"].astype(object).values
-    if has_neutral:
-        neutrals = matches_df["neutral"].fillna(False).astype(bool).values
-    else:
-        neutrals = np.zeros(n, dtype=bool)
 
-    country_nan = pd.isna(countries)
-    active = ~(neutrals | country_nan)
-
+    # Único gate: que la sede sea geocodificable. El flag `neutral` ya NO anula.
+    active = ~pd.isna(countries)
     if not active.any():
-        return home_dist, away_dist
+        return diff
 
     unique_teams = pd.unique(np.concatenate([homes[active], aways[active]]))
     unique_countries = pd.unique(countries[active].astype(str))
@@ -298,7 +357,7 @@ def _vectorized_travel_distances(
     home_dist = np.where(np.isnan(h), 0.0, h)
     away_dist = np.where(np.isnan(a), 0.0, a)
 
-    return home_dist, away_dist
+    return away_dist - home_dist
 
 
 def _vectorized_ranking_diff(
@@ -363,15 +422,25 @@ def build_match_features(
     squad_df: pd.DataFrame | None = None,
     ranking_df: pd.DataFrame | None = None,
     lambda_decay: float = DEFAULT_LAMBDA,
-    year_cutoff: int = 1993,
+    year_cutoff: int = OUTPUT_ROW_START_YEAR,
+    elo_matches_df: pd.DataFrame | None = None,
+    goalscorers_df: pd.DataFrame | None = None,
+    shootouts_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """
     Construye el dataset de features a nivel de partido.
 
-    Columnas de salida:
+    Parámetros clave:
+      matches_df: partidos que se EMITEN como filas (ya pueden venir filtrados
+        a torneos relevantes). Se recortan además a `year >= year_cutoff`.
+      elo_matches_df: universo sobre el que se acumula el ELO. Debe ser un
+        SUPERCONJUNTO de matches_df (idealmente la historia cruda completa: todos
+        los torneos incl. amistosos, todos los años) para que los ratings estén
+        bien calibrados. Si es None, se usa `matches_df` (compat. retro / tests).
+
+    Columnas de salida (MATCH_OUTPUT_COLS):
       date, home_team, away_team, elo_diff, squad_value_diff, xg_avg_for,
-      xg_avg_against, travel_distance_home, travel_distance_away,
-      ranking_diff, time_weight, target
+      xg_avg_against, travel_distance_diff, ranking_diff, time_weight, target
     """
     df = matches_df.copy()
     df["date"] = pd.to_datetime(df["date"])
@@ -387,7 +456,10 @@ def build_match_features(
     )
 
     steps.set_description("ELO histórico")
-    all_for_elo = matches_df.copy()
+    # El ELO se acumula sobre el universo completo (elo_matches_df), no sobre el
+    # subconjunto filtrado de filas a emitir. Así los amistosos y la historia
+    # pre-cutoff contribuyen al rating (warm-up) sin emitirse como filas.
+    all_for_elo = (elo_matches_df if elo_matches_df is not None else matches_df).copy()
     all_for_elo["date"] = pd.to_datetime(all_for_elo["date"])
     all_for_elo = all_for_elo.sort_values("date")
     elo_df = calculate_elo_ratings(all_for_elo)
@@ -399,6 +471,15 @@ def build_match_features(
     steps.update(1)
 
     steps.set_description("xG / squad value")
+    # LIMITACIÓN CONOCIDA (anacronismo): xg_df y squad_df son snapshots ESTÁTICOS
+    # (un valor por equipo, sin fecha) que se aplican a TODOS los partidos
+    # históricos. Un partido de 2012 recibe el xG/valor de 2026 -> leakage/
+    # anacronismo. No existe serie temporal histórica de estos datos, así que
+    # versionarlos sería fabricar información (se evita). El efecto está acotado
+    # por: (a) time_decay pondera <2% los partidos pre-2010, (b) TRAIN_MIN_YEAR
+    # restringe el modelado a una ventana reciente, (c) son features relativas
+    # (diffs). Su aporte se cuantifica en la fila de ablación "Sin estáticas
+    # anacrónicas (xG+squad)". El ELO NO usa estos snapshots.
     if xg_df is not None and not xg_df.empty:
         xg_map_for = xg_df.set_index("team")["xg_for"].to_dict()
         xg_map_against = xg_df.set_index("team")["xg_against"].to_dict()
@@ -433,37 +514,45 @@ def build_match_features(
         df["ranking_diff"] = 0.0
     steps.update(1)
 
-    steps.set_description("distancias de viaje")
+    steps.set_description("distancia de viaje (diff)")
     persistent_cache = _load_geo_cache()
     team_coords_cache: dict = dict(persistent_cache)
     country_coords_cache: dict = dict(persistent_cache)
     for t, c in WC_TEAM_CAPITAL_COORDS.items():
         team_coords_cache[t] = c
-    home_dist, away_dist = _vectorized_travel_distances(
+    df["travel_distance_diff"] = _vectorized_travel_distance_diff(
         df, team_coords_cache, country_coords_cache
     )
-    df["travel_distance_home"] = home_dist
-    df["travel_distance_away"] = away_dist
 
     merged_cache = {**persistent_cache, **team_coords_cache, **country_coords_cache}
     if merged_cache != persistent_cache:
         _save_geo_cache(merged_cache)
     steps.update(1)
-    steps.set_description("target + finalización")
+
+    steps.set_description("features derivadas (as-of)")
+    # Diffs derivados de eventos (goleadores/tandas), estrictamente as-of-date.
+    # Si no se proveen los datos, se emiten en 0.0 para mantener el esquema
+    # estable (el diff neutral de dos equipos sin datos es 0).
+    if goalscorers_df is not None and not goalscorers_df.empty:
+        from src.features.derived_stats import attach_goal_stat_diffs
+        for col, arr in attach_goal_stat_diffs(df, goalscorers_df).items():
+            df[col] = arr
+    else:
+        for col in ("penalty_share_diff", "striker_concentration_diff"):
+            df[col] = 0.0
+
+    if shootouts_df is not None and not shootouts_df.empty:
+        from src.features.derived_stats import attach_shootout_stat_diff
+        df["shootout_winrate_diff"] = attach_shootout_stat_diff(df, shootouts_df)
+    else:
+        df["shootout_winrate_diff"] = 0.0
     steps.update(1)
+    steps.set_description("target + finalización")
     steps.close()
 
     df["target"] = encode_target(df)
 
-    feature_cols = [
-        "date", "home_team", "away_team",
-        "elo_diff", "squad_value_diff",
-        "xg_avg_for", "xg_avg_against",
-        "travel_distance_home", "travel_distance_away",
-        "ranking_diff",
-        "time_weight", "target",
-    ]
-    result = df[[c for c in feature_cols if c in df.columns]]
+    result = df[[c for c in MATCH_OUTPUT_COLS if c in df.columns]]
     return result
 
 
@@ -473,16 +562,27 @@ def build_team_features_for_simulation(
     squad_df: pd.DataFrame | None = None,
     ranking_df: pd.DataFrame | None = None,
     teams: list[str] | None = None,
+    elo_matches_df: pd.DataFrame | None = None,
+    goalscorers_df: pd.DataFrame | None = None,
+    shootouts_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """
     Builds a per-team feature row for the Monte Carlo simulation.
-    Columns: team, elo, squad_value_eur, xg_for, xg_against, host_distance, rank
+    Columns: team, elo, squad_value_eur, xg_for, xg_against, host_distance, rank,
+             penalty_share, striker_concentration, shootout_winrate
+
+    `elo_matches_df` es el universo para el ELO (superconjunto, historia cruda
+    completa). Si es None se usa `matches_df`. El ELO de cada equipo y todas las
+    features derivadas se toman as-of SNAPSHOT_DATE (fecha real del snapshot de
+    datos), no de REFERENCE_DATE (horizonte de decay).
     """
     matches_df = matches_df.copy()
     matches_df["date"] = pd.to_datetime(matches_df["date"])
 
-    elo_df = calculate_elo_ratings(matches_df.sort_values("date"))
-    ref_date = REFERENCE_DATE
+    elo_source = (elo_matches_df if elo_matches_df is not None else matches_df).copy()
+    elo_source["date"] = pd.to_datetime(elo_source["date"])
+    elo_df = calculate_elo_ratings(elo_source.sort_values("date"))
+    ref_date = SNAPSHOT_DATE
 
     # Construir un mapping team - último ELO antes de ref_date
     elo_long = pd.concat([
@@ -523,11 +623,24 @@ def build_team_features_for_simulation(
     else:
         get_rank = lambda team: 78
 
+    # Features derivadas per-equipo, as-of SNAPSHOT_DATE (ref_date).
+    if goalscorers_df is not None and not goalscorers_df.empty:
+        from src.features.derived_stats import team_goal_stats_at_date
+        goal_stats = team_goal_stats_at_date(goalscorers_df, ref_date)
+    else:
+        goal_stats = {}
+    if shootouts_df is not None and not shootouts_df.empty:
+        from src.features.derived_stats import team_shootout_winrate_at_date
+        shootout_wr = team_shootout_winrate_at_date(shootouts_df, ref_date)
+    else:
+        shootout_wr = {}
+
     persistent_cache = _load_geo_cache()
     coords_cache: dict = dict(persistent_cache)
     coords_cache.update(WC_TEAM_CAPITAL_COORDS)
     records = []
     for team in all_teams:
+        gs = goal_stats.get(team, {})
         records.append({
             "team": team,
             "elo": last_elo.get(team, INITIAL_RATING),
@@ -536,6 +649,9 @@ def build_team_features_for_simulation(
             "xg_against": xg_against_map.get(team, 1.2),
             "host_distance": compute_host_distance_wc2026(team, coords_cache),
             "rank": get_rank(team),
+            "penalty_share": gs.get("penalty_share", 0.07),
+            "striker_concentration": gs.get("striker_concentration", 0.4),
+            "shootout_winrate": shootout_wr.get(team, 0.5),
         })
 
     merged_cache = {**persistent_cache, **coords_cache}
@@ -555,23 +671,36 @@ def save_features(df: pd.DataFrame, filename: str = "features.csv") -> Path:
 if __name__ == "__main__":
     from src.data.data_loader import (
         load_international_results, filter_relevant_matches, load_fifa_ranking,
+        load_goalscorers, load_shootouts,
     )
     from src.data.scraper import get_statsbomb_xg_by_team, get_squad_values
 
     print("Cargando datos históricos...")
-    matches = load_international_results()
-    matches = filter_relevant_matches(matches, year_cutoff=1993)
-    data_quality_report(matches, "international_results (filtrado)")
+    # raw_all = universo COMPLETO para el ELO (todos los torneos incl. amistosos,
+    # todos los años). matches = subconjunto filtrado que se emite como filas.
+    raw_all = load_international_results()
+    data_quality_report(raw_all, "international_results (universo ELO, sin filtrar)")
+    matches = filter_relevant_matches(raw_all, year_cutoff=OUTPUT_ROW_START_YEAR)
+    data_quality_report(matches, "international_results (filtrado, filas a emitir)")
+    n_friendly = int((raw_all["tournament"] == "Friendly").sum()) if "tournament" in raw_all else 0
+    print(f"  ELO usa historia completa: {len(raw_all):,} partidos "
+          f"({len(raw_all)/max(len(matches),1):.1f}x las filas), incl. {n_friendly:,} amistosos.")
 
     xg_df = get_statsbomb_xg_by_team()
     squad_df = get_squad_values()
     ranking_df = load_fifa_ranking()
     print(f"  Ranking FIFA cargado: {len(ranking_df):,} filas, "
-          f"{ranking_df['team'].nunique()} equipos únicos")
+          f"{ranking_df['team'].nunique()} equipos únicos, "
+          f"hasta {ranking_df['rank_date'].max().date()}")
+    goalscorers_df = load_goalscorers()
+    shootouts_df = load_shootouts()
+    print(f"  Goleadores: {len(goalscorers_df):,} goles | Tandas: {len(shootouts_df):,}")
 
     print("Construyendo features...")
     features = build_match_features(
         matches, xg_df=xg_df, squad_df=squad_df, ranking_df=ranking_df,
+        elo_matches_df=raw_all,
+        goalscorers_df=goalscorers_df, shootouts_df=shootouts_df,
     )
     print(f"  Partidos con features: {len(features):,}")
     print(f"  Distribución del target:\n{features['target'].value_counts()}")
@@ -583,6 +712,8 @@ if __name__ == "__main__":
     print("Construyendo team_features para simulación...")
     team_feats = build_team_features_for_simulation(
         matches, xg_df=xg_df, squad_df=squad_df, ranking_df=ranking_df, teams=wc_teams,
+        elo_matches_df=raw_all,
+        goalscorers_df=goalscorers_df, shootouts_df=shootouts_df,
     )
     save_features(team_feats, "team_features.csv")
     print(team_feats.to_string(index=False))

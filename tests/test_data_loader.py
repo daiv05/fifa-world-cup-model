@@ -4,8 +4,14 @@ import pytest
 from src.data.data_loader import (
     standardize_team_names,
     filter_relevant_matches,
+    build_ranking_dict,
+    get_ranking_at_date,
+    load_fifa_ranking,
+    load_fifa_rankings_2026,
     TEAM_NAME_ALIASES,
+    FORMER_NAME_MAP,
 )
+from src.features.time_decay import SNAPSHOT_DATE
 
 @pytest.fixture
 def sample_matches():
@@ -49,3 +55,53 @@ def test_filter_relevant_tournaments(sample_matches):
 
 def test_team_aliases_dict_has_no_duplicates():
     assert len(TEAM_NAME_ALIASES) == len(set(TEAM_NAME_ALIASES.keys()))
+
+
+# --------------------------------------------------------------------------- #
+# Acción 5: continuidad histórica del ELO (former_names curado)
+# --------------------------------------------------------------------------- #
+def test_former_names_mapping_curated():
+    df = pd.DataFrame({
+        "home_team": ["Yugoslavia", "Czechoslovakia", "Soviet Union", "Zaire"],
+        "away_team": ["Netherlands Antilles", "Brazil", "Germany", "France"],
+    })
+    out = standardize_team_names(df)
+    assert list(out["home_team"]) == ["Serbia", "Czech Republic", "Russia", "DR Congo"]
+    assert out["away_team"].iloc[0] == "Curacao"
+
+
+def test_cabo_verde_alias():
+    df = pd.DataFrame({"team": ["Cabo Verde"]})
+    assert standardize_team_names(df)["team"].iloc[0] == "Cape Verde"
+
+
+def test_former_name_map_targets_are_canonical():
+    # Ningún destino debe ser a su vez un nombre histórico a remapear.
+    assert set(FORMER_NAME_MAP.values()).isdisjoint(set(FORMER_NAME_MAP.keys()))
+
+
+# --------------------------------------------------------------------------- #
+# Acción 2: snapshot del ranking FIFA 2026 (leak-free)
+# --------------------------------------------------------------------------- #
+def test_snapshot_2026_parsing():
+    snap = load_fifa_rankings_2026()
+    assert list(snap.columns) == ["team", "rank", "total_points", "rank_date"]
+    assert len(snap) > 200
+    assert (snap["rank_date"] == SNAPSHOT_DATE).all()
+    assert snap["rank"].min() == 1
+
+
+def test_ranking_series_extends_to_snapshot():
+    r = load_fifa_ranking()
+    assert r["rank_date"].max() == SNAPSHOT_DATE
+
+
+def test_ranking_snapshot_is_leak_free():
+    r = load_fifa_ranking()
+    rd = build_ranking_dict(r)
+    # Un lookup en el horizonte del Mundial refleja el snapshot...
+    assert get_ranking_at_date(rd, "France", pd.Timestamp("2026-06-15")) == 1
+    # ...pero un lookup histórico NO es afectado por el slice futuro.
+    rank_2015 = get_ranking_at_date(rd, "France", pd.Timestamp("2015-01-01"))
+    assert rank_2015 != 1
+    assert rank_2015 > 0

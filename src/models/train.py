@@ -25,20 +25,16 @@ from sklearn.utils.class_weight import compute_class_weight
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 
+# Fuente única de verdad: FEATURE_COLS y el piso de la ventana de modelado se
+# definen en features.py (módulo sin dependencias ML). Se re-exportan aquí para
+# que los consumidores existentes (`from src.models.train import FEATURE_COLS`,
+# p.ej. ablation.py) sigan funcionando.
+from src.features.features import FEATURE_COLS, TRAIN_MIN_YEAR
+
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 MODELS_DIR = Path(__file__).parents[2] / "data" / "processed" / "models"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
-
-FEATURE_COLS = [
-    "elo_diff",
-    "squad_value_diff",
-    "xg_avg_for",
-    "xg_avg_against",
-    "travel_distance_home",
-    "travel_distance_away",
-    "ranking_diff",
-]
 
 TRAIN_END = pd.Timestamp("2021-01-01")
 VAL_END = pd.Timestamp("2022-01-01")
@@ -245,6 +241,26 @@ def load_model(name: str):
     return joblib.load(path)
 
 
+def assert_model_feature_count(model, expected: int = len(FEATURE_COLS), name: str = "modelo") -> None:
+    """
+    Verifica que el modelo espera exactamente `expected` features. Convierte un
+    desync silencioso (p.ej. modelo entrenado con un esquema viejo de features
+    cargado contra el vector nuevo) en un error explícito. Tras cambiar el set de
+    features hay que reentrenar (`make clean && make all`).
+    """
+    n = getattr(model, "n_features_in_", None)
+    if n is None and hasattr(model, "named_steps"):  # sklearn Pipeline (logreg)
+        for step in model.named_steps.values():
+            n = getattr(step, "n_features_in_", None)
+            if n is not None:
+                break
+    if n is not None and n != expected:
+        raise ValueError(
+            f"{name} espera {n} features pero FEATURE_COLS tiene {expected}. "
+            f"Reentrena los modelos: `make clean && make all`."
+        )
+
+
 def save_best_params(best_params: dict, model_name: str) -> Path:
     path = MODELS_DIR / f"best_params_{model_name}.json"
     with open(path, "w", encoding="utf-8") as fh:
@@ -258,7 +274,7 @@ def _full_training_pipeline(
     trials: int,
     cutoff: pd.Timestamp | None = None,
     suffix: str = "",
-    min_year: int | None = 2010,
+    min_year: int | None = TRAIN_MIN_YEAR,
 ) -> None:
     """
     Si `cutoff` se pasa, se entrena solo con date < cutoff y los modelos
@@ -346,9 +362,9 @@ if __name__ == "__main__":
     parser.add_argument("--cutoff", type=str, default=None,
                         help="Si se pasa (YYYY-MM-DD), entrena solo con date < cutoff "
                              "y guarda con suffix _pre<YYYY>")
-    parser.add_argument("--min-year", type=int, default=2010,
-                        help="Año mínimo a incluir en el entrenamiento (default 2010). "
-                             "Pasa 0 para usar todo el histórico.")
+    parser.add_argument("--min-year", type=int, default=TRAIN_MIN_YEAR,
+                        help=f"Año mínimo a incluir en el entrenamiento (default "
+                             f"{TRAIN_MIN_YEAR}). Pasa 0 para usar todo el histórico.")
     args = parser.parse_args()
 
     from src.features.features import PROCESSED_DIR

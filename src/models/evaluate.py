@@ -5,18 +5,10 @@ from pathlib import Path
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import log_loss, brier_score_loss
 
+from src.features.features import FEATURE_COLS
+
 REPORTS_DIR = Path(__file__).parents[2] / "reports" / "figures"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-
-FEATURE_COLS = [
-    "elo_diff",
-    "squad_value_diff",
-    "xg_avg_for",
-    "xg_avg_against",
-    "travel_distance_home",
-    "travel_distance_away",
-    "ranking_diff",
-]
 
 CLASS_NAMES = {0: "Away Win", 1: "Draw", 2: "Home Win"}
 
@@ -171,7 +163,7 @@ def validate_wc2022(
 
 
 if __name__ == "__main__":
-    from src.models.train import load_model, FEATURE_COLS, temporal_split
+    from src.models.train import load_model, FEATURE_COLS, temporal_split, assert_model_feature_count
     from src.features.features import PROCESSED_DIR
 
     df = pd.read_csv(PROCESSED_DIR / "features.csv").dropna(subset=FEATURE_COLS + ["target"])
@@ -189,6 +181,8 @@ if __name__ == "__main__":
         "XGBoost-Cal": load_model("xgboost_calibrated"),
         "LightGBM": load_model("lightgbm"),
     }
+    for _name, _m in models.items():
+        assert_model_feature_count(_m, name=_name)
 
     print("\n=== Evaluación sobre test temporal (>= 2022) ===")
     eval_df = evaluate_all(models, X_test, y_test)
