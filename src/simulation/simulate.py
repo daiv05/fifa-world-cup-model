@@ -3,13 +3,13 @@ Motor de simulación Monte Carlo para el Mundial 2026.
 """
 
 import argparse
-import time
 import numpy as np
 import pandas as pd
 from collections import defaultdict
 from pathlib import Path
 from tqdm import tqdm
 from scipy.stats import beta
+from joblib import Parallel, delayed
 
 from src.simulation.tournament import (
     GROUPS_2026, ALL_TEAMS, PHASES,
@@ -104,19 +104,44 @@ def _clopper_pearson(c: int, n: int, alpha: float = 0.05) -> tuple[float, float]
     return float(lo * 100), float(hi * 100)
 
 
+def _simulate_block(n_block: int, predict_fn, team_xg, seed_seq) -> dict[str, dict[str, int]]:
+    """
+    Corre `n_block` torneos con un Generator propio sembrado de `seed_seq`
+    (np.random.SeedSequence). Devuelve los conteos por fase. Cada bloque es
+    independiente y determinista dado su seed_seq -> el resultado total es
+    reproducible para CUALQUIER número de workers.
+    """
+    rng = np.random.default_rng(seed_seq)
+    counts: dict[str, dict[str, int]] = {p: defaultdict(int) for p in PHASES}
+    for _ in range(n_block):
+        result = simulate_full_tournament(predict_fn, team_xg, rng=rng)
+        for phase in PHASES:
+            if phase == "champion":
+                counts["champion"][result["champion"]] += 1
+            else:
+                for team in result[phase]:
+                    counts[phase][team] += 1
+    return counts
+
+
 def run_simulation(
     n_iterations: int = 10_000,
     model=None,
     team_features: pd.DataFrame | None = None,
     seed: int = 42,
+    n_jobs: int = -1,
+    n_blocks: int = 64,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Devuelve (champions_df, progression_df):
       - champions_df: team, champion_count, champion_pct, champion_ci_low/high
       - progression_df: team + porcentaje + IC por fase (group_stage, R32, R16, QF, SF, Final, Champion)
-    """
-    np.random.seed(seed)
 
+    Las iteraciones (independientes) se reparten en `n_blocks` bloques fijos y se
+    corren en paralelo (`n_jobs`). Cada bloque usa un stream RNG independiente
+    derivado de `SeedSequence(seed).spawn(n_blocks)`, así que el resultado es
+    reproducible sin importar cuántos workers se usen.
+    """
     if model is not None and team_features is not None:
         predict_fn = build_predict_fn(model, team_features)
         team_xg = _build_team_xg(team_features)
@@ -125,24 +150,21 @@ def run_simulation(
         predict_fn = _dummy_predict_fn
         team_xg = {}
 
-    # Sanity: una iteración para timing
-    start = time.perf_counter()
-    _ = simulate_full_tournament(predict_fn, team_xg)
-    first_iter_ms = (time.perf_counter() - start) * 1000
-    print(f"Primera iteración: {first_iter_ms:.1f} ms - "
-          f"estimado total: {first_iter_ms * n_iterations / 1000:.0f}s")
+    n_blocks = max(1, min(n_blocks, n_iterations))
+    block_sizes = [len(b) for b in np.array_split(np.arange(n_iterations), n_blocks)]
+    seed_seqs = np.random.SeedSequence(seed).spawn(n_blocks)
 
-    # phase_counts[phase][team] = nº de veces que el equipo llegó a esa fase
+    block_results = Parallel(n_jobs=n_jobs)(
+        delayed(_simulate_block)(bs, predict_fn, team_xg, ss)
+        for bs, ss in zip(block_sizes, seed_seqs)
+    )
+
+    # Merge de conteos por fase.
     phase_counts: dict[str, dict[str, int]] = {p: defaultdict(int) for p in PHASES}
-
-    for _ in tqdm(range(n_iterations), desc="Simulando torneos"):
-        result = simulate_full_tournament(predict_fn, team_xg)
+    for counts in block_results:
         for phase in PHASES:
-            if phase == "champion":
-                phase_counts["champion"][result["champion"]] += 1
-            else:
-                for team in result[phase]:
-                    phase_counts[phase][team] += 1
+            for team, n in counts[phase].items():
+                phase_counts[phase][team] += n
 
     # ----- Tabla de campeones (con IC Clopper-Pearson) -----
     champ_rows = []
@@ -201,6 +223,9 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default=None,
                         help="Nombre del modelo en data/processed/models/")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--n-jobs", type=int, default=-1,
+                        help="Workers para el Monte Carlo (default -1 = todos los cores). "
+                             "El resultado es reproducible para cualquier valor.")
     args = parser.parse_args()
 
     model = None
@@ -219,6 +244,7 @@ if __name__ == "__main__":
         model=model,
         team_features=team_features,
         seed=args.seed,
+        n_jobs=args.n_jobs,
     )
 
     print("\n=== TOP 10 candidatos al campeonato ===")

@@ -180,7 +180,19 @@ def run_optuna_study(
     weights: np.ndarray | None = None,
     n_trials: int = 100,
     model_type: str = "xgboost",
+    n_jobs: int = 1,
 ) -> tuple[dict, optuna.Study]:
+    """
+    `n_jobs` controla la paralelización de TRIALS de Optuna:
+      - n_jobs=1 (default): búsqueda en serie, 100% reproducible con seed=42.
+      - n_jobs>1 o -1: trials en paralelo (~3-4x más rápido en datos pequeños),
+        pero el TPE deja de ser determinista (el orden de trials varía), así que
+        best_params no es bit-reproducible entre corridas. Para evitar
+        oversubscripción, cada modelo se fuerza a n_jobs=1 cuando se paraleliza.
+    """
+    parallel = n_jobs != 1
+    model_threads = 1 if parallel else -1
+
     def objective(trial: optuna.Trial) -> float:
         params = {
             "n_estimators": trial.suggest_int("n_estimators", 100, 600),
@@ -190,6 +202,7 @@ def run_optuna_study(
             "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
             "reg_alpha": trial.suggest_float("reg_alpha", 1e-4, 10.0, log=True),
             "reg_lambda": trial.suggest_float("reg_lambda", 1e-4, 10.0, log=True),
+            "n_jobs": model_threads,
         }
         if model_type == "xgboost":
             params["min_child_weight"] = trial.suggest_float("min_child_weight", 1.0, 15.0)
@@ -206,8 +219,10 @@ def run_optuna_study(
         study_name=f"{model_type}_study",
         sampler=optuna.samplers.TPESampler(seed=42),
     )
-    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
-    return study.best_params, study
+    study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs, show_progress_bar=True)
+    # `n_jobs` no debe contaminar el best_params guardado (es de runtime, no del modelo).
+    best = {k: v for k, v in study.best_params.items() if k != "n_jobs"}
+    return best, study
 
 
 def calibrate_model(
@@ -275,6 +290,7 @@ def _full_training_pipeline(
     cutoff: pd.Timestamp | None = None,
     suffix: str = "",
     min_year: int | None = TRAIN_MIN_YEAR,
+    optuna_jobs: int = 1,
 ) -> None:
     """
     Si `cutoff` se pasa, se entrena solo con date < cutoff y los modelos
@@ -335,14 +351,14 @@ def _full_training_pipeline(
 
     # XGBoost con Optuna
     print(f"Optuna XGBoost ({trials} trials)...")
-    best_xgb, _ = run_optuna_study(X_train, y_train, weights_train, n_trials=trials, model_type="xgboost")
+    best_xgb, _ = run_optuna_study(X_train, y_train, weights_train, n_trials=trials, model_type="xgboost", n_jobs=optuna_jobs)
     save_best_params(best_xgb, f"xgboost{suffix}")
     xgb_model = train_xgboost(X_train, y_train, weights_train, best_xgb)
     save_model(xgb_model, f"xgboost{suffix}")
 
     # LightGBM con Optuna
     print(f"Optuna LightGBM ({trials} trials)...")
-    best_lgb, _ = run_optuna_study(X_train, y_train, weights_train, n_trials=trials, model_type="lightgbm")
+    best_lgb, _ = run_optuna_study(X_train, y_train, weights_train, n_trials=trials, model_type="lightgbm", n_jobs=optuna_jobs)
     save_best_params(best_lgb, f"lightgbm{suffix}")
     lgb_model = train_lightgbm(X_train, y_train, weights_train, best_lgb)
     save_model(lgb_model, f"lightgbm{suffix}")
@@ -365,6 +381,10 @@ if __name__ == "__main__":
     parser.add_argument("--min-year", type=int, default=TRAIN_MIN_YEAR,
                         help=f"Año mínimo a incluir en el entrenamiento (default "
                              f"{TRAIN_MIN_YEAR}). Pasa 0 para usar todo el histórico.")
+    parser.add_argument("--n-jobs", type=int, default=1,
+                        help="Workers para los trials de Optuna (default 1 = serie, "
+                             "reproducible). >1 o -1 acelera ~3-4x pero el TPE deja de "
+                             "ser determinista (best_params no bit-reproducibles).")
     args = parser.parse_args()
 
     from src.features.features import PROCESSED_DIR
@@ -372,12 +392,13 @@ if __name__ == "__main__":
     min_year = args.min_year if args.min_year and args.min_year > 0 else None
 
     print(f"\n=== Pipeline principal (sin cutoff) ===")
-    _full_training_pipeline(df, trials=args.trials, suffix="", min_year=min_year)
+    _full_training_pipeline(df, trials=args.trials, suffix="", min_year=min_year,
+                             optuna_jobs=args.n_jobs)
 
     cutoff_pre22 = pd.Timestamp(args.cutoff) if args.cutoff else pd.Timestamp("2022-01-01")
     suffix = f"_pre{cutoff_pre22.year}"
     print(f"\n=== Pipeline pre-{cutoff_pre22.year} (para validar WC sin leakage) ===")
     _full_training_pipeline(df, trials=args.trials, cutoff=cutoff_pre22, suffix=suffix,
-                             min_year=min_year)
+                             min_year=min_year, optuna_jobs=args.n_jobs)
 
     print("\nOK - modelos guardados en", MODELS_DIR)

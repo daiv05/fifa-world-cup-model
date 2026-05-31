@@ -83,11 +83,14 @@ def _sample_goals_poisson(
     t2: str,
     team_xg: dict[str, dict[str, float]],
     league_xg: float = 1.25,
+    rng=None,
 ) -> tuple[int, int]:
     """
     Modela goles con Poisson independiente: λ_t1 = xg_for(t1) * xg_against(t2) / league_xg.
-    El outcome surge del marcador, no al revés.
+    El outcome surge del marcador, no al revés. `rng` es un np.random.Generator
+    (o el módulo np.random si None) para soportar streams reproducibles en paralelo.
     """
+    rng = rng if rng is not None else np.random
     xg_for_1 = team_xg.get(t1, {}).get("xg_for", league_xg)
     xg_for_2 = team_xg.get(t2, {}).get("xg_for", league_xg)
     xg_ag_1  = team_xg.get(t1, {}).get("xg_against", league_xg)
@@ -95,20 +98,22 @@ def _sample_goals_poisson(
 
     lam_1 = max(0.05, xg_for_1 * xg_ag_2 / league_xg)
     lam_2 = max(0.05, xg_for_2 * xg_ag_1 / league_xg)
-    g1 = int(np.random.poisson(lam_1))
-    g2 = int(np.random.poisson(lam_2))
+    g1 = int(rng.poisson(lam_1))
+    g2 = int(rng.poisson(lam_2))
     return g1, g2
 
 
-def _outcome_from_probs(probs: np.ndarray) -> int:
+def _outcome_from_probs(probs: np.ndarray, rng=None) -> int:
     """Devuelve 2=t1 wins, 1=draw, 0=t2 wins según probs=[t1, draw, t2]."""
-    return int(np.random.choice([2, 1, 0], p=probs))
+    rng = rng if rng is not None else np.random
+    return int(rng.choice([2, 1, 0], p=probs))
 
 
 def simulate_group_stage(
     teams: list[str],
     predict_fn,
     team_xg: dict[str, dict[str, float]] | None = None,
+    rng=None,
 ) -> pd.DataFrame:
     """
     Simula los 6 partidos del grupo. Los outcomes se sortean con probs
@@ -122,8 +127,8 @@ def simulate_group_stage(
     }
     for t1, t2 in combinations(teams, 2):
         probs = _host_advantage_probs(predict_fn, t1, t2)
-        outcome = _outcome_from_probs(probs)
-        g1, g2 = _sample_goals_poisson(t1, t2, team_xg)
+        outcome = _outcome_from_probs(probs, rng)
+        g1, g2 = _sample_goals_poisson(t1, t2, team_xg, rng=rng)
 
         # Reconciliar marcador con outcome sorteado
         if outcome == 2 and g1 <= g2:
@@ -190,27 +195,30 @@ def simulate_knockout_round(
     pairs: list[tuple[str, str]],
     predict_fn,
     team_xg: dict[str, dict[str, float]] | None = None,
+    rng=None,
 ) -> list[str]:
     team_xg = team_xg or {}
+    rng_ = rng if rng is not None else np.random
     winners = []
     for t1, t2 in pairs:
         if t1 == "TBD" or t2 == "TBD":
             winners.append(t1 if t2 == "TBD" else t2)
             continue
         probs = _host_advantage_probs(predict_fn, t1, t2)
-        outcome = _outcome_from_probs(probs)
+        outcome = _outcome_from_probs(probs, rng)
         if outcome == 2:
             winners.append(t1)
         elif outcome == 0:
             winners.append(t2)
         else:
-            winners.append(str(np.random.choice([t1, t2])))  # penalty shootout 50/50
+            winners.append(str(rng_.choice([t1, t2])))  # penalty shootout 50/50
     return winners
 
 
 def simulate_full_tournament(
     predict_fn,
     team_xg: dict[str, dict[str, float]] | None = None,
+    rng=None,
 ) -> dict:
     """
     Simula el torneo completo y devuelve un dict con los equipos que
@@ -231,7 +239,7 @@ def simulate_full_tournament(
 
     group_results: dict[str, pd.DataFrame] = {}
     for group, teams in GROUPS_2026.items():
-        group_results[group] = simulate_group_stage(teams, predict_fn, team_xg)
+        group_results[group] = simulate_group_stage(teams, predict_fn, team_xg, rng)
 
     best_thirds = select_best_thirds(group_results)
     bracket = build_knockout_bracket(group_results, best_thirds)
@@ -249,7 +257,7 @@ def simulate_full_tournament(
     phase_idx = 0
 
     while len(current_pairs) >= 1:
-        winners = simulate_knockout_round(current_pairs, predict_fn, team_xg)
+        winners = simulate_knockout_round(current_pairs, predict_fn, team_xg, rng)
         if phase_idx < len(phase_after_pairs):
             for w in winners:
                 progression[phase_after_pairs[phase_idx]].add(w)

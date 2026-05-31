@@ -19,6 +19,7 @@ def simulate_injury_scenario(
     model,
     n_iterations: int = 10_000,
     seed: int = 42,
+    n_jobs: int = -1,
 ) -> pd.DataFrame:
     """
     Reduce `squad_value_eur` del `team` en `squad_reduction_pct` (e.g. 0.30
@@ -33,7 +34,7 @@ def simulate_injury_scenario(
     tf.loc[mask, "squad_value_eur"] = tf.loc[mask, "squad_value_eur"] * (1 - squad_reduction_pct)
 
     champions_df, _ = run_simulation(
-        n_iterations=n_iterations, model=model, team_features=tf, seed=seed,
+        n_iterations=n_iterations, model=model, team_features=tf, seed=seed, n_jobs=n_jobs,
     )
     return champions_df
 
@@ -46,6 +47,7 @@ def run_sensitivity_top_n(
     reduction: float = 0.30,
     n_iterations: int = 10_000,
     seed: int = 42,
+    n_jobs: int = -1,
 ) -> pd.DataFrame:
     """Aplica reducción de squad a cada uno de los `top_n` candidatos y
     compara su nuevo P(campeón) con el base."""
@@ -56,7 +58,7 @@ def run_sensitivity_top_n(
         print(f"\n--- Escenario: {team} con squad -{int(reduction*100)}% ---")
         scenario_df = simulate_injury_scenario(
             team, reduction, base_team_features, model,
-            n_iterations=n_iterations, seed=seed,
+            n_iterations=n_iterations, seed=seed, n_jobs=n_jobs,
         )
         new_pct = scenario_df.set_index("team")["champion_pct"].get(team, 0.0)
         rows.append({
@@ -76,6 +78,8 @@ if __name__ == "__main__":
     parser.add_argument("--reduction", type=float, default=0.30)
     parser.add_argument("--top_n", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--n-jobs", type=int, default=-1,
+                        help="Workers para el Monte Carlo (default -1 = todos los cores).")
     args = parser.parse_args()
 
     from src.models.train import load_model
@@ -95,13 +99,13 @@ if __name__ == "__main__":
         print("Generando escenario base...")
         base_champ, _ = run_simulation(
             n_iterations=args.iterations, model=model,
-            team_features=team_features, seed=args.seed,
+            team_features=team_features, seed=args.seed, n_jobs=args.n_jobs,
         )
 
     df = run_sensitivity_top_n(
         base_champ, team_features, model,
         top_n=args.top_n, reduction=args.reduction,
-        n_iterations=args.iterations, seed=args.seed,
+        n_iterations=args.iterations, seed=args.seed, n_jobs=args.n_jobs,
     )
     print("\n=== Resultado ===")
     print(df.to_string(index=False))

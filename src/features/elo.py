@@ -32,6 +32,11 @@ def _get_k(tournament: str) -> float:
     return DEFAULT_K
 
 
+def _build_k_lookup(tournaments: pd.Series) -> dict[str, float]:
+    """Memoiza _get_k por torneo único (evita escanear K_FACTORS por cada fila)."""
+    return {t: _get_k(str(t)) for t in tournaments.dropna().unique()}
+
+
 def _expected_score(rating_a: float, rating_b: float) -> float:
     return 1.0 / (1.0 + 10 ** ((rating_b - rating_a) / 400.0))
 
@@ -45,34 +50,47 @@ def _result_score(home_goals: int, away_goals: int) -> tuple[float, float]:
 
 
 def calculate_elo_ratings(matches_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    ELO secuencial sobre los partidos ordenados por fecha. El loop es
+    inherentemente secuencial (cada rating depende del estado previo), pero se
+    itera sobre arrays de numpy en vez de `iterrows()` (que crea una Series por
+    fila) y se memoiza el K-factor por torneo, reduciendo el overhead por fila.
+    """
     df = matches_df.sort_values("date").reset_index(drop=True)
     ratings: dict[str, float] = defaultdict(lambda: INITIAL_RATING)
+
+    dates = df["date"].to_numpy()
+    homes = df["home_team"].to_numpy()
+    aways = df["away_team"].to_numpy()
+    home_scores = pd.to_numeric(df["home_score"], errors="coerce").to_numpy()
+    away_scores = pd.to_numeric(df["away_score"], errors="coerce").to_numpy()
+    if "tournament" in df.columns:
+        tournaments = df["tournament"].fillna("Friendly").to_numpy()
+        k_lookup = _build_k_lookup(df["tournament"].fillna("Friendly"))
+    else:
+        tournaments = np.full(len(df), "Friendly", dtype=object)
+        k_lookup = {"Friendly": _get_k("Friendly")}
+
     records = []
+    for i in tqdm(range(len(df)), total=len(df), desc="ELO", unit="match"):
+        h_goal, a_goal = home_scores[i], away_scores[i]
+        if np.isnan(h_goal) or np.isnan(a_goal):
+            continue
 
-    for _, row in tqdm(df.iterrows(), total=len(df), desc="ELO", unit="match"):
-        home = row["home_team"]
-        away = row["away_team"]
-        tournament = row.get("tournament", "Friendly")
-
+        home, away = homes[i], aways[i]
         r_h = ratings[home]
         r_a = ratings[away]
 
-        try:
-            h_goals = int(row["home_score"])
-            a_goals = int(row["away_score"])
-        except (ValueError, TypeError):
-            continue
-
         exp_h = _expected_score(r_h, r_a)
         exp_a = 1.0 - exp_h
-        res_h, res_a = _result_score(h_goals, a_goals)
+        res_h, res_a = _result_score(int(h_goal), int(a_goal))
 
-        k = _get_k(tournament)
+        k = k_lookup.get(tournaments[i], DEFAULT_K)
         new_r_h = r_h + k * (res_h - exp_h)
         new_r_a = r_a + k * (res_a - exp_a)
 
         records.append({
-            "date": row["date"],
+            "date": dates[i],
             "home_team": home,
             "away_team": away,
             "home_elo_before": r_h,

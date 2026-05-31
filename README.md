@@ -16,11 +16,11 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 
 | Equipo | P(Campeón) | IC 95% |
 |--------|:----------:|:------:|
-| Spain | 23.19% | [22.37%, 24.03%] |
-| Argentina | 10.81% | [10.21%, 11.44%] |
-| France | 10.15% | [9.56%, 10.76%] |
-| Brazil | 6.46% | [5.99%, 6.96%] |
-| England | 5.56% | [5.12%, 6.03%] |
+| Spain | 23.72% | [22.89%, 24.57%] |
+| Argentina | 11.27% | [10.66%, 11.91%] |
+| France | 10.88% | [10.28%, 11.51%] |
+| Brazil | 6.35% | [5.88%, 6.85%] |
+| England | 5.55% | [5.11%, 6.02%] |
 
 ---
 
@@ -105,6 +105,19 @@ python -m src.simulation.simulate --iterations 10000 --model xgboost_calibrated
 python -m src.analysis.sensitivity --iterations 10000 --model xgboost_calibrated
 streamlit run src/visualization/dashboard.py
 ```
+
+### Rendimiento
+
+- **Simulación Monte Carlo**: paralelizada sobre todos los cores (`--n-jobs`, default `-1`).
+  Las iteraciones se reparten en bloques fijos, cada uno con un stream RNG independiente
+  derivado de `SeedSequence(seed).spawn(n_blocks)`, así que el resultado es **reproducible
+  sin importar cuántos workers se usen** (`n_jobs=1` y `n_jobs=-1` dan resultados idénticos).
+  `simulate` ~144s→~27s, `sensitivity` ~720s→~98s.
+- **Entrenamiento**: `train.py --n-jobs` paraleliza los trials de Optuna (~4× más rápido).
+  Default `1` (serie) para mantener la búsqueda TPE 100% reproducible; usa `-1` para
+  acelerar a costa de reproducibilidad bit a bit de `best_params`.
+- **ELO**: se calcula una sola vez sobre la historia completa (sin loops `iterrows`) y se
+  reutiliza entre el dataset de partidos y el de equipos.
 
 ### EDA
 

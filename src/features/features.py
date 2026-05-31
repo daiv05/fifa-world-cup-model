@@ -426,6 +426,7 @@ def build_match_features(
     elo_matches_df: pd.DataFrame | None = None,
     goalscorers_df: pd.DataFrame | None = None,
     shootouts_df: pd.DataFrame | None = None,
+    elo_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """
     Construye el dataset de features a nivel de partido.
@@ -459,10 +460,12 @@ def build_match_features(
     # El ELO se acumula sobre el universo completo (elo_matches_df), no sobre el
     # subconjunto filtrado de filas a emitir. Así los amistosos y la historia
     # pre-cutoff contribuyen al rating (warm-up) sin emitirse como filas.
-    all_for_elo = (elo_matches_df if elo_matches_df is not None else matches_df).copy()
-    all_for_elo["date"] = pd.to_datetime(all_for_elo["date"])
-    all_for_elo = all_for_elo.sort_values("date")
-    elo_df = calculate_elo_ratings(all_for_elo)
+    # Si el caller ya lo calculó (elo_df), se reutiliza para evitar recomputarlo.
+    if elo_df is None:
+        all_for_elo = (elo_matches_df if elo_matches_df is not None else matches_df).copy()
+        all_for_elo["date"] = pd.to_datetime(all_for_elo["date"])
+        all_for_elo = all_for_elo.sort_values("date")
+        elo_df = calculate_elo_ratings(all_for_elo)
     steps.update(1)
 
     steps.set_description("Merge ELO + time decay")
@@ -565,6 +568,7 @@ def build_team_features_for_simulation(
     elo_matches_df: pd.DataFrame | None = None,
     goalscorers_df: pd.DataFrame | None = None,
     shootouts_df: pd.DataFrame | None = None,
+    elo_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """
     Builds a per-team feature row for the Monte Carlo simulation.
@@ -579,9 +583,11 @@ def build_team_features_for_simulation(
     matches_df = matches_df.copy()
     matches_df["date"] = pd.to_datetime(matches_df["date"])
 
-    elo_source = (elo_matches_df if elo_matches_df is not None else matches_df).copy()
-    elo_source["date"] = pd.to_datetime(elo_source["date"])
-    elo_df = calculate_elo_ratings(elo_source.sort_values("date"))
+    # Reutilizar elo_df si el caller ya lo calculó (evita recomputar el ELO).
+    if elo_df is None:
+        elo_source = (elo_matches_df if elo_matches_df is not None else matches_df).copy()
+        elo_source["date"] = pd.to_datetime(elo_source["date"])
+        elo_df = calculate_elo_ratings(elo_source.sort_values("date"))
     ref_date = SNAPSHOT_DATE
 
     # Construir un mapping team - último ELO antes de ref_date
@@ -696,11 +702,18 @@ if __name__ == "__main__":
     shootouts_df = load_shootouts()
     print(f"  Goleadores: {len(goalscorers_df):,} goles | Tandas: {len(shootouts_df):,}")
 
+    # ELO calculado UNA sola vez sobre el universo completo y reutilizado por
+    # ambos builders (evita la doble pasada de ELO).
+    print("Calculando ELO (historia completa)...")
+    elo_all = calculate_elo_ratings(
+        raw_all.assign(date=pd.to_datetime(raw_all["date"])).sort_values("date")
+    )
+
     print("Construyendo features...")
     features = build_match_features(
         matches, xg_df=xg_df, squad_df=squad_df, ranking_df=ranking_df,
-        elo_matches_df=raw_all,
         goalscorers_df=goalscorers_df, shootouts_df=shootouts_df,
+        elo_df=elo_all,
     )
     print(f"  Partidos con features: {len(features):,}")
     print(f"  Distribución del target:\n{features['target'].value_counts()}")
@@ -712,7 +725,7 @@ if __name__ == "__main__":
     print("Construyendo team_features para simulación...")
     team_feats = build_team_features_for_simulation(
         matches, xg_df=xg_df, squad_df=squad_df, ranking_df=ranking_df, teams=wc_teams,
-        elo_matches_df=raw_all,
+        elo_df=elo_all,
         goalscorers_df=goalscorers_df, shootouts_df=shootouts_df,
     )
     save_features(team_feats, "team_features.csv")
