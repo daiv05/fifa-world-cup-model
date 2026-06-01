@@ -26,43 +26,49 @@
 
 \begin{document}
 
-\title{Predicci\'on Probabil\'istica del Mundial de F\'utbol FIFA 2026 
-mediante Gradient Boosting y Simulaci\'on Monte Carlo}
+\title{Predicci\'on Probabil\'istica del Mundial de F\'utbol FIFA 2026
+  mediante Gradient Boosting y Simulaci\'on Monte Carlo}
 
-\author{\IEEEauthorblockN{David Deras}
-\IEEEauthorblockA{\textit{Curso de Especialización en Machine Learning} \\
-\textit{Repositorio: github.com/daiv05/fifa-world-cup-model}\\
-dc19019@ues.edu.sv}}
+\author{
+  \IEEEauthorblockN{David Deras}
+  \IEEEauthorblockA{
+    Curso de Especialización en Machine Learning \\
+    Facultad de Ingeniería y Arquitectura \\
+    Universidad de El Salvador \\
+    San Salvador, El Salvador \\
+    dc19019@ues.edu.sv
+  }
+}
 
 \maketitle
 
 \begin{abstract}
-Se presenta un sistema end-to-end para estimar la probabilidad de
-campeonato de cada una de las 48 selecciones que disputar\'an la Copa
-Mundial de la FIFA 2026 bajo el nuevo formato de 12 grupos. El pipeline
-integra fuentes heterog\'eneas (resultados internacionales
-1872--2026, datos de eventos --goleadores y tandas de penales--,
-\emph{Expected Goals} de StatsBomb, valor de mercado de Transfermarkt y
-ranking FIFA hist\'orico extendido con un \emph{snapshot} de 2026) para
-construir nueve caracter\'isticas --incluyendo features derivadas
-calculadas estrictamente \emph{as-of-date}-- que alimentan cuatro modelos
-multiclase (Regresi\'on Log\'istica, XGBoost, LightGBM y XGBoost calibrado
-con Platt) entrenados con
-ponderaci\'on por decaimiento temporal exponencial y rebalanceo de
-clases. El mejor modelo (XGBoost calibrado con m\'etodo Platt) obtiene
-un Log-Loss de $0{,}855$ y un Brier de $0{,}166$ sobre un conjunto de
-prueba temporal y se acopla a un motor Monte Carlo de $10{,}000$ iteraciones que respeta el
-reglamento 2026 (2 primeros de grupo + 8 mejores terceros, desempates
-puntos$\to$DG$\to$GF, definici\'on por penales). Los intervalos de
-confianza de Clopper--Pearson sit\'uan a un grupo reducido de selecciones
-hist\'oricamente fuertes entre los favoritos. Una secci\'on dedicada discute las limitaciones del
-modelo: equipos debutantes sin historial, cobertura parcial de xG y
-ausencia de modelado estructural de lesiones.
+  Se presenta un sistema end-to-end para estimar la probabilidad de
+  campeonato de cada una de las 48 selecciones que disputar\'an la Copa
+  Mundial de la FIFA 2026 bajo el nuevo formato de 12 grupos. El pipeline
+  integra fuentes heterog\'eneas (resultados internacionales
+  1872--2026, datos de eventos --goleadores y tandas de penales--,
+  \emph{Expected Goals} de StatsBomb, valor de mercado de Transfermarkt y
+  ranking FIFA hist\'orico extendido con un \emph{snapshot} de 2026) para
+  construir nueve caracter\'isticas --incluyendo features derivadas
+  calculadas estrictamente \emph{as-of-date}-- que alimentan cuatro modelos
+  multiclase (Regresi\'on Log\'istica, XGBoost, LightGBM y XGBoost calibrado
+  con Platt) entrenados con
+  ponderaci\'on por decaimiento temporal exponencial y rebalanceo de
+  clases. El mejor modelo (XGBoost calibrado con m\'etodo Platt) obtiene
+  un Log-Loss de ${,}855$ y un Brier de ${,}166$ sobre un conjunto de
+  prueba temporal y se acopla a un motor Monte Carlo de $10{,}000$ iteraciones que respeta el
+  reglamento 2026 (2 primeros de grupo + 8 mejores terceros, desempates
+  puntos$\to$DG$\to$GF, definici\'on por penales). Los intervalos de
+  confianza de Clopper--Pearson sit\'uan a un grupo reducido de selecciones
+  hist\'oricamente fuertes entre los favoritos. Una secci\'on dedicada discute las limitaciones del
+  modelo: equipos debutantes sin historial, cobertura parcial de xG y
+  ausencia de modelado estructural de lesiones.
 \end{abstract}
 
 \begin{IEEEkeywords}
-F\'utbol, predicci\'on probabil\'istica, XGBoost, Monte Carlo,
-ranking ELO, Mundial 2026, calibraci\'on de probabilidades.
+  F\'utbol, predicci\'on probabil\'istica, XGBoost, Monte Carlo,
+  ranking ELO, Mundial 2026, calibraci\'on de probabilidades.
 \end{IEEEkeywords}
 
 \section{Introducci\'on}
@@ -112,77 +118,57 @@ con calibraci\'on isot\'onica o de Platt \cite{platt1999,niculescu2005}.
 
 Los datos crudos se descargan o cargan en \texttt{src/data/} y se
 materializan en \texttt{data/raw/}; la limpieza y la uni\'on producen
-\texttt{data/processed/features.csv}. El pipeline integra tres
-categor\'ias de fuentes (datasets hist\'oricos, APIs y scraping),
+\texttt{data/processed/features.csv}. El pipeline integra cinco fuentes,
 resumidas en la Tabla~\ref{tab:sources}.
 
 \begin{table}[!t]
-\caption{Fuentes de datos integradas en el pipeline}
-\label{tab:sources}
-\centering
-\renewcommand{\arraystretch}{1.2}
-\small
-\begin{tabular}{@{}L{2.0cm}L{2.9cm}L{2.3cm}@{}}
-\toprule
-\textbf{Fuente} & \textbf{Contenido} & \textbf{Cobertura}\\
-\midrule
-\multicolumn{3}{@{}l}{\textit{Datasets hist\'oricos}}\\[2pt]
-martj42 \cite{martj42,kaggle_martj42}
-  & Resultados internacionales & 1872--2026, ${\approx}49\,000$ partidos\\
-martj42 (eventos) \cite{martj42}
-  & Goleadores (min, penal) y tandas & 47.6k goles; 677 tandas\\
-FIFA Ranking \cite{kaggle_fifaranking}
-  & Posici\'on y puntos (+\,\emph{snapshot} 2026) & 1993--2026, ${\approx}210$ selecc.\\
-WC Matches \cite{kaggle_wcmatches}
-  & Partidos Mundiales & 1974--2022\\
-WC\,2026 Baseline \cite{kaggle_wc2026baseline}
-  & Prob. base Elo WC\,2026 & 48 equipos, fase grupos\\
-openfootball \cite{openfootball}
-  & Fixtures y resultados WC & Todas las ediciones\\
-StatsBomb \cite{statsbomb}
-  & xG por equipo & 109 selecc.\\[4pt]
-\multicolumn{3}{@{}l}{\textit{APIs (datos actualizados)}}\\[2pt]
-API-Football \cite{apifootball}
-  & Estad\'isticas de jugadores, xG & Ligas europeas\\
-Football-Data.org \cite{footballdata}
-  & Ligas dom\'esticas de convocados & Europa y Am\'erica\\[4pt]
-\multicolumn{3}{@{}l}{\textit{Web scraping}}\\[2pt]
-FBref \cite{fbref}
-  & xA, presiones, progresiones & Internac. y ligas\\
-Transfermarkt \cite{transfermarkt}
-  & Valor de mercado plantilla & 60 selecc., snapshot\\
-EloRatings.net \cite{eloratings}
-  & ELO hist\'orico verificado & ${\approx}200$ selecc.\\
-\bottomrule
-\end{tabular}
+  \caption{Fuentes de datos integradas en el pipeline}
+  \label{tab:sources}
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \small
+  \begin{tabular}{@{}L{2.0cm}L{2.9cm}L{2.3cm}@{}}
+    \toprule
+    \textbf{Fuente} & \textbf{Contenido}                                     & \textbf{Cobertura}                      \\
+    \midrule
+    martj42 \cite{martj42,kaggle_martj42}
+                    & Resultados internacionales                             & 1872--2026, ${\approx}49\,000$ partidos \\
+    martj42 (eventos) \cite{martj42}
+                    & Goleadores (min, penal), tandas y nombres hist\'oricos & 47.6k goles; 677 tandas                 \\
+    FIFA Ranking \cite{kaggle_fifaranking}
+                    & Posici\'on y puntos (+\,\emph{snapshot} 2026)          & 1993--2026, ${\approx}210$ selecc.      \\
+    StatsBomb \cite{statsbomb}
+                    & xG por equipo                                          & 109 selecc.                             \\
+    Transfermarkt \cite{transfermarkt}
+                    & Valor de mercado plantilla                             & 62 selecc., snapshot                    \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
 \textbf{Fuente principal de resultados.} El dataset de
 Mart~J\"urisoo~\cite{martj42} disponible tanto en GitHub como en
 Kaggle~\cite{kaggle_martj42} constituye el n\'ucleo del entrenamiento
-con ${\approx}49{,}000$ partidos internacionales (1872--2026). Se complementa
-con los resultados de Mundiales 1974--2022~\cite{kaggle_wcmatches} y
-los datos estructurados de openfootball~\cite{openfootball} para
-validar el formato del torneo. El ranking FIFA hist\'orico
-\cite{kaggle_fifaranking} y el dataset de probabilidades base WC\,2026
-basado en Elo~\cite{kaggle_wc2026baseline} se usan como referencia
-cruzada para calibrar el feature \texttt{ranking\_diff}.
+con ${\approx}49{,}000$ partidos internacionales (1872--2026); seg\'un su
+documentaci\'on, los datos se recopilan de Wikipedia, RSSSF y los sitios web de
+las federaciones nacionales. De la misma colecci\'on provienen los archivos de
+eventos \texttt{goalscorers} (goleadores con minuto y penal), \texttt{shootouts}
+(tandas) y \texttt{former\_names} (continuidad de federaciones), usados para las
+features derivadas y la unificaci\'on de nombres. El ranking FIFA hist\'orico
+\cite{kaggle_fifaranking} --serie 1993--2024 extendida con un \emph{snapshot}
+manual del 2026-05-30-- alimenta el feature \texttt{ranking\_diff}.
 
-\textbf{Fuentes de estad\'isticas avanzadas.} Los xG hist\'oricos
-provienen del \emph{open data} de StatsBomb~\cite{statsbomb},
-consumido v\'ia \texttt{statsbombpy}. Para selecciones con escasa
-cobertura StatsBomb se consultan FBref~\cite{fbref} (xA, presiones,
-progresiones de pase) y API-Football~\cite{apifootball} (estad\'isticas
-de jugadores en ligas europeas). Football-Data.org~\cite{footballdata}
-complementa el seguimiento de los convocados en ligas dom\'esticas.
-Los ratings Elo se contrastan con EloRatings.net~\cite{eloratings},
-cuyo sistema din\'amico es considerado m\'as preciso que el ranking
-FIFA est\'atico. El valor de mercado de las plantillas se obtiene con
-un \emph{snapshot} manual de Transfermarkt~\cite{transfermarkt}.
+\textbf{Estad\'isticas avanzadas y valor de plantilla.} Los xG hist\'oricos
+provienen del \emph{open data} de StatsBomb~\cite{statsbomb}, consumido v\'ia
+\texttt{statsbombpy}; las selecciones sin cobertura StatsBomb reciben la media
+global (${\approx}1{,}2$) como imputaci\'on. El ELO se calcula \emph{in-house}
+con la f\'ormula de Elo~\cite{elo1978} sobre el historial completo de
+resultados, sin depender de un proveedor externo. El valor de mercado de las
+plantillas se obtiene con un \emph{snapshot} manual de
+Transfermarkt~\cite{transfermarkt}.
 
 \textbf{Limpieza y uni\'on.} El proceso incluye: estandarizaci\'on de
 nombres de pa\'ises a un \emph{canonical name} (\textit{USA}$\to$\textit{United
-States}) y unificaci\'on de federaciones sucesoras reconocidas por FIFA
+  States}) y unificaci\'on de federaciones sucesoras reconocidas por FIFA
 (\textit{Yugoslavia}$\to$\textit{Serbia}, \textit{Checoslovaquia}$\to$\textit{Chequia})
 para dar continuidad al ELO; deduplicaci\'on por \texttt{(date, home, away)};
 geocodificaci\'on de sedes con \texttt{geopy} (distancia $0$ cuando falla);
@@ -198,8 +184,8 @@ StatsBomb~\cite{statsbomb}, empleado bajo su licencia de uso no
 comercial con atribuci\'on. El valor de mercado de Transfermarkt
 \cite{transfermarkt} es un \emph{snapshot} manual utilizado
 exclusivamente con fines acad\'emicos, sin redistribuci\'on del dato
-original. El resto de fuentes son datasets p\'ublicos o APIs con planes
-gratuitos para investigaci\'on.
+original. Las dem\'as fuentes (martj42 y el ranking FIFA) son datasets
+p\'ublicos de uso para investigaci\'on.
 
 \section{Ingenier\'ia de caracter\'isticas}
 \label{sec:features}
@@ -208,7 +194,7 @@ Se construyen nueve caracter\'isticas justificadas tanto te\'oricamente
 como mediante EDA (Tabla \ref{tab:features}). Tres de ellas se derivan de
 datos de eventos (goleadores y tandas) y se calculan estrictamente
 \emph{as-of-date} mediante \texttt{merge\_asof(backward,
-allow\_exact\_matches=False)}, de modo que cada partido solo observa eventos
+  allow\_exact\_matches=False)}, de modo que cada partido solo observa eventos
 \emph{anteriores} a su fecha (sin \emph{leakage}). La Fig.\
 \ref{fig:elo_history} ilustra la din\'amica del ELO en cinco selecciones
 representativas; la Fig.\ \ref{fig:corr} muestra colinealidad alta entre
@@ -216,43 +202,43 @@ representativas; la Fig.\ \ref{fig:corr} muestra colinealidad alta entre
 que el resto de pares se mantiene en niveles moderados.
 
 \begin{table}[!t]
-\caption{Caracter\'isticas del modelo y su justificaci\'on}
-\label{tab:features}
-\centering
-\renewcommand{\arraystretch}{1.15}
-\footnotesize
-\begin{tabular}{@{}L{4.5cm}L{3.4cm}@{}}
-\toprule
-\textbf{Feature} & \textbf{Justificaci\'on}\\
-\midrule
-\texttt{elo\_diff}           & ELO local $-$ ELO visitante (ELO sobre historia completa); m\'etrica din\'amica superior al ranking FIFA est\'atico \cite{elo1978}\\
-\texttt{squad\_value\_diff}  & $\log(\text{val}_L)-\log(\text{val}_V)$; proxy de calidad de plantilla\\
-\texttt{xg\_avg\_for}        & xG prom.\ a favor: local $-$ visitante; eficiencia ofensiva\\
-\texttt{xg\_avg\_against}    & xG prom.\ en contra: local $-$ visitante; solidez defensiva\\
-\texttt{travel\_distance\_diff} & dist.\ visitante$-$local a la sede (km); fatiga de viaje (no se anula en sede neutral)\\
-\texttt{ranking\_diff}       & $\text{rank}_V - \text{rank}_L$; ranking FIFA (refrescado al 2026)\\
-\texttt{penalty\_share\_diff} & \% goles de penal, local $-$ visitante (as-of)\\
-\texttt{striker\_concentration\_diff} & Herfindahl de goleadores, local $-$ visitante (as-of); dependencia de una figura\\
-\texttt{shootout\_winrate\_diff} & winrate en tandas (Bayes, prior 0,5), local $-$ visitante (as-of)\\
-\bottomrule
-\end{tabular}
+  \caption{Caracter\'isticas del modelo y su justificaci\'on}
+  \label{tab:features}
+  \centering
+  \renewcommand{\arraystretch}{1.15}
+  \footnotesize
+  \begin{tabular}{@{}L{4.5cm}L{3.4cm}@{}}
+    \toprule
+    \textbf{Feature}                      & \textbf{Justificaci\'on}                                                                                                           \\
+    \midrule
+    \texttt{elo\_diff}                    & ELO local $-$ ELO visitante (ELO sobre historia completa); m\'etrica din\'amica superior al ranking FIFA est\'atico \cite{elo1978} \\
+    \texttt{squad\_value\_diff}           & $\log(\text{val}_L)-\log(\text{val}_V)$; proxy de calidad de plantilla                                                             \\
+    \texttt{xg\_avg\_for}                 & xG prom.\ a favor: local $-$ visitante; eficiencia ofensiva                                                                        \\
+    \texttt{xg\_avg\_against}             & xG prom.\ en contra: local $-$ visitante; solidez defensiva                                                                        \\
+    \texttt{travel\_distance\_diff}       & dist.\ visitante$-$local a la sede (km); fatiga de viaje (no se anula en sede neutral)                                             \\
+    \texttt{ranking\_diff}                & $\text{rank}_V - \text{rank}_L$; ranking FIFA (refrescado al 2026)                                                                 \\
+    \texttt{penalty\_share\_diff}         & \% goles de penal, local $-$ visitante (as-of)                                                                                     \\
+    \texttt{striker\_concentration\_diff} & Herfindahl de goleadores, local $-$ visitante (as-of); dependencia de una figura                                                   \\
+    \texttt{shootout\_winrate\_diff}      & winrate en tandas (Bayes, prior 0,5), local $-$ visitante (as-of)                                                                  \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
 \begin{figure}[!t]
-\centering
-\includegraphics[width=\columnwidth]{eda_05_elo_diff.png}
-\caption{Distribuci\'on de \texttt{elo\_diff} por clase de resultado
-(H/E/V). La separaci\'on monot\'onica entre las tres distribuciones
-respalda el poder predictivo del feature.}
-\label{fig:elo_diff}
+  \centering
+  \includegraphics[width=\columnwidth]{eda_05_elo_diff.png}
+  \caption{Distribuci\'on de \texttt{elo\_diff} por clase de resultado
+    (H/E/V). La separaci\'on monot\'onica entre las tres distribuciones
+    respalda el poder predictivo del feature.}
+  \label{fig:elo_diff}
 \end{figure}
 
 \begin{figure}[!t]
-\centering
-\includegraphics[width=\columnwidth]{eda_07_elo_history.png}
-\caption{Evoluci\'on del rating ELO para cinco selecciones
-representativas a lo largo de cuatro d\'ecadas.}
-\label{fig:elo_history}
+  \centering
+  \includegraphics[width=\columnwidth]{eda_07_elo_history.png}
+  \caption{Evoluci\'on del rating ELO para cinco selecciones
+    representativas a lo largo de cuatro d\'ecadas.}
+  \label{fig:elo_history}
 \end{figure}
 
 \subsection{Decaimiento temporal y ponderaci\'on de clases}
@@ -260,8 +246,8 @@ representativas a lo largo de cuatro d\'ecadas.}
 
 Cada partido contribuye al entrenamiento con un peso
 \begin{equation}
-W(t) \;=\; e^{-\lambda \,\Delta t}\;\cdot\;c_{y_i},
-\quad \lambda = 1\times 10^{-3}\ \text{d\'ias}^{-1},
+  W(t) \;=\; e^{-\lambda \,\Delta t}\;\cdot\;c_{y_i},
+  \quad \lambda = 1\times 10^{-3}\ \text{d\'ias}^{-1},
 \end{equation}
 donde $\Delta t$ son los d\'ias entre la fecha del partido y la m\'as
 reciente del dataset, y $c_{y_i}$ es el peso \texttt{balanced} de
@@ -272,21 +258,21 @@ renormalizan por su media para que el aprendizaje permanezca a escala
 unitaria.
 
 \begin{figure}[!t]
-\centering
-\includegraphics[width=\columnwidth]{eda_04_target_distribution.png}
-\caption{Distribuci\'on de la variable objetivo. El desbalance hacia la
-clase \emph{Local} motiva la ponderaci\'on \texttt{class\_weight=\,balanced}.}
-\label{fig:target}
+  \centering
+  \includegraphics[width=\columnwidth]{eda_04_target_distribution.png}
+  \caption{Distribuci\'on de la variable objetivo. El desbalance hacia la
+    clase \emph{Local} motiva la ponderaci\'on \texttt{class\_weight=\,balanced}.}
+  \label{fig:target}
 \end{figure}
 
 \begin{figure*}[!t]
-\centering
-\includegraphics[width=0.65\textwidth]{eda_06_correlation_matrix.png}
-\caption{Matriz de correlaci\'on de las nueve caracter\'isticas. Se observa
-colinealidad alta entre \texttt{elo\_diff} y \texttt{ranking\_diff} ($r=0{,}88$)
-y una anti-correlaci\'on de \texttt{striker\_concentration\_diff} con la fuerza
-($\approx-0{,}37$): los equipos fuertes reparten m\'as el goleo.}
-\label{fig:corr}
+  \centering
+  \includegraphics[width=0.65\textwidth]{eda_06_correlation_matrix.png}
+  \caption{Matriz de correlaci\'on de las nueve caracter\'isticas. Se observa
+    colinealidad alta entre \texttt{elo\_diff} y \texttt{ranking\_diff} ($r=0{,}88$)
+    y una anti-correlaci\'on de \texttt{striker\_concentration\_diff} con la fuerza
+    ($\approx-0{,}37$): los equipos fuertes reparten m\'as el goleo.}
+  \label{fig:corr}
 \end{figure*}
 
 \section{Modelado}
@@ -307,17 +293,17 @@ notable-- por \texttt{striker\_concentration\_diff} (${\approx}0{,}36$) y
 \texttt{ranking\_diff} (${\approx}0{,}25$). La concentraci\'on de goleadores,
 derivada de los datos de eventos, captura un eje (estructura del ataque)
 ortogonal al nivel del equipo. Las features de xG y \texttt{penalty\_share\_diff} forman un tercer nivel
-(${\approx}0{,}10$--$0{,}12$), mientras que \texttt{shootout\_winrate\_diff},
+(${\approx}0{,}10$--${,}12$), mientras que \texttt{shootout\_winrate\_diff},
 \texttt{squad\_value\_diff} y \texttt{travel\_distance\_diff} aportan
-marginalmente (${\approx}0{,}09$, $0{,}04$ y $0{,}03$, respectivamente).
+marginalmente (${\approx}0{,}09$, ${,}04$ y ${,}03$, respectivamente).
 
 \begin{figure}[!t]
-\centering
-\includegraphics[width=\columnwidth]{shap_summary.png}
-\caption{Resumen SHAP agregado (mean |SHAP|) del XGBoost. \texttt{elo\_diff}
-domina la contribuci\'on, con \texttt{striker\_concentration\_diff} en segundo
-lugar y \texttt{ranking\_diff} en tercero.}
-\label{fig:shap}
+  \centering
+  \includegraphics[width=\columnwidth]{shap_summary.png}
+  \caption{Resumen SHAP agregado (mean |SHAP|) del XGBoost. \texttt{elo\_diff}
+    domina la contribuci\'on, con \texttt{striker\_concentration\_diff} en segundo
+    lugar y \texttt{ranking\_diff} en tercero.}
+  \label{fig:shap}
 \end{figure}
 
 \subsection{Divisi\'on temporal del dataset}
@@ -330,27 +316,27 @@ peque\~no (un a\~no de datos, tres clases), evitando sobreajuste en la curva
 de calibraci\'on.
 
 \begin{table}[!t]
-\caption{Split temporal y uso de cada conjunto}
-\label{tab:split}
-\centering
-\renewcommand{\arraystretch}{1.15}
-\footnotesize
-\begin{tabular}{@{}L{1.7cm}L{2.6cm}L{3.1cm}@{}}
-\toprule
-\textbf{Conjunto} & \textbf{Filtro} & \textbf{Uso}\\
-\midrule
-Train        & \texttt{date < 2021-01-01}                       & LogReg, XGBoost, LightGBM\\
-Validaci\'on & \texttt{2021-01-01 $\le$ date $<$ 2022-01-01}    & Calibraci\'on Platt (sigmoid)\\
-Test         & \texttt{date $\ge$ 2022-01-01}                   & Evaluaci\'on final\\
-\bottomrule
-\end{tabular}
+  \caption{Split temporal y uso de cada conjunto}
+  \label{tab:split}
+  \centering
+  \renewcommand{\arraystretch}{1.15}
+  \footnotesize
+  \begin{tabular}{@{}L{1.7cm}L{2.6cm}L{3.1cm}@{}}
+    \toprule
+    \textbf{Conjunto} & \textbf{Filtro}                               & \textbf{Uso}                  \\
+    \midrule
+    Train             & \texttt{date < 2021-01-01}                    & LogReg, XGBoost, LightGBM     \\
+    Validaci\'on      & \texttt{2021-01-01 $\le$ date $<$ 2022-01-01} & Calibraci\'on Platt (sigmoid) \\
+    Test              & \texttt{date $\ge$ 2022-01-01}                & Evaluaci\'on final            \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
 \textbf{Recorte m\'inimo.} El entrenamiento usa partidos con
 \texttt{date $\geq$ 2010}, aunque \texttt{features.csv} contiene datos
 desde 1993. Los features est\'aticos (xG, valor de plantilla, ranking
 moderno) no son representativos del f\'utbol pre-2010, y el time decay
-con $\lambda\!=\!0{,}001$ ya reduce el peso de esos partidos a menos del
+con $\lambda\!=\!{,}001$ ya reduce el peso de esos partidos a menos del
 2\,\%. El ELO sigue calcul\'andose sobre el hist\'orico completo para
 mayor precisi\'on.
 
@@ -369,22 +355,22 @@ del torneo completo ($104$ partidos $\times\,N\!=\!1{,}04\!\times\!10^6$
 partidos simulados). Cada partido $i,j$ pasa por las siguientes etapas:
 
 \begin{enumerate}
-\item \textbf{Probabilidades sim\'etricas.} Salvo cuando uno de los
-equipos es anfitri\'on jugando en su pa\'is, se promedia
-$P(i\text{ vs }j)$ con la inversi\'on de $P(j\text{ vs }i)$ para
-eliminar el sesgo home/away heredado del dataset.
-\item \textbf{Marcador y outcome.} El \emph{outcome} $\{H,E,V\}$ se sortea
-con las probabilidades del modelo. En fase de grupos se generan goles
-$g_i \sim \text{Poisson}(\mu_i)$, $g_j \sim \text{Poisson}(\mu_j)$ con
-$\mu$ basado en xG a favor/en contra, y el marcador se ajusta para ser
-coherente con el outcome (desempates por DG/GF).
-\item \textbf{Fase de grupos.} $12$ grupos de $4$; clasifican los dos
-primeros m\'as los $8$ mejores terceros, con desempates
-\textbf{puntos $\to$ diferencia de goles $\to$ goles a favor}
-seg\'un el reglamento FIFA 2026 \cite{fifa2026}.
-\item \textbf{Eliminatorias.} \emph{Round of 32} $\to$ \emph{Round of 16}
-$\to$ Cuartos $\to$ Semifinales $\to$ Final. Si hay empate tras los $90'$,
-la definici\'on por penales se modela como $\text{Bernoulli}(0{,}5)$.
+  \item \textbf{Probabilidades sim\'etricas.} Salvo cuando uno de los
+        equipos es anfitri\'on jugando en su pa\'is, se promedia
+        $P(i\text{ vs }j)$ con la inversi\'on de $P(j\text{ vs }i)$ para
+        eliminar el sesgo home/away heredado del dataset.
+  \item \textbf{Marcador y outcome.} El \emph{outcome} $\{H,E,V\}$ se sortea
+        con las probabilidades del modelo. En fase de grupos se generan goles
+        $g_i \sim \text{Poisson}(\mu_i)$, $g_j \sim \text{Poisson}(\mu_j)$ con
+        $\mu$ basado en xG a favor/en contra, y el marcador se ajusta para ser
+        coherente con el outcome (desempates por DG/GF).
+  \item \textbf{Fase de grupos.} $12$ grupos de $4$; clasifican los dos
+        primeros m\'as los $8$ mejores terceros, con desempates
+        \textbf{puntos $\to$ diferencia de goles $\to$ goles a favor}
+        seg\'un el reglamento FIFA 2026 \cite{fifa2026}.
+  \item \textbf{Eliminatorias.} \emph{Round of 32} $\to$ \emph{Round of 16}
+        $\to$ Cuartos $\to$ Semifinales $\to$ Final. Si hay empate tras los $90'$,
+        la definici\'on por penales se modela como $\text{Bernoulli}(0{,}5)$.
 \end{enumerate}
 
 Se contabilizan, por equipo, las veces que alcanza cada ronda y los
@@ -394,7 +380,7 @@ exacto de Clopper--Pearson \cite{clopper1934} v\'ia
 reparten en bloques fijos ejecutados en paralelo (\texttt{joblib}); cada bloque
 usa un \emph{stream} RNG propio derivado de
 \texttt{SeedSequence(seed).spawn}, de modo que el resultado es \textbf{id\'entico
-con cualquier n\'umero de \emph{workers}} (reproducibilidad independiente del
+  con cualquier n\'umero de \emph{workers}} (reproducibilidad independiente del
 paralelismo).
 
 \section{Evaluaci\'on}
@@ -411,42 +397,42 @@ $\{H,E,V\}$ contra el resto), de modo que se sit\'ua en el rango
 $[0,1]$ y no en la formulaci\'on multiclase de suma de diferencias
 cuadr\'aticas (rango $[0,2]$). Ambas medidas son equivalentes salvo un
 factor: el Brier de suma multiclase es $K$ veces el promediado, con
-$K=3$ clases; as\'i, el $0{,}166$ reportado corresponde a $0{,}499$ en
+$K=3$ clases; as\'i, el ${,}166$ reportado corresponde a ${,}499$ en
 la escala $[0,2]$.
 
 La Tabla \ref{tab:eval} muestra que XGBoost calibrado es el mejor modelo
 en ambas m\'etricas — el \'unico que supera a todos los dem\'as
 simult\'aneamente en Log-Loss y Brier. La calibraci\'on Platt sobre datos
 de validaci\'on 2021 corrige la sobreconfianza del XGBoost base sin degradar
-su discriminaci\'on (Log-Loss $0{,}866\!\to\!0{,}855$). El XGBoost sin calibrar
+su discriminaci\'on (Log-Loss ${,}866\!\to\!{,}855$). El XGBoost sin calibrar
 supera a LightGBM, y LogReg queda en \'ultimo lugar pese al rebalanceo de
 clases y el \emph{time decay}.
 
 \begin{table}[!t]
-\caption{M\'etricas de evaluaci\'on sobre test temporal ($\ge$2022)}
-\label{tab:eval}
-\centering
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{}lcc@{}}
-\toprule
-\textbf{Modelo} & \textbf{Log-Loss} $\downarrow$ & \textbf{Brier} $\downarrow$\\
-\midrule
-\textbf{XGBoost-Cal} & \textbf{0{,}8547} & \textbf{0{,}1662}\\
-XGBoost             & 0{,}8657 & 0{,}1701\\
-LightGBM            & 0{,}8713 & 0{,}1717\\
-LogReg              & 0{,}8832 & 0{,}1728\\
-\bottomrule
-\end{tabular}
+  \caption{M\'etricas de evaluaci\'on sobre test temporal ($\ge$2022)}
+  \label{tab:eval}
+  \centering
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    \textbf{Modelo}      & \textbf{Log-Loss} $\downarrow$ & \textbf{Brier} $\downarrow$ \\
+    \midrule
+    \textbf{XGBoost-Cal} & \textbf{{,}8547}               & \textbf{{,}1662}            \\
+    XGBoost              & {,}8657                        & {,}1701                     \\
+    LightGBM             & {,}8713                        & {,}1717                     \\
+    LogReg               & {,}8832                        & {,}1728                     \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
 \begin{figure}[!t]
-\centering
-\includegraphics[width=\columnwidth]{calibration_curves.png}
-\caption{Curvas de calibraci\'on por clase. Todos los modelos se
-aproximan bien a la diagonal en \emph{Away Win} y \emph{Home Win};
-la clase \emph{Draw} queda sub-calibrada en todos — reflejo directo
-de la baja correlaci\'on entre features y empates ($|r|<0{,}07$).}
-\label{fig:calibration}
+  \centering
+  \includegraphics[width=\columnwidth]{calibration_curves.png}
+  \caption{Curvas de calibraci\'on por clase. Todos los modelos se
+    aproximan bien a la diagonal en \emph{Away Win} y \emph{Home Win};
+    la clase \emph{Draw} queda sub-calibrada en todos — reflejo directo
+    de la baja correlaci\'on entre features y empates ($|r|<0{,}07$).}
+  \label{fig:calibration}
 \end{figure}
 
 \subsection{Estudio de ablaci\'on}
@@ -470,25 +456,25 @@ completo del modelo: su ablaci\'on \emph{leave-one-out} mostr\'o aporte
 \textbf{negativo} (ruido neto, el modelo mejora sin ella).
 
 \begin{table}[!t]
-\caption{Ablaci\'on de features (XGBoost calibrado, test $\ge$2022)}
-\label{tab:ablation}
-\centering
-\renewcommand{\arraystretch}{1.15}
-\small
-\begin{tabular}{@{}L{2.7cm}cccc@{}}
-\toprule
-\textbf{Configuraci\'on} & \textbf{Log-Loss} & \textbf{Brier} & \textbf{$\Delta$LL} & \textbf{$\Delta$Brier}\\
-\midrule
-Completo (9 feat.)        & 0{,}8547 & 0{,}1662 & --- & ---\\
-Sin xG                    & 0{,}8587 & 0{,}1670 & $+0{,}0040$ & $+0{,}0008$\\
-Sin squad\_value          & 0{,}8553 & 0{,}1664 & $+0{,}0006$ & $+0{,}0002$\\
-Sin derivadas             & 0{,}8582 & 0{,}1668 & $+0{,}0035$ & $+0{,}0006$\\
-Sin travel\_distance      & 0{,}8548 & 0{,}1663 & $+0{,}0001$ & $+0{,}0001$\\
-Sin penalty\_share        & 0{,}8542 & 0{,}1661 & $-0{,}0005$ & $-0{,}0001$\\
-Sin shootout              & 0{,}8555 & 0{,}1664 & $+0{,}0008$ & $+0{,}0002$\\
-Sin est\'aticas (xG+squad)& 0{,}8588 & 0{,}1670 & $+0{,}0041$ & $+0{,}0008$\\
-\bottomrule
-\end{tabular}
+  \caption{Ablaci\'on de features (XGBoost calibrado, test $\ge$2022)}
+  \label{tab:ablation}
+  \centering
+  \renewcommand{\arraystretch}{1.15}
+  \small
+  \begin{tabular}{@{}L{2.7cm}cccc@{}}
+    \toprule
+    \textbf{Configuraci\'on}   & \textbf{Log-Loss} & \textbf{Brier} & \textbf{$\Delta$LL} & \textbf{$\Delta$Brier} \\
+    \midrule
+    Completo (9 feat.)         & {,}8547           & {,}1662        & ---                 & ---                    \\
+    Sin xG                     & {,}8587           & {,}1670        & $+0{,}0040$         & $+0{,}0008$            \\
+    Sin squad\_value           & {,}8553           & {,}1664        & $+0{,}0006$         & $+0{,}0002$            \\
+    Sin derivadas              & {,}8582           & {,}1668        & $+0{,}0035$         & $+0{,}0006$            \\
+    Sin travel\_distance       & {,}8548           & {,}1663        & $+0{,}0001$         & $+0{,}0001$            \\
+    Sin penalty\_share         & {,}8542           & {,}1661        & $-0{,}0005$         & $-0{,}0001$            \\
+    Sin shootout               & {,}8555           & {,}1664        & $+0{,}0008$         & $+0{,}0002$            \\
+    Sin est\'aticas (xG+squad) & {,}8588           & {,}1670        & $+0{,}0041$         & $+0{,}0008$            \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
 \textbf{Validaci\'on hist\'orica.} El modelo \texttt{xgboost\_pre2022}
@@ -505,45 +491,45 @@ Tabla \ref{tab:hosts} resume la progresi\'on por fase de los tres
 anfitriones, ambos con intervalos Clopper--Pearson al 95\,\%.
 
 \begin{table}[!t]
-\caption{Top-10 candidatos a campe\'on (10\,000 iteraciones)}
-\label{tab:top10}
-\centering
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{}lcc@{}}
-\toprule
-\textbf{Equipo} & \textbf{P(Campe\'on)} & \textbf{IC 95\,\%}\\
-\midrule
-Espa\~na         & 23{,}72\,\% & [22{,}89, 24{,}57]\\
-Argentina        & 11{,}27\,\% & [10{,}66, 11{,}91]\\
-Francia          & 10{,}88\,\% & [10{,}28, 11{,}51]\\
-Brasil           &  6{,}35\,\% & [ 5{,}88,  6{,}85]\\
-Inglaterra       &  5{,}55\,\% & [ 5{,}11,  6{,}02]\\
-Marruecos        &  4{,}51\,\% & [ 4{,}11,  4{,}94]\\
-Alemania         &  4{,}18\,\% & [ 3{,}80,  4{,}59]\\
-M\'exico         &  4{,}06\,\% & [ 3{,}68,  4{,}47]\\
-Colombia         &  3{,}61\,\% & [ 3{,}25,  3{,}99]\\
-Pa\'ises Bajos   &  3{,}48\,\% & [ 3{,}13,  3{,}86]\\
-\bottomrule
-\end{tabular}
+  \caption{Top-10 candidatos a campe\'on (10\,000 iteraciones)}
+  \label{tab:top10}
+  \centering
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    \textbf{Equipo} & \textbf{P(Campe\'on)} & \textbf{IC 95\,\%} \\
+    \midrule
+    Espa\~na        & 23{,}72\,\%           & [22{,}89, 24{,}57] \\
+    Argentina       & 11{,}27\,\%           & [10{,}66, 11{,}91] \\
+    Francia         & 10{,}88\,\%           & [10{,}28, 11{,}51] \\
+    Brasil          & 6{,}35\,\%            & [ 5{,}88,  6{,}85] \\
+    Inglaterra      & 5{,}55\,\%            & [ 5{,}11,  6{,}02] \\
+    Marruecos       & 4{,}51\,\%            & [ 4{,}11,  4{,}94] \\
+    Alemania        & 4{,}18\,\%            & [ 3{,}80,  4{,}59] \\
+    M\'exico        & 4{,}06\,\%            & [ 3{,}68,  4{,}47] \\
+    Colombia        & 3{,}61\,\%            & [ 3{,}25,  3{,}99] \\
+    Pa\'ises Bajos  & 3{,}48\,\%            & [ 3{,}13,  3{,}86] \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
 \begin{table}[!t]
-\caption{Progresi\'on por fase de los anfitriones (\%, IC 95\,\%)}
-\label{tab:hosts}
-\centering
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{}lccc@{}}
-\toprule
-\textbf{Fase} & \textbf{M\'exico} & \textbf{EE.UU.} & \textbf{Canad\'a}\\
-\midrule
-Round of 32   & 94{,}5 & 66{,}3 & 96{,}5\\
-Round of 16   & 63{,}3 & 30{,}3 & 53{,}6\\
-Cuartos       & 33{,}5 & 16{,}9 & 25{,}8\\
-Semifinales   & 18{,}4 &  7{,}7 & 11{,}7\\
-Final         &  9{,}4 &  2{,}9 &  5{,}0\\
-Campe\'on     &  4{,}1 &  1{,}1 &  1{,}9\\
-\bottomrule
-\end{tabular}
+  \caption{Progresi\'on por fase de los anfitriones (\%, IC 95\,\%)}
+  \label{tab:hosts}
+  \centering
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabular}{@{}lccc@{}}
+    \toprule
+    \textbf{Fase} & \textbf{M\'exico} & \textbf{EE.UU.} & \textbf{Canad\'a} \\
+    \midrule
+    Round of 32   & 94{,}5            & 66{,}3          & 96{,}5            \\
+    Round of 16   & 63{,}3            & 30{,}3          & 53{,}6            \\
+    Cuartos       & 33{,}5            & 16{,}9          & 25{,}8            \\
+    Semifinales   & 18{,}4            & 7{,}7           & 11{,}7            \\
+    Final         & 9{,}4             & 2{,}9           & 5{,}0             \\
+    Campe\'on     & 4{,}1             & 1{,}1           & 1{,}9             \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
 \subsection{An\'alisis de sensibilidad a lesiones}
@@ -552,28 +538,28 @@ Aunque las lesiones no se modelan estructuralmente, el script
 \texttt{src/analysis/sensitivity.py} aplica una perturbaci\'on de
 $-30$\,\% sobre \texttt{squad\_value} para cada equipo del top-5 y
 re-ejecuta la simulaci\'on. La Tabla \ref{tab:sens} muestra que el
-efecto es modesto ($|\Delta|\!\leq\!0{,}40$ pp en todos los casos), siempre en
+efecto es modesto ($|\Delta|\!\leq\!{,}40$ pp en todos los casos), siempre en
 la direcci\'on esperada (reducci\'on de la probabilidad de t\'itulo). Esto es
 coherente con la importancia SHAP: \texttt{squad\_value\_diff} ocupa una de las
 \'ultimas posiciones (Fig.\ \ref{fig:shap}), muy por debajo de \texttt{elo\_diff}
 y de las features de estructura del ataque.
 
 \begin{table}[!t]
-\caption{Sensibilidad a una reducci\'on del 30\,\% en el valor de plantilla}
-\label{tab:sens}
-\centering
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{}lccc@{}}
-\toprule
-\textbf{Equipo} & \textbf{Base \%} & \textbf{Lesi\'on \%} & \textbf{$\Delta$ pp}\\
-\midrule
-Espa\~na      & 23{,}72 & 23{,}38 & $-0{,}34$\\
-Argentina     & 11{,}27 & 10{,}87 & $-0{,}40$\\
-Francia       & 10{,}88 & 10{,}57 & $-0{,}31$\\
-Brasil        &  6{,}35 &  6{,}17 & $-0{,}18$\\
-Inglaterra    &  5{,}55 &  5{,}34 & $-0{,}21$\\
-\bottomrule
-\end{tabular}
+  \caption{Sensibilidad a una reducci\'on del 30\,\% en el valor de plantilla}
+  \label{tab:sens}
+  \centering
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabular}{@{}lccc@{}}
+    \toprule
+    \textbf{Equipo} & \textbf{Base \%} & \textbf{Lesi\'on \%} & \textbf{$\Delta$ pp} \\
+    \midrule
+    Espa\~na        & 23{,}72          & 23{,}38              & $-0{,}34$            \\
+    Argentina       & 11{,}27          & 10{,}87              & $-0{,}40$            \\
+    Francia         & 10{,}88          & 10{,}57              & $-0{,}31$            \\
+    Brasil          & 6{,}35           & 6{,}17               & $-0{,}18$            \\
+    Inglaterra      & 5{,}55           & 5{,}34               & $-0{,}21$            \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
 \section{Limitaciones}
@@ -582,35 +568,35 @@ Inglaterra    &  5{,}55 &  5{,}34 & $-0{,}21$\\
 El modelo presenta cinco limitaciones reconocidas:
 
 \begin{enumerate}
-\item \textbf{Debutantes.} Equipos como Uzbekist\'an, Curazao o Cabo
-Verde tienen historial internacional escaso; su ELO se inicializa con
-el valor neutro $1500$ y converge lentamente, lo que probablemente
-\emph{infla} su probabilidad relativa frente a rivales subestimados de
-la misma confederaci\'on.
-\item \textbf{Cobertura xG.} El \emph{open data} de StatsBomb
-\cite{statsbomb} privilegia torneos UEFA/CONMEBOL; las selecciones de
-AFC, CAF y CONCACAF reciben un xG por defecto de $1{,}2$, que es la
-media global. Esto subestima la varianza inter-equipos en estas
-confederaciones.
-\item \textbf{Features est\'aticas anacr\'onicas.} El xG y el valor de
-plantilla son \emph{snapshots} (un valor por equipo, sin fecha) aplicados a
-todos los partidos hist\'oricos, lo que introduce un anacronismo/\emph{leakage}.
-No existe serie temporal hist\'orica de estos datos, as\'i que versionarlos
-ser\'ia fabricar informaci\'on; el efecto se acota con el \emph{time decay}
-($<2$\,\% pre-2010), el recorte a \texttt{date$\ge$2010} y el uso de
-\emph{diffs} relativos, y se cuantifica en la fila ``Sin est\'aticas'' de la
-Tabla \ref{tab:ablation}. El valor de Transfermarkt es adem\'as una fotograf\'ia
-manual (no \emph{live scraping}).
-\item \textbf{Cobertura de \texttt{travel\_distance\_diff}.} Las coordenadas
-solo est\'an precargadas para los 48 equipos del Mundial; los partidos
-hist\'oricos entre otros equipos quedan en $0$ (82{,}5\,\% del dataset). La
-feature ya no se anula en sedes neutrales --corrige el caso de los Mundiales--
-y en la simulaci\'on (\texttt{host\_distance}) est\'a 100\,\% poblada.
-\item \textbf{Lesiones de \'ultima hora.} No hay modelado estructural
-de bajas individuales; el \texttt{sensitivity.py} es \'unicamente un
-\emph{stress test} agregado sobre \texttt{squad\_value}. Una baja
-clave en una posici\'on espec\'ifica (e.g., portero titular) tiene un
-impacto que el modelo no puede capturar.
+  \item \textbf{Debutantes.} Equipos como Uzbekist\'an, Curazao o Cabo
+        Verde tienen historial internacional escaso; su ELO se inicializa con
+        el valor neutro $1500$ y converge lentamente, lo que probablemente
+        \emph{infla} su probabilidad relativa frente a rivales subestimados de
+        la misma confederaci\'on.
+  \item \textbf{Cobertura xG.} El \emph{open data} de StatsBomb
+        \cite{statsbomb} privilegia torneos UEFA/CONMEBOL; las selecciones de
+        AFC, CAF y CONCACAF reciben un xG por defecto de $1{,}2$, que es la
+        media global. Esto subestima la varianza inter-equipos en estas
+        confederaciones.
+  \item \textbf{Features est\'aticas anacr\'onicas.} El xG y el valor de
+        plantilla son \emph{snapshots} (un valor por equipo, sin fecha) aplicados a
+        todos los partidos hist\'oricos, lo que introduce un anacronismo/\emph{leakage}.
+        No existe serie temporal hist\'orica de estos datos, as\'i que versionarlos
+        ser\'ia fabricar informaci\'on; el efecto se acota con el \emph{time decay}
+        ($<2$\,\% pre-2010), el recorte a \texttt{date$\ge$2010} y el uso de
+        \emph{diffs} relativos, y se cuantifica en la fila ``Sin est\'aticas'' de la
+        Tabla \ref{tab:ablation}. El valor de Transfermarkt es adem\'as una fotograf\'ia
+        manual (no \emph{live scraping}).
+  \item \textbf{Cobertura de \texttt{travel\_distance\_diff}.} Las coordenadas
+        solo est\'an precargadas para los 48 equipos del Mundial; los partidos
+        hist\'oricos entre otros equipos quedan en $0$ (82{,}5\,\% del dataset). La
+        feature ya no se anula en sedes neutrales --corrige el caso de los Mundiales--
+        y en la simulaci\'on (\texttt{host\_distance}) est\'a 100\,\% poblada.
+  \item \textbf{Lesiones de \'ultima hora.} No hay modelado estructural
+        de bajas individuales; el \texttt{sensitivity.py} es \'unicamente un
+        \emph{stress test} agregado sobre \texttt{squad\_value}. Una baja
+        clave en una posici\'on espec\'ifica (e.g., portero titular) tiene un
+        impacto que el modelo no puede capturar.
 \end{enumerate}
 
 \section{Reproducibilidad}
@@ -632,8 +618,7 @@ streamlit run \
 
 La cobertura de pruebas (\texttt{pytest tests/ -v}) valida la mec\'anica
 del ELO, la l\'ogica de desempates de grupos y el muestreo Poisson de
-goles. Un \emph{dashboard} Streamlit se publica en
-\url{https://fifa-world-cup-model.streamlit.app/}.
+goles.
 
 \section{Conclusiones y trabajo futuro}
 \label{sec:conclusion}
@@ -644,8 +629,8 @@ limpias, nueve caracter\'isticas justificadas por EDA y SHAP --tres de ellas
 derivadas de datos de eventos y calculadas \emph{as-of-date}--,
 \emph{benchmark} de cuatro modelos con calibraci\'on Platt sobre
 validaci\'on temporal y un motor Monte Carlo de $10{,}000$ iteraciones
-fiel al nuevo reglamento. El XGBoost calibrado logra Log-Loss de $0{,}855$
-y Brier de $0{,}166$ — mejor en ambas m\'etricas simult\'aneamente. M\'as
+fiel al nuevo reglamento. El XGBoost calibrado logra Log-Loss de ${,}855$
+y Brier de ${,}166$ — mejor en ambas m\'etricas simult\'aneamente. M\'as
 all\'a del n\'ucleo \texttt{elo\_diff}/\texttt{ranking\_diff}, el hallazgo
 m\'as relevante es que \texttt{striker\_concentration\_diff} (estructura del
 ataque) es la segunda feature m\'as informativa. Las simulaciones ubican a
@@ -663,137 +648,127 @@ del bucle Monte Carlo (ya paralelizado con \texttt{joblib}); y (iv) modelar
 lesiones a nivel de jugador integrando \emph{features} de minutos disputados
 y posici\'on.
 
+\section*{Disponibilidad de código y recursos}
+
+El código fuente, los scripts de entrenamiento, los datos procesados y los
+experimentos necesarios para reproducir los resultados de este estudio se
+encuentran disponibles públicamente en \cite{repo}. Asimismo, se proporciona un
+dashboard interactivo para la exploración de resultados y simulaciones
+mediante \cite{dashboard}.
+
 \hbadness=2800
 \begin{thebibliography}{99}
 
-\bibitem{fifa2026}
-{F\'ed\'eration Internationale de Football Association}, ``{FIFA} World Cup
+  \bibitem{fifa2026}
+  {F\'ed\'eration Internationale de Football Association}, ``{FIFA} World Cup
   2026 competition format and regulations,'' 2023. [Online]. Available:
   \url{https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026}
-  (accessed 2026-05-24).
+  (accessed 2026-05-31).
 
-\bibitem{maher1982}
-M.~J. Maher, ``Modelling association football scores,'' \emph{Statistica
-  Neerlandica}, vol.~36, no.~3, pp. 109--118, 1982, doi:
+  \bibitem{maher1982}
+  M.~J. Maher, ``Modelling association football scores,'' \emph{Statistica
+    Neerlandica}, vol.~36, no.~3, pp. 109--118, 1982, doi:
   \url{https://doi.org/10.1111/j.1467-9574.1982.tb00782.x}.
 
-\bibitem{dixon1997}
-M.~J. Dixon and S.~G. Coles, ``Modelling association football scores and
+  \bibitem{dixon1997}
+  M.~J. Dixon and S.~G. Coles, ``Modelling association football scores and
   inefficiencies in the football betting market,'' \emph{Journal of the Royal
-  Statistical Society: Series C (Applied Statistics)}, vol.~46, no.~2, pp.
+    Statistical Society: Series C (Applied Statistics)}, vol.~46, no.~2, pp.
   265--280, 1997, doi: \url{https://doi.org/10.1111/1467-9876.00065}.
 
-\bibitem{elo1978}
-A.~E. Elo, \emph{The Rating of Chessplayers, Past and Present}.\hskip 1em plus
+  \bibitem{elo1978}
+  A.~E. Elo, \emph{The Rating of Chessplayers, Past and Present}.\hskip 1em plus
   0.5em minus 0.4em\relax New York: Arco Publishing, 1978.
 
-\bibitem{groll2019}
-A.~Groll, C.~Ley, G.~Schauberger, and H.~Van Eetvelde, ``A hybrid random
+  \bibitem{groll2019}
+  A.~Groll, C.~Ley, G.~Schauberger, and H.~Van Eetvelde, ``A hybrid random
   forest to predict soccer matches in international tournaments,'' \emph{J.
-  Quant. Anal. Sports}, vol.~15, no.~4, pp. 271--287, 2019, doi:
+    Quant. Anal. Sports}, vol.~15, no.~4, pp. 271--287, 2019, doi:
   \url{https://doi.org/10.1515/jqas-2018-0060}.
 
-\bibitem{chen2016xgboost}
-T.~Chen and C.~Guestrin, ``{XGBoost}: A scalable tree boosting system,'' in
+  \bibitem{chen2016xgboost}
+  T.~Chen and C.~Guestrin, ``{XGBoost}: A scalable tree boosting system,'' in
   \emph{Proc. 22nd ACM SIGKDD Int. Conf. on Knowledge Discovery and Data
-  Mining}, 2016, pp. 785--794, doi:
+    Mining}, 2016, pp. 785--794, doi:
   \url{https://doi.org/10.1145/2939672.2939785}.
 
-\bibitem{ke2017lightgbm}
-G.~Ke \emph{et~al.}, ``{LightGBM}: A highly efficient gradient boosting
+  \bibitem{ke2017lightgbm}
+  G.~Ke \emph{et~al.}, ``{LightGBM}: A highly efficient gradient boosting
   decision tree,'' in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)},
   vol.~30, 2017.
 
-\bibitem{lundberg2017shap}
-S.~M. Lundberg and S.-I. Lee, ``A unified approach to interpreting model
+  \bibitem{lundberg2017shap}
+  S.~M. Lundberg and S.-I. Lee, ``A unified approach to interpreting model
   predictions,'' in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, vol.~30,
   2017.
 
-\bibitem{brier1950}
-G.~W. Brier, ``Verification of forecasts expressed in terms of probability,''
+  \bibitem{brier1950}
+  G.~W. Brier, ``Verification of forecasts expressed in terms of probability,''
   \emph{Monthly Weather Review}, vol.~78, no.~1, pp. 1--3, 1950, doi:
   \url{https://doi.org/10.1175/1520-0493(1950)078<0001:VOFEIT>2.0.CO;2}.
 
-\bibitem{platt1999}
-J.~C. Platt, ``Probabilistic outputs for support vector machines and
+  \bibitem{platt1999}
+  J.~C. Platt, ``Probabilistic outputs for support vector machines and
   comparisons to regularized likelihood methods,'' in \emph{Advances in Large
-  Margin Classifiers}, 1999, pp. 61--74.
+    Margin Classifiers}, 1999, pp. 61--74.
 
-\bibitem{niculescu2005}
-A.~Niculescu-Mizil and R.~Caruana, ``Predicting good probabilities with
+  \bibitem{niculescu2005}
+  A.~Niculescu-Mizil and R.~Caruana, ``Predicting good probabilities with
   supervised learning,'' in \emph{Proc. 22nd Int. Conf. on Machine Learning
-  (ICML)}, 2005, pp. 625--632, doi:
+    (ICML)}, 2005, pp. 625--632, doi:
   \url{https://doi.org/10.1145/1102351.1102430}.
 
-\bibitem{martj42}
-M.~J\"urisoo, ``International football results from 1872 to 2024,'' 2024.
-  [Online]. Available: \url{https://github.com/martj42/international_results}
-  (accessed 2026-05-24).
+  \bibitem{martj42}
+  M.~J\"urisoo, ``International football results from 1872 to 2026
+  (\texttt{results}, \texttt{goalscorers}, \texttt{shootouts},
+  \texttt{former\_names}),'' GitHub repository, 2026. [Online]. Available:
+  \url{https://github.com/martj42/international_results} (accessed 2026-05-31).
 
-\bibitem{kaggle_martj42}
-M.~J\"urisoo, ``International football results from 1872 to 2024,''
-  \emph{Kaggle}, 2024. [Online]. Available:
+  \bibitem{kaggle_martj42}
+  M.~J\"urisoo, ``International football results from 1872 to 2017,''
+  \emph{Kaggle}, 2026. Seg\'un su documentaci\'on, datos recopilados de
+  Wikipedia, RSSSF (rsssf.com) y los sitios web de las federaciones nacionales.
+    [Online]. Available:
   \url{https://www.kaggle.com/datasets/martj42/international-football-results-from-1872-to-2017}
-  (accessed 2026-05-24).
+  (accessed 2026-05-31).
 
-\bibitem{kaggle_fifaranking}
-cashncarry, ``{FIFA} world ranking 1993--2023,'' \emph{Kaggle}, 2023.
-  [Online]. Available:
+  \bibitem{kaggle_fifaranking}
+  cashncarry, ``{FIFA} world ranking 1993--2023,'' \emph{Kaggle}, 2023.
+    [Online]. Available:
   \url{https://www.kaggle.com/datasets/cashncarry/fifaworldranking}
-  (accessed 2026-05-24).
+  (accessed 2026-05-31).
 
-\bibitem{kaggle_wcmatches}
-I.~Shahrukh, ``{FIFA} world cup matches 1974--2022,'' \emph{Kaggle}, 2023.
-  [Online]. Available:
-  \url{https://www.kaggle.com/datasets/ibrahimshahrukh/fifa-world-cup-matches-19742022-dataset}
-  (accessed 2026-05-24).
+  \bibitem{statsbomb}
+  {StatsBomb}, ``{StatsBomb} open data,'' 2024. [Online]. Available:
+  \url{https://github.com/statsbomb/open-data} (accessed 2026-05-31).
 
-\bibitem{kaggle_wc2026baseline}
-S.~Zahran, ``{WC2026} match probability baseline dataset,'' \emph{Kaggle},
-  2024. [Online]. Available:
-  \url{https://www.kaggle.com/datasets/sarazahran1/wc2026-match-probability-baseline-dataset}
-  (accessed 2026-05-24).
+  \bibitem{transfermarkt}
+  {Transfermarkt}, ``National teams market values,'' 2026, manual snapshot.
+    [Online]. Available: \url{https://www.transfermarkt.com} (accessed 2026-05-31).
 
-\bibitem{openfootball}
-{openfootball contributors}, ``World cup data repository,'' GitHub, 2024.
-  [Online]. Available: \url{https://github.com/openfootball/worldcup}
-  (accessed 2026-05-24).
-
-\bibitem{statsbomb}
-{StatsBomb}, ``{StatsBomb} open data,'' 2024. [Online]. Available:
-  \url{https://github.com/statsbomb/open-data} (accessed 2026-05-24).
-
-\bibitem{apifootball}
-{RapidAPI / API-Football}, ``{API-Football}: Football statistics and live
-  scores,'' 2024. [Online]. Available:
-  \url{https://rapidapi.com/collection/football-soccer} (accessed 2026-05-24).
-
-\bibitem{footballdata}
-{Football-Data.org}, ``Football data and results,'' 2024. [Online].
-  Available: \url{https://www.football-data.org/} (accessed 2026-05-24).
-
-\bibitem{fbref}
-{Sports Reference LLC}, ``{FBref}: Football statistics and history,'' 2024.
-  [Online]. Available: \url{https://fbref.com/en/} (accessed 2026-05-24).
-
-\bibitem{transfermarkt}
-{Transfermarkt}, ``National teams market values,'' 2026, manual snapshot.
-  [Online]. Available: \url{https://www.transfermarkt.com} (accessed 2026-05-24).
-
-\bibitem{eloratings}
-{EloRatings.net}, ``World football {Elo} ratings,'' 2024. [Online].
-  Available: \url{https://www.eloratings.net/} (accessed 2026-05-24).
-
-\bibitem{akiba2019optuna}
-T.~Akiba, S.~Sano, T.~Yanase, T.~Ohta, and M.~Koyama, ``{Optuna}: A
+  \bibitem{akiba2019optuna}
+  T.~Akiba, S.~Sano, T.~Yanase, T.~Ohta, and M.~Koyama, ``{Optuna}: A
   next-generation hyperparameter optimization framework,'' in \emph{Proc. 25th
-  ACM SIGKDD Int. Conf. on Knowledge Discovery and Data Mining}, 2019, pp.
+    ACM SIGKDD Int. Conf. on Knowledge Discovery and Data Mining}, 2019, pp.
   2623--2631, doi: \url{https://doi.org/10.1145/3292500.3330701}.
 
-\bibitem{clopper1934}
-C.~J. Clopper and E.~S. Pearson, ``The use of confidence or fiducial limits
+  \bibitem{clopper1934}
+  C.~J. Clopper and E.~S. Pearson, ``The use of confidence or fiducial limits
   illustrated in the case of the binomial,'' \emph{Biometrika}, vol.~26, no.~4,
   pp. 404--413, 1934, doi: \url{https://doi.org/10.1093/biomet/26.4.404}.
+
+  \bibitem{repo}
+  D. Deras,
+  ``Predictions - World Cup 2026,''
+  GitHub repository. [Online]. Available:
+  \url{https://github.com/daiv05/fifa-world-cup-model}.
+  Accessed: May 31, 2026.
+
+  \bibitem{dashboard}
+  D. Deras,
+  ``Predictions - World Cup 2026,''
+  Streamlit application. [Online]. Available:
+  \url{https://fifa-world-cup-model.streamlit.app/}
 
 \end{thebibliography}
 
