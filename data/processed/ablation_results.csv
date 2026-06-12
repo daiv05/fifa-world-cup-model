@@ -1,9 +1,8 @@
-config,n_features,log_loss,brier_score,delta_log_loss,delta_brier
-Completo (9 features),9,0.8547,0.1662,0.0,0.0
-Sin xG,7,0.8587,0.167,0.004,0.0008
-Sin squad_value,8,0.8553,0.1664,0.0006,0.0002
-Sin features derivadas,6,0.8582,0.1668,0.0035,0.0006
-Sin travel_distance (marginal),8,0.8548,0.1663,0.0001,0.0001
-Sin penalty_share (marginal),8,0.8542,0.1661,-0.0005,-0.0001
-Sin shootout (marginal),8,0.8555,0.1664,0.0008,0.0002
-Sin estáticas anacrónicas (xG+squad),6,0.8588,0.167,0.0041,0.0008
+config,n_features,log_loss_mean,log_loss_std,brier_mean,delta_log_loss,delta_ci_low,delta_ci_high,significant
+Completo (7 features),7,0.8675,0.0015,0.1691,0.0,0.0,0.0,False
+Sin xG,5,0.8667,0.0017,0.1688,-0.0008,-0.0056,0.0045,False
+Sin squad_value,6,0.8689,0.002,0.1693,0.0015,-0.0009,0.0041,False
+Sin features derivadas,5,0.8623,0.0013,0.1678,-0.0052,-0.0113,0.0006,False
+Sin penalty_share (marginal),6,0.8639,0.0016,0.1681,-0.0036,-0.0073,0.0002,False
+Sin estáticas anacrónicas (xG+squad),4,0.8656,0.0014,0.1684,-0.0018,-0.0074,0.0041,False
+Solo elo_diff,1,0.8566,0.0007,0.1665,-0.0108,-0.0202,-0.002,True

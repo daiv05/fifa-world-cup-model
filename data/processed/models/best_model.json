@@ -1,0 +1,9 @@
+{
+  "best_model": "logreg_baseline",
+  "val_sel_log_loss": {
+    "logreg_baseline": 0.7851,
+    "xgboost": 0.7969,
+    "lightgbm": 0.8005,
+    "xgboost_calibrated": 0.8179
+  }
+}

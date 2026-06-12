@@ -49,24 +49,42 @@ TRAIN_MIN_YEAR = 2010
 # Fuente única de verdad para el conjunto de features de entrada al modelo.
 # Importado por train.py, evaluate.py, ablation.py, simulate.py y dashboard.py
 # para evitar listas duplicadas que se desincronicen.
+#
+# Retiradas en v2 (aplicando el criterio de retiro ya declarado en README):
+#   - travel_distance_diff: 83% ceros en entrenamiento pero 100% poblada en
+#     inferencia (shift de distribución train->simulación) y aporte ~nulo
+#     (SHAP 0.03, ablación dentro del ruido).
+#   - shootout_winrate_diff: casi constante (~0.5 tras shrinkage para las
+#     potencias) y ablación dentro del ruido de una corrida.
 FEATURE_COLS = [
     "elo_diff",
     "squad_value_diff",
     "xg_avg_for",
     "xg_avg_against",
-    "travel_distance_diff",
     "ranking_diff",
-    # Features derivadas de eventos (goleadores y tandas), as-of-date, leak-free.
+    # Features derivadas de eventos (goleadores), as-of-date, leak-free.
     "penalty_share_diff",
     "striker_concentration_diff",
-    "shootout_winrate_diff",
 ]
 
 # Subconjunto de FEATURE_COLS proveniente de derived_stats (para fallbacks/ablación).
 DERIVED_FEATURE_COLS = [
     "penalty_share_diff",
     "striker_concentration_diff",
-    "shootout_winrate_diff",
+]
+
+# Media global aproximada de xG por partido. Única constante de imputación,
+# compartida por la construcción de features y el Poisson de la simulación
+# (antes había un 1.2 y un 1.25 inconsistentes).
+LEAGUE_AVG_XG = 1.2
+
+# Subconjunto de FEATURE_COLS con anacronismo conocido: snapshots estáticos
+# (un valor por equipo, sin fecha) aplicados a toda la historia. El pipeline
+# pre-2022 (validación WC2022 sin leakage) los excluye.
+ANACHRONISTIC_FEATURE_COLS = [
+    "squad_value_diff",
+    "xg_avg_for",
+    "xg_avg_against",
 ]
 
 # Esquema completo del CSV a nivel de partido (features.csv).
@@ -441,7 +459,8 @@ def build_match_features(
 
     Columnas de salida (MATCH_OUTPUT_COLS):
       date, home_team, away_team, elo_diff, squad_value_diff, xg_avg_for,
-      xg_avg_against, travel_distance_diff, ranking_diff, time_weight, target
+      xg_avg_against, ranking_diff, penalty_share_diff,
+      striker_concentration_diff, time_weight, target
     """
     df = matches_df.copy()
     df["date"] = pd.to_datetime(df["date"])
@@ -450,7 +469,7 @@ def build_match_features(
     ).reset_index(drop=True)
 
     steps = tqdm(
-        total=6,
+        total=5,
         desc="build_match_features",
         unit="step",
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {desc}",
@@ -487,12 +506,12 @@ def build_match_features(
         xg_map_for = xg_df.set_index("team")["xg_for"].to_dict()
         xg_map_against = xg_df.set_index("team")["xg_against"].to_dict()
         df["xg_avg_for"] = (
-            df["home_team"].map(xg_map_for).fillna(1.2)
-            - df["away_team"].map(xg_map_for).fillna(1.2)
+            df["home_team"].map(xg_map_for).fillna(LEAGUE_AVG_XG)
+            - df["away_team"].map(xg_map_for).fillna(LEAGUE_AVG_XG)
         )
         df["xg_avg_against"] = (
-            df["home_team"].map(xg_map_against).fillna(1.2)
-            - df["away_team"].map(xg_map_against).fillna(1.2)
+            df["home_team"].map(xg_map_against).fillna(LEAGUE_AVG_XG)
+            - df["away_team"].map(xg_map_against).fillna(LEAGUE_AVG_XG)
         )
     else:
         df["xg_avg_for"] = 0.0
@@ -517,25 +536,12 @@ def build_match_features(
         df["ranking_diff"] = 0.0
     steps.update(1)
 
-    steps.set_description("distancia de viaje (diff)")
-    persistent_cache = _load_geo_cache()
-    team_coords_cache: dict = dict(persistent_cache)
-    country_coords_cache: dict = dict(persistent_cache)
-    for t, c in WC_TEAM_CAPITAL_COORDS.items():
-        team_coords_cache[t] = c
-    df["travel_distance_diff"] = _vectorized_travel_distance_diff(
-        df, team_coords_cache, country_coords_cache
-    )
-
-    merged_cache = {**persistent_cache, **team_coords_cache, **country_coords_cache}
-    if merged_cache != persistent_cache:
-        _save_geo_cache(merged_cache)
-    steps.update(1)
-
     steps.set_description("features derivadas (as-of)")
-    # Diffs derivados de eventos (goleadores/tandas), estrictamente as-of-date.
+    # Diffs derivados de eventos (goleadores), estrictamente as-of-date.
     # Si no se proveen los datos, se emiten en 0.0 para mantener el esquema
     # estable (el diff neutral de dos equipos sin datos es 0).
+    # Nota v2: travel_distance_diff y shootout_winrate_diff se retiraron del
+    # set de features (ver comentario en FEATURE_COLS); ya no se calculan aquí.
     if goalscorers_df is not None and not goalscorers_df.empty:
         from src.features.derived_stats import attach_goal_stat_diffs
         for col, arr in attach_goal_stat_diffs(df, goalscorers_df).items():
@@ -543,12 +549,6 @@ def build_match_features(
     else:
         for col in ("penalty_share_diff", "striker_concentration_diff"):
             df[col] = 0.0
-
-    if shootouts_df is not None and not shootouts_df.empty:
-        from src.features.derived_stats import attach_shootout_stat_diff
-        df["shootout_winrate_diff"] = attach_shootout_stat_diff(df, shootouts_df)
-    else:
-        df["shootout_winrate_diff"] = 0.0
     steps.update(1)
     steps.set_description("target + finalización")
     steps.close()
@@ -651,8 +651,8 @@ def build_team_features_for_simulation(
             "team": team,
             "elo": last_elo.get(team, INITIAL_RATING),
             "squad_value_eur": sq_map.get(team, 50_000_000),
-            "xg_for": xg_for_map.get(team, 1.2),
-            "xg_against": xg_against_map.get(team, 1.2),
+            "xg_for": xg_for_map.get(team, LEAGUE_AVG_XG),
+            "xg_against": xg_against_map.get(team, LEAGUE_AVG_XG),
             "host_distance": compute_host_distance_wc2026(team, coords_cache),
             "rank": get_rank(team),
             "penalty_share": gs.get("penalty_share", 0.07),

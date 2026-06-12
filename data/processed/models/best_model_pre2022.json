@@ -1,0 +1,9 @@
+{
+  "best_model": "logreg_baseline_pre2022",
+  "val_sel_log_loss": {
+    "logreg_baseline_pre2022": 0.7847,
+    "xgboost_pre2022": 0.8197,
+    "lightgbm_pre2022": 0.7971,
+    "xgboost_calibrated_pre2022": 0.8353
+  }
+}

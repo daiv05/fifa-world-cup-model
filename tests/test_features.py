@@ -106,15 +106,64 @@ def test_build_match_features_no_nan(three_matches):
     feats = build_match_features(three_matches, year_cutoff=2019)
     required = [
         "elo_diff", "squad_value_diff", "xg_avg_for", "xg_avg_against",
-        "travel_distance_diff", "ranking_diff",
+        "ranking_diff", "penalty_share_diff", "striker_concentration_diff",
         "time_weight", "target",
     ]
     for col in required:
         assert col in feats.columns
         assert feats[col].notna().all(), f"NaN encontrado en {col}"
-    # Las columnas viejas (home/away) ya no deben existir.
-    assert "travel_distance_home" not in feats.columns
-    assert "travel_distance_away" not in feats.columns
+    # Features retiradas en v2: no deben emitirse.
+    assert "travel_distance_diff" not in feats.columns
+    assert "shootout_winrate_diff" not in feats.columns
+
+
+def test_elo_margin_multiplier_values():
+    from src.features.elo import _margin_multiplier
+    assert _margin_multiplier(0) == 1.0
+    assert _margin_multiplier(1) == 1.0
+    assert _margin_multiplier(-1) == 1.0
+    assert _margin_multiplier(2) == 1.5
+    assert _margin_multiplier(3) == 1.75
+    assert _margin_multiplier(-4) == (11 + 4) / 8
+
+
+def test_elo_bigger_win_moves_rating_more():
+    def one_match(home_score):
+        df = pd.DataFrame({
+            "date": pd.to_datetime(["2020-01-01"]),
+            "home_team": ["A"], "away_team": ["B"],
+            "home_score": [home_score], "away_score": [0],
+            "tournament": ["Friendly"], "neutral": [True],
+        })
+        return calculate_elo_ratings(df).iloc[0]
+
+    narrow = one_match(1)
+    blowout = one_match(4)
+    gain_narrow = narrow["home_elo_after"] - narrow["home_elo_before"]
+    gain_blowout = blowout["home_elo_after"] - blowout["home_elo_before"]
+    assert gain_blowout > gain_narrow
+
+
+def test_elo_home_advantage_reduces_home_gain():
+    """Con ventaja de local, el expected score del local sube y su ganancia por
+    ganar en casa (no neutral) es menor que sin ventaja."""
+    df = pd.DataFrame({
+        "date": pd.to_datetime(["2020-01-01"]),
+        "home_team": ["A"], "away_team": ["B"],
+        "home_score": [1], "away_score": [0],
+        "tournament": ["Friendly"], "neutral": [False],
+    })
+    no_adv = calculate_elo_ratings(df, home_advantage=0.0).iloc[0]
+    with_adv = calculate_elo_ratings(df, home_advantage=100.0).iloc[0]
+    gain_no = no_adv["home_elo_after"] - no_adv["home_elo_before"]
+    gain_adv = with_adv["home_elo_after"] - with_adv["home_elo_before"]
+    assert gain_adv < gain_no
+
+    # En sede neutral la ventaja no aplica: ambos coinciden.
+    df_neutral = df.assign(neutral=True)
+    n0 = calculate_elo_ratings(df_neutral, home_advantage=0.0).iloc[0]
+    n100 = calculate_elo_ratings(df_neutral, home_advantage=100.0).iloc[0]
+    assert n0["home_elo_after"] == n100["home_elo_after"]
 
 
 def test_elo_universe_superset_changes_elo(three_matches):

@@ -42,6 +42,14 @@ SHOOTOUT_PRIOR = 0.5
 GOAL_STAT_COLS = ["penalty_share", "striker_concentration"]
 SHOOTOUT_STAT_COL = "shootout_winrate"
 
+# Ventana del Herfindahl de goleadores, en días (~4 años = un ciclo mundialista).
+# Corrección v2: el Herfindahl acumulado de por vida no mide la estructura del
+# ataque ACTUAL sino la antigüedad/profundidad histórica del programa
+# futbolístico (las selecciones centenarias tienden a H bajo por pura
+# acumulación; los debutantes a H alto por varianza muestral). La ventana móvil
+# lo convierte en una métrica del plantel vigente.
+HERFINDAHL_WINDOW_DAYS = 4 * 365 + 1
+
 
 def bayesian_shootout_winrate(
     wins: np.ndarray | float,
@@ -91,11 +99,78 @@ def _cumulative_herfindahl(g: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["team", "date", "striker_concentration"])
 
 
-def compute_team_goal_stats_asof(goalscorers_df: pd.DataFrame) -> pd.DataFrame:
+def _windowed_herfindahl(
+    g: pd.DataFrame,
+    window_days: int = HERFINDAHL_WINDOW_DAYS,
+) -> pd.DataFrame:
     """
-    Tabla as-of de stats de goleo por (team, date), con valores ACUMULADOS al
-    cierre de esa fecha. Se excluyen autogoles (`own_goal`) porque acreditan al
-    rival, no al perfil ofensivo del equipo.
+    Herfindahl de goleadores por (team, date) sobre una ventana móvil de
+    `window_days` días: H(d) usa solo los goles en (d - window, d].
+
+    Implementación de dos punteros por equipo: al avanzar la fecha se agregan
+    los goles nuevos y se expulsan los que salen de la ventana, manteniendo
+    sum_sq incrementalmente (delta de sumar/restar k goles a un goleador con c
+    previos: ±(2*c*k) + k^2 con el signo según la dirección). O(goles) amortizado.
+    """
+    gg = g[g["scorer"].notna()]
+    if gg.empty:
+        return pd.DataFrame(columns=["team", "date", "striker_concentration"])
+
+    per = (
+        gg.groupby(["team", "date", "scorer"], sort=True)
+        .size()
+        .reset_index(name="k")
+    )
+    window = pd.Timedelta(days=window_days)
+
+    rows: list[tuple] = []
+    for team, grp in per.groupby("team", sort=True):
+        # Eventos ordenados por fecha; cada evento es (date, scorer, k).
+        events = list(zip(grp["date"].values, grp["scorer"].values, grp["k"].values))
+        counts: dict[str, int] = {}
+        sum_sq = 0.0
+        total = 0
+        left = 0  # primer evento aún dentro de la ventana
+
+        # Iterar por fecha única preservando el orden.
+        dates = grp["date"].drop_duplicates().tolist()
+        ev_idx = 0
+        for date in dates:
+            # 1) Agregar todos los goles de esta fecha.
+            while ev_idx < len(events) and events[ev_idx][0] == date:
+                _, scorer, k = events[ev_idx]
+                c = counts.get(scorer, 0)
+                sum_sq += 2 * c * k + k * k
+                counts[scorer] = c + k
+                total += int(k)
+                ev_idx += 1
+            # 2) Expulsar eventos con fecha <= date - window.
+            cutoff = date - window
+            while left < ev_idx and events[left][0] <= cutoff:
+                _, scorer, k = events[left]
+                c = counts[scorer]
+                sum_sq -= 2 * (c - k) * k + k * k
+                counts[scorer] = c - k
+                if counts[scorer] == 0:
+                    del counts[scorer]
+                total -= int(k)
+                left += 1
+            H = sum_sq / (total * total) if total > 0 else np.nan
+            rows.append((team, date, H))
+
+    return pd.DataFrame(rows, columns=["team", "date", "striker_concentration"])
+
+
+def compute_team_goal_stats_asof(
+    goalscorers_df: pd.DataFrame,
+    herfindahl_window_days: int | None = HERFINDAHL_WINDOW_DAYS,
+) -> pd.DataFrame:
+    """
+    Tabla as-of de stats de goleo por (team, date) al cierre de esa fecha.
+    `penalty_share` es acumulado; `striker_concentration` usa una ventana móvil
+    de `herfindahl_window_days` días (None = acumulado de por vida, legado).
+    Se excluyen autogoles (`own_goal`) porque acreditan al rival, no al perfil
+    ofensivo del equipo.
     Columnas: team, date, penalty_share, striker_concentration.
     """
     g = goalscorers_df.copy()
@@ -119,7 +194,10 @@ def compute_team_goal_stats_asof(goalscorers_df: pd.DataFrame) -> pd.DataFrame:
     daily["cum_pen"] = daily.groupby("team")["pen"].cumsum()
     daily["penalty_share"] = daily["cum_pen"] / daily["cum_goals"]
 
-    herf = _cumulative_herfindahl(g)
+    if herfindahl_window_days is None:
+        herf = _cumulative_herfindahl(g)
+    else:
+        herf = _windowed_herfindahl(g, window_days=herfindahl_window_days)
     out = daily[["team", "date", "penalty_share"]].merge(
         herf, on=["team", "date"], how="left"
     )

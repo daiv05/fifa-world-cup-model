@@ -1,6 +1,15 @@
 # Predicciones - Mundial 2026
 
-Modelo de predicción para la FIFA World Cup 2026 basado en Machine Learning (XGBoost / LightGBM) y simulación Monte Carlo (10,000 iteraciones). Predice probabilidades de campeonato para los 48 equipos del torneo.
+Modelo de predicción para la FIFA World Cup 2026 basado en Machine Learning y simulación Monte Carlo (10,000 iteraciones) sobre el bracket oficial del torneo. Predice probabilidades de campeonato para los 48 equipos.
+
+> **v2 (2026-06):** revisión metodológica mayor tras una auditoría crítica
+> (`reports/analisis_critico.md`, plan en `reports/plan_correcciones.md`):
+> se eliminó el rebalanceo de clases (deformaba las probabilidades), se corrigió
+> el bracket del Round of 32 al reglamento oficial FIFA, la validación WC2022 ya
+> no usa features anacrónicas, la ablación reporta significancia con 10 semillas,
+> y se añadió un benchmark contra el mercado de apuestas. Mejora neta verificada:
+> log-loss de test 0.8547 → 0.8356 (Δ = −0.019, IC95 [−0.030, −0.009],
+> bootstrap pareado).
 
 ---
 
@@ -14,13 +23,21 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 
 ## Resultados principales
 
-| Equipo | P(Campeón) | IC 95% |
-|--------|:----------:|:------:|
-| Spain | 23.72% | [22.89%, 24.57%] |
-| Argentina | 11.27% | [10.66%, 11.91%] |
-| France | 10.88% | [10.28%, 11.51%] |
-| Brazil | 6.35% | [5.88%, 6.85%] |
-| England | 5.55% | [5.11%, 6.02%] |
+| Equipo | P(Campeón) | IC 95% (simulación) | Mercado (BetMGM 2026-06-10) |
+|--------|:----------:|:------:|:------:|
+| Spain | 27.46% | [26.59%, 28.35%] | 14.9% |
+| Argentina | 13.78% | [13.11%, 14.47%] | 8.2% |
+| France | 11.65% | [11.03%, 12.29%] | 13.7% |
+| England | 7.73% | [7.21%, 8.27%] | 10.2% |
+| Germany | 3.61% | [3.25%, 3.99%] | 5.5% |
+
+**Lectura honesta de los intervalos:** el IC 95% reportado es **solo error de
+muestreo Monte Carlo** (Clopper–Pearson, reducible con más iteraciones). No
+incluye la incertidumbre del propio modelo; para eso ver
+`simulation_ensemble.csv` (`--ensemble`), que reporta además el rango de
+P(campeón) entre réplicas bootstrap del modelo. El modelo diverge del mercado
+de apuestas en los extremos (sobrepondera al líder de ELO; ver
+`data/processed/benchmark_market.csv` y la discusión en el paper).
 
 ---
 
@@ -35,6 +52,8 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 │   │   ├── squad_values.csv            # Snapshot manual Transfermarkt
 │   │   ├── fifa_ranking.csv            # Ranking FIFA histórico (hasta 2024-06)
 │   │   ├── wc2026_fixture.csv          # Sorteo de los 48 equipos
+│   │   ├── wc2026_bracket.csv          # Bracket OFICIAL FIFA (R32→final, sedes)
+│   │   ├── market_odds_2026.csv        # Odds de mercado (benchmark externo)
 │   │   └── new-data/international_results/
 │   │       ├── goalscorers.csv         # Goleadores por partido (as-of features)
 │   │       ├── shootouts.csv           # Tandas de penales
@@ -44,32 +63,38 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 │       ├── features.csv                  # Dataset de entrenamiento
 │       ├── team_features.csv             # Features por equipo para simulación
 │       ├── simulation_results.csv        # P(campeón) Monte Carlo
+│       ├── simulation_ensemble.csv       # P(campeón) + incertidumbre del modelo
 │       ├── tournament_progression.csv    # P(avanzar) por fase
 │       ├── sensitivity_injuries.csv      # Análisis de sensibilidad
-│       ├── model_evaluation.csv          # Log-loss / Brier por modelo
-│       ├── ablation_results.csv          # Ablación de grupos de features
+│       ├── model_evaluation.csv          # Log-loss/Brier + IC bootstrap pareado
+│       ├── ablation_results.csv          # Ablación multi-semilla con significancia
+│       ├── benchmark_market.csv          # Modelo vs mercado de apuestas
+│       ├── wc2022_validation.csv         # Validación out-of-time WC2022
+│       ├── tune_elo_results.csv          # Grid de validación del ELO
+│       ├── baseline_v1/                  # Resultados congelados pre-corrección
 │       └── models/
 │           ├── logreg_baseline.joblib
-│           ├── xgboost.joblib
-│           ├── lightgbm.joblib
+│           ├── xgboost.joblib / lightgbm.joblib
 │           ├── xgboost_calibrated.joblib
-│           ├── xgboost_pre2022.joblib    # Modelo entrenado solo con date<2022
+│           ├── *_pre2022.joblib          # Pipeline sin leakage para validar WC2022
+│           ├── best_model.json           # Modelo seleccionado por validación
 │           └── best_params_*.json        # Hiperparámetros de Optuna
 ├── notebooks/
 │   └── 01_eda.ipynb                # Análisis exploratorio
-├── reports/figures/                 # SHAP, calibración, EDA
+├── reports/
+│   ├── figures/                    # SHAP, calibración, EDA
+│   ├── analisis_critico.md         # Auditoría que motivó la v2
+│   └── plan_correcciones.md        # Plan de implementación de la v2
 ├── src/
 │   ├── data/         # data_loader.py, scraper.py
-│   ├── features/     # elo.py, time_decay.py, features.py
+│   ├── features/     # elo.py, time_decay.py, features.py, derived_stats.py
 │   ├── models/       # train.py, evaluate.py
 │   ├── simulation/   # tournament.py, simulate.py
-│   ├── analysis/     # sensitivity.py, ablation.py
+│   ├── analysis/     # sensitivity.py, ablation.py, benchmark.py,
+│   │                 # compare_runs.py, tune_elo.py
 │   └── visualization/  # dashboard.py
 ├── tests/
-├── conftest.py
-├── pyproject.toml
-├── Makefile
-└── requirements.txt
+└── pyproject.toml / Makefile / requirements.txt
 ```
 
 ---
@@ -77,16 +102,11 @@ Mediante Streamlit, se puede explorar el modelo, las probabilidades de cada equi
 ## Instalación
 
 ```bash
-# 1. Clonar el repositorio
 git clone https://github.com/daiv05/fifa-world-cup-model
 cd fifa-world-cup-model
-
-# 2. Crear entorno virtual
 python -m venv .venv
 .venv\Scripts\activate         # Windows
 # source .venv/bin/activate    # Linux / macOS
-
-# 3. Instalar el paquete en modo editable (preferido)
 pip install -e .
 ```
 
@@ -94,41 +114,22 @@ pip install -e .
 
 ## Pipeline de ejecución
 
-Ejecutar desde la raíz del proyecto:
-
 ```bash
 python -m src.features.features
-python -m src.models.train --trials 100
+python -m src.models.train --trials 100 --n-jobs -1
 python -m src.models.evaluate
-python -m src.analysis.ablation
-python -m src.simulation.simulate --iterations 10000 --model xgboost_calibrated
-python -m src.analysis.sensitivity --iterations 10000 --model xgboost_calibrated
+python -m src.analysis.ablation --seeds 10
+python -m src.simulation.simulate --iterations 10000          # usa best_model.json
+python -m src.simulation.simulate --iterations 10000 --ensemble 5
+python -m src.analysis.sensitivity --iterations 10000
+python -m src.analysis.benchmark
 streamlit run src/visualization/dashboard.py
 ```
 
-### Rendimiento
-
-- **Simulación Monte Carlo**: paralelizada sobre todos los cores (`--n-jobs`, default `-1`).
-  Las iteraciones se reparten en bloques fijos, cada uno con un stream RNG independiente
-  derivado de `SeedSequence(seed).spawn(n_blocks)`, así que el resultado es **reproducible
-  sin importar cuántos workers se usen** (`n_jobs=1` y `n_jobs=-1` dan resultados idénticos).
-  `simulate` ~144s→~27s, `sensitivity` ~720s→~98s.
-- **Entrenamiento**: `train.py --n-jobs` paraleliza los trials de Optuna (~4× más rápido).
-  Default `1` (serie) para mantener la búsqueda TPE 100% reproducible; usa `-1` para
-  acelerar a costa de reproducibilidad bit a bit de `best_params`.
-- **ELO**: se calcula una sola vez sobre la historia completa (sin loops `iterrows`) y se
-  reutiliza entre el dataset de partidos y el de equipos.
-
-### EDA
-
-Abrir notebook en VSCode con la extensión de Jupyter para ejecutar `notebooks/01_eda.ipynb`. El análisis exploratorio cubre calidad de datos, distribución del target, análisis univariado por feature, correlaciones, evolución del ELO, SHAP y limitaciones del dataset.
-
----
-
-## Tests
+Para comparar dos corridas (criterio de aceptación de cualquier cambio):
 
 ```bash
-python -m pytest tests/ -v
+python -m src.analysis.compare_runs --a-dir data/processed/baseline_v1 --b-dir data/processed
 ```
 
 ---
@@ -140,95 +141,134 @@ python -m pytest tests/ -v
 |--------|-----------|-------------------|
 | [martj42/international_results](https://github.com/martj42/international_results) | Resultados históricos 1872-2026 | ~49,000 partidos |
 | ↳ `goalscorers.csv` | Goleadores por partido (minuto, penal, autogol) | ~47,600 goles |
-| ↳ `shootouts.csv` | Tandas de penales históricas | 677 tandas |
 | ↳ `former_names.csv` | Mapeo de nombres históricos → actuales | provenance |
 | [StatsBomb Open Data](https://github.com/statsbomb/open-data) | xG por equipo (internacionales) | 109 equipos |
-| Transfermarkt (snapshot manual) | Valor de mercado de plantilla | 60 equipos |
-| FIFA Ranking (CSV histórico) | Posición y puntos por equipo y fecha | ~210 equipos, hasta 2024-06-20 |
-| `fifa_rankings_2026.csv` (snapshot) | Ranking FIFA al 2026-05-30 | 211 equipos |
+| Transfermarkt (snapshot manual) | Valor de mercado de plantilla | 62 equipos |
+| FIFA Ranking (CSV histórico + snapshot 2026-05-30) | Posición por equipo y fecha | ~210 equipos |
+| BetMGM (snapshot 2026-06-10) | Odds de título (benchmark externo) | 48 equipos |
 
-**Continuidad de ELO (former_names):** antes de calcular el ELO se unifican nombres
-de federaciones sucesoras reconocidas por FIFA: Yugoslavia → Serbia y Checoslovaquia
-→ Chequia (Eslovaquia y Montenegro se tratan como entidades nuevas). URSS→Rusia,
-Zaire→DR Congo y Antillas→Curacao ya vienen unificados en la fuente.
+### ELO (v2)
+ELO propio sobre la historia completa (49k partidos, incl. amistosos con K
+reducido), con **multiplicador por margen de victoria** (1.5 si dif=2,
+(11+d)/8 si d≥3). La ventaja de local en el expected score está implementada y
+parametrizada pero **desactivada por defecto**: el grid de validación
+(`tune_elo.py`, train 2010-2018 / val 2019-2020) muestra que el margen mejora
+el log-loss en todas las filas pero la ventaja de local no valida
+(`data/processed/tune_elo_results.csv`).
 
-**Snapshot de ranking 2026:** la serie histórica termina el 2024-06-20; se anexa el
-snapshot del 2026-05-30 como un punto más. Es libre de leakage porque los consumidores
-usan `merge_asof(backward)`/bisect: un partido en fecha D solo ve ranks con fecha ≤ D,
-así que el snapshot solo aplica al horizonte de predicción (el propio Mundial). No se
-deriva un `points_diff` porque la metodología de puntos FIFA cambió en 2018 (ruptura de
-escala); el rank ordinal es robusto a ese cambio.
+### Features (7)
+`FEATURE_COLS` se define una sola vez en `features.py`. Tres horizontes:
+`ELO_HISTORY_START=None` (ELO sobre toda la historia), `OUTPUT_ROW_START_YEAR=1993`
+(primera fila emitida) y `TRAIN_MIN_YEAR=2010` (ventana de modelado).
 
-### Features (9)
-Tres horizontes temporales distintos gobiernan el pipeline (`features.py`):
-`ELO_HISTORY_START=None` (ELO sobre TODA la historia), `OUTPUT_ROW_START_YEAR=1993`
-(primer año emitido como fila) y `TRAIN_MIN_YEAR=2010` (ventana de modelado). `FEATURE_COLS`
-se define una sola vez en `features.py` y se importa en train/evaluate/ablation/simulate/dashboard.
+| Feature | Descripción |
+|---------|-------------|
+| `elo_diff` | ELO local − visitante (historia completa, margen de victoria) |
+| `squad_value_diff` | log(valor_local) − log(valor_visitante) |
+| `xg_avg_for` / `xg_avg_against` | xG promedio a favor / en contra (diffs) |
+| `ranking_diff` | rank_visitante − rank_local (snapshot 2026 vía merge-asof backward) |
+| `penalty_share_diff` | % goles de penal, as-of-date estricto |
+| `striker_concentration_diff` | Herfindahl de goleadores sobre **ventana móvil de 4 años**, as-of-date |
 
-| Feature | Descripción | Justificación |
-|---------|-------------|---------------|
-| `elo_diff` | ELO local − ELO visitante (ELO acumulado sobre la historia COMPLETA, incl. amistosos) | Métrica dinámica, superior al ranking FIFA estático |
-| `squad_value_diff` | log(valor_local) − log(valor_visitante) | Proxy de calidad individual de la plantilla |
-| `xg_avg_for` | xG promedio a favor: local − visitante | Eficiencia ofensiva reciente |
-| `xg_avg_against` | xG promedio en contra: local − visitante | Solidez defensiva reciente |
-| `travel_distance_diff` | dist(visitante→sede) − dist(local→sede), en km. Convención away−home; 0.0 si la sede no se geocodifica | Fatiga / desventaja de viaje; informativo también en partidos neutrales (Mundiales) |
-| `ranking_diff` | rank_visitante − rank_local (positivo = local mejor rankeado) | Captura cambios discretos del ranking FIFA (refrescado al 2026-05-30) |
-| `penalty_share_diff` | (goles de penal / totales) local − visitante, as-of-date | Perfil ofensivo / dependencia de penales |
-| `striker_concentration_diff` | Herfindahl de goleadores, local − visitante, as-of-date | Dependencia de una figura vs. ataque distribuido |
-| `shootout_winrate_diff` | winrate en tandas (shrinkage Bayes, prior 0.5, α=10) local − visitante, as-of-date | Desempate en eliminatorias |
+> **Features retiradas en v2** (aplicando el criterio de retiro declarado):
+> `travel_distance_diff` (83% ceros en train + shift de distribución en
+> inferencia, aporte ~nulo), `shootout_winrate_diff` (casi constante tras el
+> shrinkage, ablación dentro del ruido) y `late_goal_ratio_diff` (v1, ruido neto).
+> El Herfindahl pasó de acumulado-de-por-vida (medía antigüedad del programa
+> futbolístico) a ventana de 4 años (mide la estructura del ataque vigente).
 
-Las features derivadas (3 últimas) se calculan **estrictamente as-of-date**
-(`merge_asof(backward, allow_exact_matches=False)`): un partido en fecha D solo ve
-eventos anteriores a D, sin leakage del propio partido.
+**Pesos de entrenamiento (v2):** SOLO decaimiento temporal W(t) = e^(−0.001·Δt),
+renormalizado a media 1. El rebalanceo de clases de la v1 se eliminó: deformaba
+las probabilidades posteriores (sobrepredicción de empates ~+3.5 pp) y costaba
+~0.02 de log-loss. Las probabilidades del modelo ahora reflejan las tasas base
+reales (H≈47%, E≈21%, V≈32%).
 
-> **Feature descartada:** `late_goal_ratio_diff` (goles tardíos) se evaluó y se eliminó
-> por completo del pipeline. La ablación leave-one-out mostró aporte **negativo**
-> (ruido neto): el modelo mejora sin ella (test log-loss 0.8582 → 0.8548).
+### División del dataset y selección de modelo
 
-**Decaimiento temporal:** cada partido tiene peso W(t) = e^(−0.001 · Δt) multiplicado por peso de clase balanceado (H≈49%, E≈21%, V≈30%).
+| Conjunto | Filtro | Uso |
+|----------|--------|-----|
+| Train | `date < 2021-01-01` | Entrenamiento (LogReg, XGBoost, LightGBM) |
+| Val-cal | primer 70% de 2021 | Calibración Platt del XGBoost |
+| Val-sel | último 30% de 2021 | **Selección del modelo final** (sin sesgo hacia el calibrado) |
+| Test | `date ≥ 2022-01-01` | Evaluación final, intocado por toda decisión |
 
-### División del dataset
+El modelo final se elige por log-loss en val-sel y queda registrado en
+`models/best_model.json`; `simulate.py` y `sensitivity.py` lo consumen por
+defecto. En la corrida actual el seleccionado es **logreg_baseline**
+(en test queda estadísticamente empatado con LightGBM: Δ = +0.0004,
+IC95 [−0.007, +0.009]).
 
-Split **temporal** implementado en `temporal_split` ([src/models/train.py](src/models/train.py)).
+### Evaluación (test ≥ 2022, n = 2,208)
 
-| Conjunto | Filtro de fecha | Uso |
-|----------|-----------------|-----|
-| **Train** | `date < 2021-01-01` | Entrenamiento de LogReg, XGBoost, LightGBM |
-| **Validación** | `2021-01-01 ≤ date < 2022-01-01` | Calibración Platt (sigmoid) de XGBoost (sin leakage) |
-| **Test** | `date ≥ 2022-01-01` | Evaluación final (`evaluate.py` reutiliza `temporal_split`) |
+| Modelo | Log-Loss | Brier | Δ vs mejor (IC95) | ¿Significativo? |
+|--------|:--------:|:-----:|:------------------:|:---:|
+| LightGBM | 0.8356 | 0.1634 | — | — |
+| LogReg | 0.8360 | 0.1635 | +0.0004 [−0.007, +0.009] | no |
+| XGBoost | 0.8587 | 0.1678 | +0.023 [+0.015, +0.031] | sí |
+| XGBoost-Cal | 0.8716 | 0.1699 | +0.036 [+0.026, +0.046] | sí |
 
-### Modelos
-- LogReg (baseline, escalado + balanceado).
-- XGBoost - optimizado con Optuna (100 trials por default).
-- LightGBM - optimizado con Optuna.
-- XGBoost calibrado con método Platt (sigmoid) sobre validación temporal (2021).
-- XGBoost pre-2022 - entrenado solo con `date < 2022-01-01` para validar el Mundial 2022 sin data leakage.
+Referencias: baseline de priors de clase ≈ 1.050; uniforme ln(3) ≈ 1.099;
+mejor modelo v1 (con rebalanceo) = 0.8547.
 
-### Estudio de ablación
-`src/analysis/ablation.py` reentrena el XGBoost calibrado quitando grupos de features mientras mantiene fijos el split temporal, los pesos y los hiperparámetros óptimos, para aislar la contribución marginal de cada grupo sobre Log-Loss y Brier (resultados en `data/processed/ablation_results.csv`). Configuraciones evaluadas: completo, sin xG, sin `squad_value`, sin features derivadas, filas individuales para las features de aporte **marginal** (`travel_distance_diff`, `penalty_share_diff`, `shootout_winrate_diff`) que documentan su impacto, y sin features estáticas anacrónicas (xG+squad). Esta última cuantifica empíricamente el anacronismo descrito en *Limitaciones*.
+### Simulación Monte Carlo (v2: bracket oficial)
+- 10,000 iteraciones del torneo completo sobre el **bracket oficial FIFA 2026**
+  (`data/raw/wc2026_bracket.csv`, transcrito del calendario publicado): 8
+  ganadores de grupo vs mejores terceros (con pools de procedencia por partido),
+  4 ganadores vs segundos, 4 cruces entre segundos. La v1 usaba un bracket
+  inventado con cruces 3º-vs-3º que no existen en el reglamento.
+- Asignación de terceros a slots por matching exacto que respeta los pools
+  oficiales (la tabla FIFA de 495 combinaciones es una elección particular entre
+  los matchings válidos).
+- Desempates de grupo: puntos → DG → GF → enfrentamiento directo → **sorteo con
+  el RNG** (la v1 dejaba el orden de inserción, un sesgo determinista). El fair
+  play no es simulable y se omite.
+- **Localía condicionada a la sede real**: un anfitrión solo recibe ventaja de
+  local si el partido se juega en su país (México en una sede de EE.UU. va por
+  probabilidades simétricas).
+- Marcadores con **Poisson condicionado al outcome** sorteado (distribución
+  conjunta truncada y renormalizada), en lugar de la reconciliación ad-hoc de la
+  v1 que distorsionaba DG/GF justo donde deciden los desempates.
+- Reproducible para cualquier número de workers (`SeedSequence.spawn`).
 
-### Simulación Monte Carlo
-- **10,000 iteraciones** del torneo completo (104 partidos c/u).
-- Probabilidades simétricas: para cada par `(t1, t2)` se promedia `P(t1 vs t2)` con `P(t2 vs t1)` (invertida) para eliminar sesgo home/away. Excepción: anfitriones (USA, México, Canadá) reciben localía cuando juegan en su país.
-- Goles modelados con Poisson independiente sobre `xg_for / xg_against` de los dos equipos. El outcome surge del marcador, no al revés.
-- Desempate de grupos: puntos - diferencia de goles - goles a favor (FIFA 2026).
-- Knockout: en caso de empate, el desempate literal es 50/50. (La feature `shootout_winrate_diff` alimenta las probabilidades del modelo, no este coin-flip.)
-- Tracking de avance por fase: `data/processed/tournament_progression.csv`.
+### Validación histórica (WC 2022) — sin leakage (v2)
+El pipeline `_pre2022` se entrena solo con `date < 2022` **y sin las features
+anacrónicas** (xG y squad_value, snapshots de ~2026): ni el modelo ni su vector
+de entrada ven información posterior al cutoff. Resultado out-of-time honesto
+sobre los partidos de 2022: **log-loss 0.985, accuracy 54.4%**
+(`wc2022_validation.csv`). La cifra es peor que la del test contaminado —
+exactamente lo que cabe esperar al retirar el leakage, y la razón de reportarla.
 
-### Validación histórica (WC 2022)
-El modelo `xgboost_pre2022` se entrena exclusivamente con `date < 2022-01-01` y se evalúa sobre el Mundial 2022. Las métricas exactas quedan en consola al ejecutar la evaluación.
+### Estudio de ablación (v2: multi-semilla)
+`ablation.py --seeds 10` reentrena cada configuración con 10 semillas y reporta
+media ± std más un bootstrap pareado del delta frente al modelo completo
+(columna `significant`). Solo las filas significativas soportan conclusiones.
+
+### Benchmark externo
+`benchmark.py` compara P(campeón) contra las probabilidades implícitas
+des-vigorizadas del mercado (BetMGM, 2026-06-10). El modelo diverge del mercado
+en los extremos: sobrepondera al líder de ELO (España 27.5% vs 14.9%) e
+infrapondera a Brasil/Portugal (ratio ≈ 0.33). Distancia de variación total
+≈ 0.27. La divergencia se discute en el paper; el mercado es el baseline
+estándar de esta literatura.
+
+---
+
+## Tests
+
+```bash
+python -m pytest tests/ -v   # 57+ tests
+```
 
 ---
 
 ## Limitaciones conocidas
-- Los equipos debutantes (Uzbekistán, Curaçao, etc.) tienen muy pocos partidos históricos - ELO inicial por defecto (1500).
-- **Anacronismo de features estáticas (xG y squad_value):** ambos son snapshots (un valor por equipo, sin fecha) aplicados a TODOS los partidos históricos, lo que introduce leakage/anacronismo. No existe serie temporal histórica de estos datos, así que versionarlos sería fabricar información. El efecto está acotado por: time_decay (<2% pre-2010), `TRAIN_MIN_YEAR=2010` y el uso de diffs relativos. Su aporte se mide en la fila de ablación "Sin estáticas anacrónicas". El ELO **no** usa estos snapshots.
-- Las lesiones de última hora no están modeladas de forma estructural, pero `src/analysis/sensitivity.py` simula escenarios `-30% squad_value` sobre el top-5 (ver `data/processed/sensitivity_injuries.csv`).
-- El xG de StatsBomb cubre principalmente torneos UEFA/FIFA; equipos de otras confederaciones usan `1.2` por defecto (media global aproximada).
-- **Cobertura de `travel_distance_diff`:** las coordenadas están precargadas solo para los 48 equipos del Mundial (`WC_TEAM_CAPITAL_COORDS`); los equipos históricos fuera del torneo no se geocodifican salvo `USE_NOMINATIM=1`, por lo que su diff queda en 0.0 en entrenamiento. La simulación (todos los equipos del WC) sí queda 100% poblada. Para cobertura histórica completa, ejecutar `features.py` con `USE_NOMINATIM=1` (poblará el cache geográfico vía Nominatim).
-- **`shootout_winrate_diff`:** las potencias grandes tienen <5 tandas históricas, así que tras el shrinkage Bayes (prior 0.5) su valor es casi constante ~0.5. La señal se concentra en selecciones africanas/asiáticas con más tandas. Su aporte real se valida con la ablación "Sin shootout"; si no mejora el log-loss, considerar retirarla del set final.
-- El ranking FIFA histórico termina el 2024-06-20; el periodo 2024-06 → 2026-05 solo se refresca con el snapshot puntual del 2026-05-30 (no hay serie mensual intermedia).
-- El snapshot Transfermarkt es manual (no scraping en vivo); fecha en `scraper.SQUAD_VALUES_SNAPSHOT_DATE`.
+- Los equipos debutantes (Uzbekistán, Curaçao, etc.) tienen poco historial; su ELO parte de 1500 y converge lento.
+- **Anacronismo de features estáticas (xG y squad_value)** en el pipeline principal: snapshots sin fecha aplicados a todos los partidos, incluido el test. Las métricas del test principal son por tanto una **cota optimista**; la cifra de referencia limpia es la validación WC2022 (pipeline `_pre2022`, que las excluye). Existe serie histórica de valores de Transfermarkt: versionarla es trabajo futuro.
+- El modelo deposita casi toda la señal en `elo_diff` y produce favoritos más extremos que el mercado de apuestas (ver benchmark). Sin shrinkage hacia el consenso.
+- Las lesiones no se modelan estructuralmente; `sensitivity.py` aplica un escenario agregado (squad −30%, xg_for −10%, ELO −25 pts) sobre el top-5.
+- El xG de StatsBomb cubre principalmente torneos UEFA/FIFA; 13 de 48 equipos usan la media global 1.2.
+- El ranking FIFA histórico termina en 2024-06; el periodo hasta 2026-05 solo tiene el snapshot puntual del 2026-05-30.
+- La asignación de terceros usa un matching válido respecto a los pools oficiales, no la tabla exacta FIFA de 495 combinaciones (no publicada en forma compacta).
 
 ---
 

@@ -7,6 +7,18 @@ from tqdm import tqdm
 
 INITIAL_RATING = 1500.0
 
+# Ventaja de local en puntos ELO, sumada al rating del equipo local en el
+# expected score SOLO cuando el partido no es en sede neutral (ajuste estándar
+# del World Football Elo, típicamente ~100). Validación empírica con
+# src/analysis/tune_elo.py (grid {0,50,100,150} x margen, logística sobre
+# elo_diff, train 2010-2018 / val 2019-2020, resultados en
+# data/processed/tune_elo_results.csv): el margen de victoria mejora el
+# log-loss en las 4 filas del grid, pero la ventaja de local NO valida
+# (HA=0 da 0.8102 vs 0.8117 con HA=100; deltas pequeños, n=782). Se fija 0
+# por defecto siguiendo la evidencia; el mecanismo queda implementado y
+# parametrizable.
+HOME_ADVANTAGE = 0.0
+
 K_FACTORS: dict[str, float] = {
     "FIFA World Cup": 60,
     "Confederations Cup": 50,
@@ -49,12 +61,42 @@ def _result_score(home_goals: int, away_goals: int) -> tuple[float, float]:
     return 0.5, 0.5
 
 
-def calculate_elo_ratings(matches_df: pd.DataFrame) -> pd.DataFrame:
+def _margin_multiplier(goal_diff: int) -> float:
+    """
+    Multiplicador del K por margen de victoria (estándar World Football Elo):
+    1.0 para diferencia de 0-1 gol, 1.5 para 2, (11+d)/8 para d>=3.
+    """
+    d = abs(int(goal_diff))
+    if d <= 1:
+        return 1.0
+    if d == 2:
+        return 1.5
+    return (11.0 + d) / 8.0
+
+
+def calculate_elo_ratings(
+    matches_df: pd.DataFrame,
+    home_advantage: float = HOME_ADVANTAGE,
+    use_margin: bool = True,
+) -> pd.DataFrame:
     """
     ELO secuencial sobre los partidos ordenados por fecha. El loop es
     inherentemente secuencial (cada rating depende del estado previo), pero se
     itera sobre arrays de numpy en vez de `iterrows()` (que crea una Series por
     fila) y se memoiza el K-factor por torneo, reduciendo el overhead por fila.
+
+    Ajustes estándar World Football Elo (corrección v2):
+      - `home_advantage`: se suma al rating del local en el expected score si el
+        partido NO es en sede neutral (columna `neutral`). Sin este ajuste, los
+        equipos con muchos partidos en casa acumulan rating inflado. Si la
+        columna `neutral` no existe, se asume sede neutral (sin ventaja): ante
+        la duda no se fabrica señal.
+      - `use_margin`: multiplica K por el margen de victoria (1.5 si dif=2,
+        (11+dif)/8 si dif>=3).
+
+    Los ratings almacenados (`*_elo_before/after`) NO incluyen la ventaja de
+    local: esta solo interviene en la actualización. `elo_diff` sigue siendo
+    una comparación de fuerza intrínseca.
     """
     df = matches_df.sort_values("date").reset_index(drop=True)
     ratings: dict[str, float] = defaultdict(lambda: INITIAL_RATING)
@@ -64,6 +106,10 @@ def calculate_elo_ratings(matches_df: pd.DataFrame) -> pd.DataFrame:
     aways = df["away_team"].to_numpy()
     home_scores = pd.to_numeric(df["home_score"], errors="coerce").to_numpy()
     away_scores = pd.to_numeric(df["away_score"], errors="coerce").to_numpy()
+    if "neutral" in df.columns:
+        neutrals = df["neutral"].fillna(True).astype(bool).to_numpy()
+    else:
+        neutrals = np.ones(len(df), dtype=bool)
     if "tournament" in df.columns:
         tournaments = df["tournament"].fillna("Friendly").to_numpy()
         k_lookup = _build_k_lookup(df["tournament"].fillna("Friendly"))
@@ -81,11 +127,14 @@ def calculate_elo_ratings(matches_df: pd.DataFrame) -> pd.DataFrame:
         r_h = ratings[home]
         r_a = ratings[away]
 
-        exp_h = _expected_score(r_h, r_a)
+        adv = 0.0 if neutrals[i] else home_advantage
+        exp_h = _expected_score(r_h + adv, r_a)
         exp_a = 1.0 - exp_h
         res_h, res_a = _result_score(int(h_goal), int(a_goal))
 
         k = k_lookup.get(tournaments[i], DEFAULT_K)
+        if use_margin:
+            k *= _margin_multiplier(int(h_goal) - int(a_goal))
         new_r_h = r_h + k * (res_h - exp_h)
         new_r_a = r_a + k * (res_a - exp_a)
 

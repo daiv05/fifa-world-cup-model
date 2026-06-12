@@ -1,0 +1,429 @@
+date,home_team,away_team,pred_class,true_class,correct,confidence
+2022-01-27,Jamaica,Mexico,0,0,True,0.418
+2022-01-27,United States,El Salvador,2,2,True,0.882
+2022-01-27,Honduras,Canada,0,0,True,0.654
+2022-01-27,Costa Rica,Panama,0,2,False,0.461
+2022-01-27,Lebanon,South Korea,0,0,True,0.884
+2022-01-27,Iran,Iraq,2,2,True,0.87
+2022-01-27,United Arab Emirates,Syria,2,2,True,0.685
+2022-01-27,Japan,China,2,2,True,0.8
+2022-01-27,Australia,Vietnam,2,2,True,0.869
+2022-01-27,Saudi Arabia,Oman,2,2,True,0.732
+2022-01-27,Ecuador,Brazil,0,1,False,0.533
+2022-01-27,Paraguay,Uruguay,2,0,False,0.404
+2022-01-27,Chile,Argentina,0,0,True,0.62
+2022-01-28,Colombia,Peru,2,0,False,0.626
+2022-01-28,Venezuela,Bolivia,1,2,False,0.349
+2022-01-30,Canada,United States,0,2,False,0.442
+2022-01-30,Mexico,Costa Rica,2,1,False,0.785
+2022-01-30,Panama,Jamaica,2,2,True,0.623
+2022-01-30,Honduras,El Salvador,0,0,True,0.4
+2022-02-01,Lebanon,Iraq,0,1,False,0.356
+2022-02-01,Iran,United Arab Emirates,2,2,True,0.694
+2022-02-01,Syria,South Korea,0,0,True,0.888
+2022-02-01,Vietnam,China,0,2,False,0.601
+2022-02-01,Japan,Saudi Arabia,2,2,True,0.552
+2022-02-01,Oman,Australia,0,1,False,0.441
+2022-02-01,Bolivia,Chile,0,0,True,0.451
+2022-02-01,Uruguay,Venezuela,2,2,True,0.701
+2022-02-01,Argentina,Colombia,2,2,True,0.668
+2022-02-01,Peru,Ecuador,2,1,False,0.4
+2022-02-01,Brazil,Paraguay,2,2,True,0.971
+2022-02-02,United States,Honduras,2,2,True,0.888
+2022-02-02,Jamaica,Costa Rica,2,0,False,0.42
+2022-02-02,El Salvador,Canada,0,0,True,0.668
+2022-02-02,Mexico,Panama,2,2,True,0.535
+2022-03-17,Cook Islands,Solomon Islands,0,0,True,0.586
+2022-03-18,Papua New Guinea,New Zealand,0,0,True,0.463
+2022-03-18,New Caledonia,Fiji,2,0,False,0.601
+2022-03-21,Papua New Guinea,New Caledonia,2,2,True,0.642
+2022-03-21,New Zealand,Fiji,2,2,True,0.642
+2022-03-24,Jamaica,El Salvador,1,1,True,0.414
+2022-03-24,Mexico,United States,2,1,False,0.415
+2022-03-24,Panama,Honduras,2,1,False,0.733
+2022-03-24,Costa Rica,Canada,0,2,False,0.551
+2022-03-24,Lebanon,Syria,2,0,False,0.435
+2022-03-24,Iraq,United Arab Emirates,2,2,True,0.396
+2022-03-24,South Korea,Iran,2,2,True,0.474
+2022-03-24,China,Saudi Arabia,0,1,False,0.408
+2022-03-24,Vietnam,Oman,0,0,True,0.421
+2022-03-24,Australia,Japan,1,0,False,0.346
+2022-03-24,Solomon Islands,Tahiti,0,2,False,0.466
+2022-03-24,Fiji,Papua New Guinea,2,0,False,0.478
+2022-03-24,New Zealand,New Caledonia,2,2,True,0.834
+2022-03-24,Colombia,Bolivia,2,2,True,0.618
+2022-03-24,Brazil,Chile,2,2,True,0.829
+2022-03-24,Paraguay,Ecuador,0,2,False,0.575
+2022-03-24,Uruguay,Peru,2,2,True,0.672
+2022-03-24,Italy,North Macedonia,2,0,False,0.834
+2022-03-24,Portugal,Turkey,2,2,True,0.711
+2022-03-24,Sweden,Czech Republic,2,2,True,0.387
+2022-03-24,Wales,Austria,2,2,True,0.574
+2022-03-24,Estonia,Cyprus,2,1,False,0.574
+2022-03-24,Moldova,Kazakhstan,0,0,True,0.37
+2022-03-25,Cameroon,Algeria,2,0,False,0.528
+2022-03-25,DR Congo,Morocco,0,1,False,0.555
+2022-03-25,Egypt,Senegal,2,2,True,0.409
+2022-03-25,Ghana,Nigeria,2,1,False,0.422
+2022-03-25,Mali,Tunisia,2,0,False,0.388
+2022-03-25,Argentina,Venezuela,2,2,True,0.962
+2022-03-27,El Salvador,Costa Rica,0,0,True,0.448
+2022-03-27,Canada,Jamaica,2,2,True,0.888
+2022-03-27,Honduras,Mexico,0,0,True,0.741
+2022-03-27,United States,Panama,2,2,True,0.837
+2022-03-27,New Zealand,Tahiti,2,2,True,0.915
+2022-03-27,Solomon Islands,Papua New Guinea,2,2,True,0.498
+2022-03-29,Algeria,Cameroon,2,0,False,0.617
+2022-03-29,Morocco,DR Congo,2,2,True,0.821
+2022-03-29,Nigeria,Ghana,2,1,False,0.483
+2022-03-29,Senegal,Egypt,0,2,False,0.336
+2022-03-29,Tunisia,Mali,2,1,False,0.526
+2022-03-29,Iran,Lebanon,2,2,True,0.963
+2022-03-29,Syria,Iraq,0,1,False,0.363
+2022-03-29,United Arab Emirates,South Korea,0,2,False,0.616
+2022-03-29,Japan,Vietnam,2,1,False,0.919
+2022-03-29,Oman,China,2,2,True,0.528
+2022-03-29,Saudi Arabia,Australia,2,2,True,0.478
+2022-03-29,Ecuador,Argentina,0,1,False,0.736
+2022-03-29,Peru,Paraguay,2,2,True,0.609
+2022-03-29,Bolivia,Brazil,0,0,True,0.88
+2022-03-29,Venezuela,Colombia,0,0,True,0.624
+2022-03-29,Chile,Uruguay,2,0,False,0.405
+2022-03-29,Poland,Sweden,2,2,True,0.364
+2022-03-29,Portugal,North Macedonia,2,2,True,0.682
+2022-03-29,Cyprus,Estonia,1,2,False,0.431
+2022-03-29,Kazakhstan,Moldova,2,0,False,0.745
+2022-03-30,Mexico,El Salvador,2,2,True,0.831
+2022-03-30,Costa Rica,United States,0,2,False,0.573
+2022-03-30,Panama,Canada,0,2,False,0.551
+2022-03-30,Jamaica,Honduras,2,2,True,0.544
+2022-03-30,Solomon Islands,New Zealand,0,0,True,0.681
+2022-06-01,Italy,Argentina,2,0,False,0.55
+2022-06-01,Scotland,Ukraine,2,0,False,0.347
+2022-06-01,Poland,Wales,0,2,False,0.336
+2022-06-02,Panama,Costa Rica,0,2,False,0.538
+2022-06-02,Barbados,Antigua & Barbuda,0,0,True,0.589
+2022-06-02,Guadeloupe,Cuba,2,2,True,0.84
+2022-06-02,Belize,Dominican Republic,2,0,False,0.498
+2022-06-02,French Guiana,Guatemala,0,2,False,0.387
+2022-06-02,Anguilla,Dominica,0,1,False,0.916
+2022-06-02,Czech Republic,Switzerland,0,2,False,0.651
+2022-06-02,Spain,Portugal,1,1,True,0.43
+2022-06-02,Israel,Iceland,2,1,False,0.452
+2022-06-02,Serbia,Norway,2,0,False,0.655
+2022-06-02,Slovenia,Sweden,0,0,True,0.403
+2022-06-02,Northern Ireland,Greece,1,0,False,0.342
+2022-06-02,Cyprus,Kosovo,1,0,False,0.351
+2022-06-02,Georgia,Gibraltar,2,2,True,0.99
+2022-06-02,Bulgaria,North Macedonia,0,1,False,0.504
+2022-06-02,Estonia,San Marino,2,2,True,0.983
+2022-06-03,Curacao,Honduras,2,0,False,0.494
+2022-06-03,Bahamas,Saint Vincent and the Grenadines,2,2,True,0.446
+2022-06-03,Nicaragua,Trinidad & Tobago,0,2,False,0.566
+2022-06-03,Sint Maarten,United States Virgin Islands,2,1,False,0.562
+2022-06-03,Turks and Caicos Islands,Bonaire,2,0,False,0.555
+2022-06-03,Saint Martin,Aruba,2,1,False,0.507
+2022-06-03,British Virgin Islands,Cayman Islands,1,1,True,0.659
+2022-06-03,Croatia,Austria,2,0,False,0.685
+2022-06-03,France,Denmark,2,0,False,0.735
+2022-06-03,Belgium,Netherlands,2,0,False,0.676
+2022-06-03,Kazakhstan,Azerbaijan,2,2,True,0.58
+2022-06-03,Belarus,Slovakia,2,0,False,0.454
+2022-06-03,Liechtenstein,Moldova,0,0,True,0.428
+2022-06-03,Latvia,Andorra,2,2,True,0.853
+2022-06-04,Suriname,Jamaica,2,1,False,0.408
+2022-06-04,El Salvador,Grenada,2,2,True,0.916
+2022-06-04,Bermuda,Haiti,0,1,False,0.555
+2022-06-04,Montserrat,Guyana,2,0,False,0.684
+2022-06-04,Hungary,England,0,2,False,0.678
+2022-06-04,Italy,Germany,2,1,False,0.496
+2022-06-04,Armenia,Republic of Ireland,0,2,False,0.46
+2022-06-04,Finland,Bosnia & Herzegovina,2,1,False,0.584
+2022-06-04,Montenegro,Romania,0,2,False,0.502
+2022-06-04,Lithuania,Luxembourg,1,0,False,0.438
+2022-06-04,Turkey,Faroe Islands,2,2,True,0.911
+2022-06-05,Wales,Ukraine,2,2,True,0.395
+2022-06-05,Costa Rica,Martinique,2,2,True,0.711
+2022-06-05,Cuba,Barbados,2,2,True,0.757
+2022-06-05,Antigua & Barbuda,Guadeloupe,1,2,False,0.428
+2022-06-05,Guatemala,Belize,2,2,True,0.827
+2022-06-05,Dominican Republic,French Guiana,2,0,False,0.414
+2022-06-05,Dominica,Anguilla,2,1,False,0.841
+2022-06-05,Portugal,Switzerland,2,2,True,0.586
+2022-06-05,Czech Republic,Spain,0,1,False,0.611
+2022-06-05,Serbia,Slovenia,2,2,True,0.821
+2022-06-05,Sweden,Norway,2,0,False,0.537
+2022-06-05,Cyprus,Northern Ireland,0,1,False,0.495
+2022-06-05,Kosovo,Greece,1,0,False,0.394
+2022-06-05,Gibraltar,North Macedonia,0,0,True,0.982
+2022-06-05,Bulgaria,Georgia,2,0,False,0.398
+2022-06-05,San Marino,Malta,0,0,True,0.774
+2022-06-06,Honduras,Curacao,2,0,False,0.38
+2022-06-06,Saint Vincent and the Grenadines,Nicaragua,0,1,False,0.418
+2022-06-06,Trinidad & Tobago,Bahamas,2,2,True,0.855
+2022-06-06,Bonaire,Sint Maarten,2,1,False,0.521
+2022-06-06,United States Virgin Islands,Turks and Caicos Islands,2,2,True,0.508
+2022-06-06,Aruba,Saint Martin,2,2,True,0.76
+2022-06-06,Cayman Islands,British Virgin Islands,2,1,False,0.661
+2022-06-06,Austria,Denmark,0,0,True,0.6
+2022-06-06,Croatia,France,0,1,False,0.667
+2022-06-06,Iceland,Albania,2,1,False,0.476
+2022-06-06,Belarus,Azerbaijan,2,1,False,0.763
+2022-06-06,Slovakia,Kazakhstan,2,0,False,0.847
+2022-06-06,Latvia,Liechtenstein,2,2,True,0.865
+2022-06-06,Andorra,Moldova,2,1,False,0.539
+2022-06-07,Jamaica,Suriname,2,2,True,0.562
+2022-06-07,Grenada,El Salvador,0,1,False,0.769
+2022-06-07,Guyana,Bermuda,2,2,True,0.468
+2022-06-07,Haiti,Montserrat,2,2,True,0.834
+2022-06-07,Germany,England,2,1,False,0.392
+2022-06-07,Italy,Hungary,2,2,True,0.675
+2022-06-07,Finland,Montenegro,2,2,True,0.647
+2022-06-07,Bosnia & Herzegovina,Romania,2,2,True,0.381
+2022-06-07,Faroe Islands,Luxembourg,0,0,True,0.61
+2022-06-07,Lithuania,Turkey,0,0,True,0.922
+2022-06-07,United Arab Emirates,Australia,0,0,True,0.629
+2022-06-08,Kuwait,Indonesia,2,0,False,0.65
+2022-06-08,Jordan,Nepal,2,2,True,0.987
+2022-06-08,Philippines,Yemen,2,1,False,0.495
+2022-06-08,Mongolia,Palestine,0,0,True,0.603
+2022-06-08,Thailand,Maldives,2,2,True,0.823
+2022-06-08,Uzbekistan,Sri Lanka,2,2,True,0.989
+2022-06-08,Hong Kong,Afghanistan,1,2,False,0.489
+2022-06-08,India,Cambodia,2,2,True,0.709
+2022-06-08,Bahrain,Bangladesh,2,2,True,0.983
+2022-06-08,Malaysia,Turkmenistan,2,2,True,0.377
+2022-06-08,Tajikistan,Myanmar,2,2,True,0.876
+2022-06-08,Kyrgyzstan,Singapore,2,2,True,0.487
+2022-06-08,Wales,Netherlands,0,0,True,0.398
+2022-06-08,Belgium,Poland,2,2,True,0.592
+2022-06-08,Republic of Ireland,Ukraine,0,0,True,0.637
+2022-06-08,Scotland,Armenia,2,2,True,0.798
+2022-06-09,Panama,Martinique,2,2,True,0.891
+2022-06-09,Canada,Curacao,2,2,True,0.933
+2022-06-09,Barbados,Guadeloupe,0,0,True,0.699
+2022-06-09,Antigua & Barbuda,Cuba,2,0,False,0.541
+2022-06-09,Belize,French Guiana,0,1,False,0.749
+2022-06-09,Aruba,Saint Kitts and Nevis,0,0,True,0.695
+2022-06-09,Dominica,Saint Lucia,0,0,True,0.523
+2022-06-09,Cayman Islands,Puerto Rico,0,0,True,0.55
+2022-06-09,Portugal,Czech Republic,2,2,True,0.557
+2022-06-09,Switzerland,Spain,2,0,False,0.513
+2022-06-09,Norway,Slovenia,2,1,False,0.676
+2022-06-09,Sweden,Serbia,2,0,False,0.444
+2022-06-09,Kosovo,Northern Ireland,0,2,False,0.421
+2022-06-09,Greece,Cyprus,2,2,True,0.893
+2022-06-09,Gibraltar,Bulgaria,0,1,False,0.925
+2022-06-09,North Macedonia,Georgia,0,0,True,0.409
+2022-06-09,Malta,Estonia,2,0,False,0.404
+2022-06-10,United States,Grenada,2,2,True,0.992
+2022-06-10,Saint Vincent and the Grenadines,Trinidad & Tobago,0,0,True,0.55
+2022-06-10,Bahamas,Nicaragua,0,0,True,0.687
+2022-06-10,Dominican Republic,Guatemala,2,1,False,0.475
+2022-06-10,Austria,France,0,1,False,0.569
+2022-06-10,Denmark,Croatia,2,0,False,0.706
+2022-06-10,Albania,Israel,2,0,False,0.661
+2022-06-10,Azerbaijan,Slovakia,0,0,True,0.608
+2022-06-10,Belarus,Kazakhstan,2,1,False,0.619
+2022-06-10,Moldova,Latvia,0,0,True,0.441
+2022-06-10,Andorra,Liechtenstein,2,2,True,0.662
+2022-06-11,Kuwait,Nepal,2,2,True,0.879
+2022-06-11,Indonesia,Jordan,0,0,True,0.705
+2022-06-11,Mongolia,Philippines,2,0,False,0.462
+2022-06-11,Yemen,Palestine,0,0,True,0.44
+2022-06-11,Sri Lanka,Thailand,0,0,True,0.975
+2022-06-11,Uzbekistan,Maldives,2,2,True,0.965
+2022-06-11,Cambodia,Hong Kong,2,0,False,0.489
+2022-06-11,India,Afghanistan,2,2,True,0.506
+2022-06-11,Bangladesh,Turkmenistan,0,0,True,0.441
+2022-06-11,Malaysia,Bahrain,0,0,True,0.603
+2022-06-11,Singapore,Tajikistan,0,0,True,0.562
+2022-06-11,Kyrgyzstan,Myanmar,2,2,True,0.729
+2022-06-11,Mexico,Suriname,2,2,True,0.698
+2022-06-11,Guyana,Haiti,0,0,True,0.679
+2022-06-11,Montserrat,Bermuda,0,2,False,0.502
+2022-06-11,United States Virgin Islands,Bonaire,0,0,True,0.611
+2022-06-11,Sint Maarten,Turks and Caicos Islands,0,2,False,0.56
+2022-06-11,England,Italy,2,1,False,0.584
+2022-06-11,Hungary,Germany,0,1,False,0.482
+2022-06-11,Wales,Belgium,0,1,False,0.587
+2022-06-11,Netherlands,Poland,2,1,False,0.64
+2022-06-11,Ukraine,Armenia,2,2,True,0.791
+2022-06-11,Republic of Ireland,Scotland,2,2,True,0.368
+2022-06-11,Montenegro,Bosnia & Herzegovina,2,1,False,0.415
+2022-06-11,Romania,Finland,2,2,True,0.551
+2022-06-11,Faroe Islands,Lithuania,0,2,False,0.524
+2022-06-11,Luxembourg,Turkey,0,0,True,0.387
+2022-06-12,Martinique,Panama,0,1,False,0.384
+2022-06-12,Cuba,Antigua & Barbuda,2,2,True,0.513
+2022-06-12,Guadeloupe,Barbados,2,2,True,0.736
+2022-06-12,Saint Kitts and Nevis,Saint Martin,2,1,False,0.686
+2022-06-12,Saint Lucia,Anguilla,2,2,True,0.895
+2022-06-12,Puerto Rico,British Virgin Islands,2,2,True,0.922
+2022-06-12,Spain,Czech Republic,2,2,True,0.766
+2022-06-12,Switzerland,Portugal,0,2,False,0.583
+2022-06-12,Norway,Sweden,1,2,False,0.355
+2022-06-12,Slovenia,Serbia,0,1,False,0.555
+2022-06-12,Northern Ireland,Cyprus,2,1,False,0.837
+2022-06-12,Greece,Kosovo,2,2,True,0.86
+2022-06-12,North Macedonia,Gibraltar,2,2,True,0.987
+2022-06-12,Georgia,Bulgaria,2,1,False,0.673
+2022-06-12,Malta,San Marino,2,2,True,0.978
+2022-06-13,Australia,Peru,0,1,False,0.408
+2022-06-13,Honduras,Canada,0,2,False,0.829
+2022-06-13,Nicaragua,Bahamas,2,2,True,0.7
+2022-06-13,Trinidad & Tobago,Saint Vincent and the Grenadines,2,2,True,0.671
+2022-06-13,Guatemala,Dominican Republic,2,2,True,0.786
+2022-06-13,Denmark,Austria,2,2,True,0.71
+2022-06-13,France,Croatia,2,0,False,0.522
+2022-06-13,Iceland,Israel,2,1,False,0.398
+2022-06-13,Azerbaijan,Belarus,0,2,False,0.668
+2022-06-13,Kazakhstan,Slovakia,0,2,False,0.517
+2022-06-14,Costa Rica,New Zealand,2,2,True,0.682
+2022-06-14,Kuwait,Jordan,0,0,True,0.487
+2022-06-14,Indonesia,Nepal,2,2,True,0.813
+2022-06-14,Palestine,Philippines,2,2,True,0.64
+2022-06-14,Mongolia,Yemen,1,2,False,0.445
+2022-06-14,Maldives,Sri Lanka,2,2,True,0.845
+2022-06-14,Uzbekistan,Thailand,2,2,True,0.477
+2022-06-14,Afghanistan,Cambodia,2,1,False,0.618
+2022-06-14,India,Hong Kong,2,2,True,0.736
+2022-06-14,Bahrain,Turkmenistan,2,2,True,0.896
+2022-06-14,Malaysia,Bangladesh,2,2,True,0.757
+2022-06-14,Myanmar,Singapore,0,0,True,0.471
+2022-06-14,Kyrgyzstan,Tajikistan,2,1,False,0.6
+2022-06-14,Jamaica,Mexico,0,1,False,0.405
+2022-06-14,El Salvador,United States,1,1,True,0.428
+2022-06-14,Haiti,Guyana,2,2,True,0.851
+2022-06-14,French Guiana,Belize,2,2,True,0.837
+2022-06-14,Bonaire,United States Virgin Islands,2,2,True,0.508
+2022-06-14,Turks and Caicos Islands,Sint Maarten,2,2,True,0.618
+2022-06-14,England,Hungary,2,0,False,0.743
+2022-06-14,Germany,Italy,0,2,False,0.381
+2022-06-14,Netherlands,Wales,2,2,True,0.637
+2022-06-14,Poland,Belgium,0,0,True,0.573
+2022-06-14,Armenia,Scotland,0,0,True,0.47
+2022-06-14,Ukraine,Republic of Ireland,1,1,True,0.344
+2022-06-14,Bosnia & Herzegovina,Finland,2,2,True,0.403
+2022-06-14,Romania,Montenegro,2,0,False,0.656
+2022-06-14,Luxembourg,Faroe Islands,2,1,False,0.508
+2022-06-14,Turkey,Lithuania,2,2,True,0.945
+2022-06-14,Moldova,Andorra,2,2,True,0.582
+2022-06-14,Liechtenstein,Latvia,0,0,True,0.43
+2022-09-21,Scotland,Ukraine,0,2,False,0.375
+2022-09-22,Croatia,Denmark,2,2,True,0.458
+2022-09-22,France,Austria,2,2,True,0.785
+2022-09-22,Belgium,Wales,2,2,True,0.748
+2022-09-22,Poland,Netherlands,0,0,True,0.479
+2022-09-22,Lithuania,Faroe Islands,2,1,False,0.387
+2022-09-22,Turkey,Luxembourg,2,1,False,0.847
+2022-09-22,Kazakhstan,Belarus,2,2,True,0.51
+2022-09-22,Slovakia,Azerbaijan,2,0,False,0.767
+2022-09-22,Latvia,Moldova,2,0,False,0.799
+2022-09-22,Liechtenstein,Andorra,1,0,False,0.451
+2022-09-23,Germany,Hungary,2,0,False,0.724
+2022-09-23,Italy,England,2,2,True,0.41
+2022-09-23,Bosnia & Herzegovina,Montenegro,2,2,True,0.611
+2022-09-23,Finland,Romania,0,1,False,0.39
+2022-09-23,Georgia,North Macedonia,0,2,False,0.416
+2022-09-23,Bulgaria,Gibraltar,2,2,True,0.896
+2022-09-23,Estonia,Malta,2,2,True,0.552
+2022-09-24,Czech Republic,Portugal,0,0,True,0.541
+2022-09-24,Spain,Switzerland,2,0,False,0.702
+2022-09-24,Armenia,Ukraine,0,0,True,0.509
+2022-09-24,Scotland,Republic of Ireland,2,2,True,0.517
+2022-09-24,Israel,Albania,2,2,True,0.643
+2022-09-24,Slovenia,Norway,0,2,False,0.616
+2022-09-24,Serbia,Sweden,2,2,True,0.767
+2022-09-24,Northern Ireland,Kosovo,2,2,True,0.599
+2022-09-24,Cyprus,Greece,0,2,False,0.712
+2022-09-25,Austria,Croatia,0,0,True,0.433
+2022-09-25,Denmark,France,0,2,False,0.452
+2022-09-25,Wales,Poland,2,0,False,0.487
+2022-09-25,Netherlands,Belgium,1,2,False,0.363
+2022-09-25,Faroe Islands,Turkey,0,2,False,0.868
+2022-09-25,Luxembourg,Lithuania,2,2,True,0.817
+2022-09-25,Slovakia,Belarus,2,1,False,0.764
+2022-09-25,Azerbaijan,Kazakhstan,1,2,False,0.509
+2022-09-25,Andorra,Latvia,2,1,False,0.39
+2022-09-25,Moldova,Liechtenstein,2,2,True,0.576
+2022-09-26,England,Germany,2,1,False,0.514
+2022-09-26,Hungary,Italy,0,0,True,0.516
+2022-09-26,Montenegro,Finland,2,0,False,0.358
+2022-09-26,Romania,Bosnia & Herzegovina,2,2,True,0.418
+2022-09-26,Gibraltar,Georgia,0,0,True,0.905
+2022-09-26,North Macedonia,Bulgaria,2,0,False,0.592
+2022-09-26,San Marino,Estonia,0,0,True,0.98
+2022-09-27,Portugal,Spain,2,0,False,0.532
+2022-09-27,Switzerland,Czech Republic,2,2,True,0.712
+2022-09-27,Republic of Ireland,Armenia,2,2,True,0.808
+2022-09-27,Ukraine,Scotland,1,1,True,0.429
+2022-09-27,Albania,Iceland,2,1,False,0.414
+2022-09-27,Norway,Serbia,2,0,False,0.377
+2022-09-27,Sweden,Slovenia,2,1,False,0.7
+2022-09-27,Kosovo,Cyprus,2,2,True,0.644
+2022-09-27,Greece,Northern Ireland,2,2,True,0.529
+2022-11-20,Qatar,Ecuador,2,0,False,0.369
+2022-11-21,Senegal,Netherlands,0,0,True,0.594
+2022-11-21,England,Iran,2,2,True,0.571
+2022-11-21,United States,Wales,2,1,False,0.447
+2022-11-22,Argentina,Saudi Arabia,2,0,False,0.9
+2022-11-22,Mexico,Poland,0,1,False,0.363
+2022-11-22,Denmark,Tunisia,2,1,False,0.782
+2022-11-22,France,Australia,2,2,True,0.488
+2022-11-23,Germany,Japan,2,0,False,0.484
+2022-11-23,Spain,Costa Rica,2,2,True,0.631
+2022-11-23,Morocco,Croatia,2,1,False,0.39
+2022-11-23,Belgium,Canada,2,2,True,0.777
+2022-11-24,Switzerland,Cameroon,2,2,True,0.745
+2022-11-24,Brazil,Serbia,2,2,True,0.723
+2022-11-24,Uruguay,South Korea,2,1,False,0.508
+2022-11-24,Portugal,Ghana,2,2,True,0.902
+2022-11-25,Qatar,Senegal,0,0,True,0.436
+2022-11-25,Netherlands,Ecuador,2,1,False,0.777
+2022-11-25,Wales,Iran,2,0,False,0.434
+2022-11-25,England,United States,2,1,False,0.554
+2022-11-26,Poland,Saudi Arabia,0,2,False,0.358
+2022-11-26,Argentina,Mexico,2,2,True,0.792
+2022-11-26,Tunisia,Australia,2,0,False,0.412
+2022-11-26,France,Denmark,2,2,True,0.497
+2022-11-27,Japan,Costa Rica,2,0,False,0.505
+2022-11-27,Spain,Germany,2,1,False,0.667
+2022-11-27,Belgium,Morocco,2,0,False,0.568
+2022-11-27,Croatia,Canada,2,2,True,0.683
+2022-11-28,Cameroon,Serbia,0,1,False,0.571
+2022-11-28,Brazil,Switzerland,2,2,True,0.745
+2022-11-28,South Korea,Ghana,2,0,False,0.772
+2022-11-28,Portugal,Uruguay,2,2,True,0.628
+2022-11-29,Ecuador,Senegal,2,0,False,0.645
+2022-11-29,Qatar,Netherlands,0,0,True,0.563
+2022-11-29,Wales,England,0,0,True,0.443
+2022-11-29,Iran,United States,2,0,False,0.385
+2022-11-30,Poland,Argentina,0,0,True,0.504
+2022-11-30,Saudi Arabia,Mexico,0,0,True,0.441
+2022-11-30,Australia,Denmark,0,2,False,0.351
+2022-11-30,Tunisia,France,0,2,False,0.626
+2022-12-01,Japan,Spain,0,2,False,0.468
+2022-12-01,Costa Rica,Germany,0,0,True,0.363
+2022-12-01,Croatia,Belgium,0,1,False,0.349
+2022-12-01,Canada,Morocco,0,0,True,0.471
+2022-12-02,Serbia,Switzerland,0,0,True,0.51
+2022-12-02,Cameroon,Brazil,0,2,False,0.887
+2022-12-02,Ghana,Uruguay,0,0,True,0.459
+2022-12-02,South Korea,Portugal,2,2,True,0.555
+2022-12-03,Netherlands,United States,2,2,True,0.594
+2022-12-03,Argentina,Australia,2,2,True,0.764
+2022-12-04,France,Poland,2,2,True,0.501
+2022-12-04,England,Senegal,2,2,True,0.676
+2022-12-05,Japan,Croatia,0,1,False,0.479
+2022-12-05,Brazil,South Korea,2,2,True,0.77
+2022-12-06,Morocco,Spain,1,1,True,0.354
+2022-12-06,Portugal,Switzerland,2,2,True,0.679
+2022-12-09,Croatia,Brazil,0,1,False,0.462
+2022-12-09,Netherlands,Argentina,0,1,False,0.36
+2022-12-10,Morocco,Portugal,1,2,False,0.364
+2022-12-10,England,France,2,0,False,0.452
+2022-12-13,Argentina,Croatia,2,2,True,0.678
+2022-12-14,France,Morocco,2,2,True,0.399
+2022-12-17,Croatia,Morocco,2,2,True,0.408
+2022-12-18,Argentina,France,2,1,False,0.514

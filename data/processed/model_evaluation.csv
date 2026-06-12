@@ -1,5 +1,5 @@
-model,log_loss,brier_score
-XGBoost-Cal,0.8547,0.1662
-XGBoost,0.8657,0.1701
-LightGBM,0.8713,0.1717
-LogReg,0.8832,0.1728
+model,log_loss,brier_score,delta_ll_vs_best,delta_ci_low,delta_ci_high,significant
+LightGBM,0.8356,0.1634,0.0,0.0,0.0,False
+LogReg,0.836,0.1635,0.0004,-0.0071,0.0085,False
+XGBoost,0.8587,0.1678,0.0231,0.0151,0.0314,True
+XGBoost-Cal,0.8716,0.1699,0.0361,0.0264,0.0461,True

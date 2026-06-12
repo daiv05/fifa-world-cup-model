@@ -21,7 +21,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import TimeSeriesSplit, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.utils.class_weight import compute_class_weight
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 
@@ -45,20 +44,23 @@ def compute_combined_weights(
     time_weights: np.ndarray | None = None,
 ) -> np.ndarray:
     """
-    Combina pesos balanceados de clase con time_decay y re-normaliza por su
-    media para que el peso promedio sea ~1.0 (evita que XGBoost interprete
-    todos los partidos como muy importantes o muy poco importantes).
-    """
-    classes = np.unique(y)
-    cw_values = compute_class_weight("balanced", classes=classes, y=y)
-    cw_map = dict(zip(classes, cw_values))
-    class_w = np.array([cw_map[yi] for yi in y], dtype=np.float32)
+    Pesos muestrales para el entrenamiento: SOLO time_decay, renormalizado por
+    su media para que el peso promedio sea ~1.0.
 
+    Nota metodológica (corrección v2): la versión anterior multiplicaba además
+    por `class_weight="balanced"`. Rebalancear clases deforma las probabilidades
+    posteriores alejándolas de las tasas base reales (los empates ~21% se
+    sobreponderaban ~1.6x), lo que es contraproducente cuando el objetivo del
+    modelo son probabilidades calibradas evaluadas con log-loss/Brier. La
+    auditoría empírica mostró que el mismo XGBoost sin rebalanceo mejora el
+    log-loss de test de 0.8547 a ~0.835 y elimina la sobrepredicción de empates.
+    El parámetro `y` se conserva en la firma por compatibilidad.
+    """
     if time_weights is not None:
-        combined = class_w * time_weights.astype(np.float32)
-        combined /= combined.mean()
-        return combined
-    return class_w
+        w = time_weights.astype(np.float32).copy()
+        w /= w.mean()
+        return w
+    return np.ones(len(y), dtype=np.float32)
 
 
 def temporal_split(
@@ -291,10 +293,17 @@ def _full_training_pipeline(
     suffix: str = "",
     min_year: int | None = TRAIN_MIN_YEAR,
     optuna_jobs: int = 1,
+    feature_cols: list[str] | None = None,
 ) -> None:
     """
     Si `cutoff` se pasa, se entrena solo con date < cutoff y los modelos
     se guardan con `suffix` (p.ej. "_pre2022").
+
+    `feature_cols` permite entrenar con un subconjunto de FEATURE_COLS. El
+    pipeline pre-2022 lo usa para EXCLUIR las features anacrónicas (xG y
+    squad_value, snapshots de ~2026): un modelo "pre-2022" cuyo vector de
+    entrada contiene información observada en 2026 no es una validación
+    out-of-time honesta, aunque el target sea limpio.
 
     `min_year` recorta el dataset por abajo (default 2010). Razones:
       - los features estáticos (xg_*, squad_value, ranking moderno) no son
@@ -304,7 +313,8 @@ def _full_training_pipeline(
       - el time_decay con lambda=0.001 ya hace que los partidos pre-2010
         pesen <2%, así que el recorte explícito no pierde señal real.
     """
-    df = df.dropna(subset=FEATURE_COLS + ["target"]).copy()
+    cols = list(feature_cols) if feature_cols is not None else list(FEATURE_COLS)
+    df = df.dropna(subset=cols + ["target"]).copy()
     df["date"] = pd.to_datetime(df["date"])
     if min_year is not None:
         before = len(df)
@@ -330,7 +340,7 @@ def _full_training_pipeline(
         print(f"  Sin val_mask 2021 - fallback 85/15 dentro de train: "
               f"Train={train_mask.sum():,}, Val={val_mask.sum():,}")
 
-    X_all = df[FEATURE_COLS].astype(np.float32)
+    X_all = df[cols].astype(np.float32)
     y_all = df["target"].values.astype(int)
     tw_all = (
         df["time_weight"].values.astype(np.float32)
@@ -363,13 +373,47 @@ def _full_training_pipeline(
     lgb_model = train_lightgbm(X_train, y_train, weights_train, best_lgb)
     save_model(lgb_model, f"lightgbm{suffix}")
 
-    # Calibración sobre val (no leakage)
+    # Calibración + selección del modelo final, ambas sobre validación (no test).
+    #
+    # La calibración Platt se ajusta SOLO sobre el primer 70% temporal de val;
+    # el 30% restante (val_sel) queda virgen para decidir calibrado-vs-crudo
+    # sin sesgo (comparar el calibrado sobre los mismos datos donde se ajustó
+    # la sigmoide lo favorecería espuriamente). La decisión se persiste en
+    # best_model{suffix}.json y simulate.py la consume por defecto.
     if X_val.size > 0:
+        from sklearn.metrics import log_loss as _log_loss
+
+        val_idx = np.where(val_mask)[0]
+        cal_end = int(len(val_idx) * 0.70)
+        cal_idx, sel_idx = val_idx[:cal_end], val_idx[cal_end:]
+        X_cal, y_cal = X_all.iloc[cal_idx], y_all[cal_idx]
+        X_sel, y_sel = X_all.iloc[sel_idx], y_all[sel_idx]
+
         # Sigmoid (Platt) en vez de isotonic: con ~1 año de validación e
         # isotonic 3-clase, isotonic sobreajusta y degrada log-loss en test.
-        print("Calibrando XGBoost (sigmoid/Platt, prefit) sobre validación temporal...")
-        xgb_cal = calibrate_model(xgb_model, X_val, y_val, method="sigmoid")
+        print("Calibrando XGBoost (sigmoid/Platt, prefit) sobre el 70% de validación...")
+        xgb_cal = calibrate_model(xgb_model, X_cal, y_cal, method="sigmoid")
         save_model(xgb_cal, f"xgboost_calibrated{suffix}")
+
+        candidates = {
+            f"logreg_baseline{suffix}": baseline,
+            f"xgboost{suffix}": xgb_model,
+            f"lightgbm{suffix}": lgb_model,
+            f"xgboost_calibrated{suffix}": xgb_cal,
+        }
+        val_scores = {
+            name: round(float(_log_loss(y_sel, m.predict_proba(X_sel), labels=[0, 1, 2])), 4)
+            for name, m in candidates.items()
+        }
+        best_name = min(val_scores, key=val_scores.get)
+        print(f"  Log-loss en val_sel (30% final de val): {val_scores}")
+        print(f"  Modelo seleccionado: {best_name}")
+        pointer_path = MODELS_DIR / f"best_model{suffix}.json"
+        pointer_path.write_text(
+            json.dumps({"best_model": best_name, "val_sel_log_loss": val_scores}, indent=2),
+            encoding="utf-8",
+        )
+        print(f"  Selección guardada en {pointer_path}")
 
 
 if __name__ == "__main__":
@@ -397,8 +441,12 @@ if __name__ == "__main__":
 
     cutoff_pre22 = pd.Timestamp(args.cutoff) if args.cutoff else pd.Timestamp("2022-01-01")
     suffix = f"_pre{cutoff_pre22.year}"
-    print(f"\n=== Pipeline pre-{cutoff_pre22.year} (para validar WC sin leakage) ===")
+    from src.features.features import ANACHRONISTIC_FEATURE_COLS
+    clean_cols = [c for c in FEATURE_COLS if c not in ANACHRONISTIC_FEATURE_COLS]
+    print(f"\n=== Pipeline pre-{cutoff_pre22.year} (validación WC sin leakage) ===")
+    print(f"  Features (sin anacrónicas xG/squad): {clean_cols}")
     _full_training_pipeline(df, trials=args.trials, cutoff=cutoff_pre22, suffix=suffix,
-                             min_year=min_year, optuna_jobs=args.n_jobs)
+                             min_year=min_year, optuna_jobs=args.n_jobs,
+                             feature_cols=clean_cols)
 
     print("\nOK - modelos guardados en", MODELS_DIR)

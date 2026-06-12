@@ -13,9 +13,9 @@ from joblib import Parallel, delayed
 
 from src.simulation.tournament import (
     GROUPS_2026, ALL_TEAMS, PHASES,
-    simulate_full_tournament,
+    simulate_full_tournament, build_goal_sampler,
 )
-from src.features.features import FEATURE_COLS
+from src.features.features import FEATURE_COLS, LEAGUE_AVG_XG
 
 RESULTS_DIR = Path(__file__).parents[2] / "data" / "processed"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -31,9 +31,6 @@ def _team_pair_to_feature_dict(h: dict, a: dict) -> dict[str, float]:
 
     Convención de signo de los diffs: home - away (salvo ranking_diff, que es
     away - home por diseño histórico: positivo = local mejor rankeado).
-
-    travel_distance_diff usa host_distance (distancia a la sede más cercana del
-    Mundial) como away - home, misma convención que a nivel de partido.
     """
     return {
         "elo_diff": h.get("elo", 1500.0) - a.get("elo", 1500.0),
@@ -41,16 +38,14 @@ def _team_pair_to_feature_dict(h: dict, a: dict) -> dict[str, float]:
             np.log1p(h.get("squad_value_eur", 1e7))
             - np.log1p(a.get("squad_value_eur", 1e7))
         ),
-        "xg_avg_for": h.get("xg_for", 1.2) - a.get("xg_for", 1.2),
-        "xg_avg_against": h.get("xg_against", 1.2) - a.get("xg_against", 1.2),
-        "travel_distance_diff": a.get("host_distance", 5000.0) - h.get("host_distance", 5000.0),
+        "xg_avg_for": h.get("xg_for", LEAGUE_AVG_XG) - a.get("xg_for", LEAGUE_AVG_XG),
+        "xg_avg_against": h.get("xg_against", LEAGUE_AVG_XG) - a.get("xg_against", LEAGUE_AVG_XG),
         "ranking_diff": a.get("rank", 78) - h.get("rank", 78),
         # Features derivadas (diff home - away), desde columnas per-equipo de team_features.
         "penalty_share_diff": h.get("penalty_share", 0.07) - a.get("penalty_share", 0.07),
         "striker_concentration_diff": (
             h.get("striker_concentration", 0.4) - a.get("striker_concentration", 0.4)
         ),
-        "shootout_winrate_diff": h.get("shootout_winrate", 0.5) - a.get("shootout_winrate", 0.5),
     }
 
 
@@ -113,8 +108,13 @@ def _simulate_block(n_block: int, predict_fn, team_xg, seed_seq) -> dict[str, di
     """
     rng = np.random.default_rng(seed_seq)
     counts: dict[str, dict[str, int]] = {p: defaultdict(int) for p in PHASES}
+    # Sampler de goles construido UNA vez por bloque: su cache de distribuciones
+    # condicionadas (par, outcome) se reutiliza entre iteraciones.
+    goal_sampler = build_goal_sampler(team_xg or {})
     for _ in range(n_block):
-        result = simulate_full_tournament(predict_fn, team_xg, rng=rng)
+        result = simulate_full_tournament(
+            predict_fn, team_xg, rng=rng, goal_sampler=goal_sampler,
+        )
         for phase in PHASES:
             if phase == "champion":
                 counts["champion"][result["champion"]] += 1
@@ -204,6 +204,102 @@ def run_simulation(
     return champions_df, progression_df
 
 
+def run_ensemble_simulation(
+    n_iterations: int,
+    team_features: pd.DataFrame,
+    n_models: int = 5,
+    seed: int = 42,
+    n_jobs: int = -1,
+) -> pd.DataFrame:
+    """
+    Cuantifica la incertidumbre DEL MODELO (no solo la de simulación):
+    reentrena el modelo final `n_models` veces sobre remuestreos bootstrap del
+    conjunto de entrenamiento (más semilla distinta cuando el learner es
+    estocástico), simula n_iterations/K con cada réplica y reporta, además del
+    punto agregado, el rango de P(campeón) entre réplicas.
+
+    Dos intervalos con semántica distinta:
+      - champion_ci_low/high (Clopper-Pearson): error de muestreo Monte Carlo,
+        reducible corriendo más iteraciones.
+      - champion_ci_model_low/high (min/max entre réplicas): variabilidad por
+        datos/ajuste del modelo, irreducible con más simulaciones.
+    """
+    import json
+    from src.features.features import FEATURE_COLS as COLS, TRAIN_MIN_YEAR
+    from src.models.train import (
+        temporal_split, compute_combined_weights, train_baseline, train_xgboost,
+        train_lightgbm, calibrate_model, MODELS_DIR,
+    )
+
+    df = pd.read_csv(RESULTS_DIR / "features.csv", parse_dates=["date"])
+    df = df.dropna(subset=COLS + ["target"])
+    df = df[df["date"].dt.year >= TRAIN_MIN_YEAR].sort_values("date").reset_index(drop=True)
+    tr, va, _ = temporal_split(df)
+    X = df[COLS].astype(np.float32)
+    y = df["target"].values.astype(int)
+    tw = df["time_weight"].values.astype(np.float32)
+    w_full = compute_combined_weights(y[tr], tw[tr])
+    X_tr, y_tr = X[tr].reset_index(drop=True), y[tr]
+
+    pointer = MODELS_DIR / "best_model.json"
+    best_name = "xgboost_calibrated"
+    if pointer.exists():
+        best_name = json.loads(pointer.read_text(encoding="utf-8"))["best_model"]
+    print(f"Ensemble sobre el modelo seleccionado: {best_name}")
+
+    def _fit_replica(rng_boot: np.random.Generator, k: int):
+        idx = rng_boot.integers(0, len(X_tr), size=len(X_tr))
+        Xb, yb, wb = X_tr.iloc[idx], y_tr[idx], w_full[idx]
+        if best_name.startswith("logreg"):
+            return train_baseline(Xb, yb, wb)
+        if best_name.startswith("lightgbm"):
+            params = json.loads((MODELS_DIR / "best_params_lightgbm.json").read_text(encoding="utf-8"))
+            return train_lightgbm(Xb, yb, wb, {**params, "random_state": k})
+        params = json.loads((MODELS_DIR / "best_params_xgboost.json").read_text(encoding="utf-8"))
+        m = train_xgboost(Xb, yb, wb, {**params, "random_state": k})
+        if "calibrated" in best_name:
+            m = calibrate_model(m, X[va], y[va], method="sigmoid")
+        return m
+
+    per_model_pct: dict[str, list[float]] = {t: [] for t in ALL_TEAMS}
+    total_counts: dict[str, int] = defaultdict(int)
+    iters_per_model = n_iterations // n_models
+
+    for m_seed in range(n_models):
+        rng_boot = np.random.default_rng(1000 + m_seed)
+        model = _fit_replica(rng_boot, m_seed)
+        champs, _ = run_simulation(
+            iters_per_model, model=model, team_features=team_features,
+            seed=seed + m_seed, n_jobs=n_jobs,
+        )
+        pcts = champs.set_index("team")["champion_pct"]
+        counts = champs.set_index("team")["champion_count"]
+        for t in ALL_TEAMS:
+            per_model_pct[t].append(float(pcts.get(t, 0.0)))
+            total_counts[t] += int(counts.get(t, 0))
+        print(f"  modelo seed={m_seed}: top = "
+              f"{champs.iloc[0]['team']} {champs.iloc[0]['champion_pct']:.1f}%")
+
+    n_total = iters_per_model * n_models
+    rows = []
+    for t in ALL_TEAMS:
+        c = total_counts[t]
+        lo, hi = _clopper_pearson(c, n_total)
+        rows.append({
+            "team": t,
+            "champion_pct": round(c / n_total * 100, 2),
+            "champion_ci_low": round(lo, 2),
+            "champion_ci_high": round(hi, 2),
+            "champion_ci_model_low": round(min(per_model_pct[t]), 2),
+            "champion_ci_model_high": round(max(per_model_pct[t]), 2),
+        })
+    out = pd.DataFrame(rows).sort_values("champion_pct", ascending=False).reset_index(drop=True)
+    out.to_csv(RESULTS_DIR / "simulation_ensemble.csv", index=False)
+    print(f"Ensemble ({n_models} modelos x {iters_per_model:,} iter) -> "
+          f"{RESULTS_DIR / 'simulation_ensemble.csv'}")
+    return out
+
+
 def save_results(
     champions_df: pd.DataFrame,
     progression_df: pd.DataFrame,
@@ -220,23 +316,50 @@ def save_results(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Motor Monte Carlo - Mundial 2026")
     parser.add_argument("--iterations", type=int, default=10_000)
-    parser.add_argument("--model", type=str, default=None,
-                        help="Nombre del modelo en data/processed/models/")
+    parser.add_argument("--model", type=str, default="best",
+                        help="Nombre del modelo en data/processed/models/. "
+                             "'best' (default) usa la selección por validación "
+                             "guardada en best_model.json; 'none' usa el dummy.")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--n-jobs", type=int, default=-1,
                         help="Workers para el Monte Carlo (default -1 = todos los cores). "
                              "El resultado es reproducible para cualquier valor.")
+    parser.add_argument("--ensemble", type=int, default=0,
+                        help="K>0 reentrena K modelos con semillas distintas y reporta "
+                             "ademas el intervalo entre-modelos (incertidumbre del modelo).")
     args = parser.parse_args()
 
     model = None
     team_features = None
-    if args.model:
+    model_name = args.model if args.model and args.model.lower() != "none" else None
+    if model_name == "best":
+        import json
+        pointer = RESULTS_DIR / "models" / "best_model.json"
+        if pointer.exists():
+            model_name = json.loads(pointer.read_text(encoding="utf-8"))["best_model"]
+            print(f"Modelo seleccionado por validación: {model_name}")
+        else:
+            print("best_model.json no existe (corre train.py); fallback a xgboost_calibrated.")
+            model_name = "xgboost_calibrated"
+    if model_name:
         from src.models.train import load_model, assert_model_feature_count
-        model = load_model(args.model)
-        assert_model_feature_count(model, name=args.model)
+        model = load_model(model_name)
+        assert_model_feature_count(model, name=model_name)
         features_path = RESULTS_DIR / "team_features.csv"
         if features_path.exists():
             team_features = pd.read_csv(features_path)
+
+    if args.ensemble > 0:
+        if team_features is None:
+            raise SystemExit("--ensemble requiere team_features.csv y un modelo entrenado.")
+        print(f"\nEnsemble de {args.ensemble} modelos, {args.iterations:,} iteraciones totales...")
+        ens = run_ensemble_simulation(
+            args.iterations, team_features, n_models=args.ensemble,
+            seed=args.seed, n_jobs=args.n_jobs,
+        )
+        print("\n=== TOP 10 (ensemble, IC sim + IC modelo) ===")
+        print(ens.head(10).to_string(index=False))
+        raise SystemExit(0)
 
     print(f"\nEjecutando {args.iterations:,} iteraciones del Mundial 2026...")
     champions_df, progression_df = run_simulation(

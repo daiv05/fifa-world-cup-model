@@ -1,0 +1,32 @@
+match,phase,home_slot,away_slot,venue_country
+73,round_of_32,2A,2B,United States
+74,round_of_32,1E,3:ABCDF,United States
+75,round_of_32,1F,2C,Mexico
+76,round_of_32,1C,2F,United States
+77,round_of_32,1I,3:CDFGH,United States
+78,round_of_32,2E,2I,United States
+79,round_of_32,1A,3:CEFHI,Mexico
+80,round_of_32,1L,3:EHIJK,United States
+81,round_of_32,1D,3:BEFIJ,United States
+82,round_of_32,1G,3:AEHIJ,United States
+83,round_of_32,2K,2L,Canada
+84,round_of_32,1H,2J,United States
+85,round_of_32,1B,3:EFGIJ,Canada
+86,round_of_32,1J,2H,United States
+87,round_of_32,1K,3:DEIJL,United States
+88,round_of_32,2D,2G,United States
+89,round_of_16,W74,W77,United States
+90,round_of_16,W73,W75,United States
+91,round_of_16,W76,W78,United States
+92,round_of_16,W79,W80,Mexico
+93,round_of_16,W83,W84,United States
+94,round_of_16,W81,W82,United States
+95,round_of_16,W86,W88,United States
+96,round_of_16,W85,W87,Canada
+97,quarterfinals,W89,W90,United States
+98,quarterfinals,W93,W94,United States
+99,quarterfinals,W91,W92,United States
+100,quarterfinals,W95,W96,United States
+101,semifinals,W97,W98,United States
+102,semifinals,W99,W100,United States
+104,final,W101,W102,United States

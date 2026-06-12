@@ -6,9 +6,14 @@ from src.simulation.tournament import (
     GROUPS_2026,
     ALL_TEAMS,
     PHASES,
+    BRACKET,
+    THIRD_SLOT_POOLS,
     simulate_group_stage,
     select_best_thirds,
     simulate_full_tournament,
+    allocate_thirds_to_slots,
+    build_goal_sampler,
+    _host_advantage_probs,
 )
 from src.simulation.simulate import _clopper_pearson
 
@@ -135,6 +140,97 @@ def test_no_home_away_bias_in_groups():
     diff = abs(wins_first - wins_last)
     # Con n=500 y predictor 50/50 efectivo, diff > 100 sería sesgo claro
     assert diff < 100, f"Posible sesgo home/away: first={wins_first}, last={wins_last}"
+
+
+def test_bracket_structure_official():
+    """El bracket cargado debe tener la estructura oficial FIFA 2026: 16
+    partidos de R32 (8 con slot de tercero, 4 ganador-vs-segundo, 4
+    segundo-vs-segundo), sin ningún cruce tercero-vs-tercero."""
+    r32 = [r for r in BRACKET if r["phase"] == "round_of_32"]
+    assert len(r32) == 16
+    n_third, n_1v2, n_2v2 = 0, 0, 0
+    for r in r32:
+        h, a = str(r["home_slot"]), str(r["away_slot"])
+        assert not (h.startswith("3:") and a.startswith("3:")), "cruce 3º-vs-3º"
+        if a.startswith("3:"):
+            assert h.startswith("1"), "los terceros solo enfrentan ganadores"
+            n_third += 1
+        elif h.startswith("1"):
+            n_1v2 += 1
+        else:
+            assert h.startswith("2") and a.startswith("2")
+            n_2v2 += 1
+    assert (n_third, n_1v2, n_2v2) == (8, 4, 4)
+    # Los pools nunca incluyen al grupo del propio ganador.
+    for r in r32:
+        a = str(r["away_slot"])
+        if a.startswith("3:"):
+            winner_group = str(r["home_slot"])[1]
+            assert winner_group not in a.split(":")[1]
+
+
+def test_allocate_thirds_respects_pools():
+    qualified = ["A", "B", "C", "D", "F", "G", "K", "L"]
+    alloc = allocate_thirds_to_slots(qualified)
+    assert alloc is not None
+    assert sorted(alloc.values()) == sorted(qualified)
+    for match, group in alloc.items():
+        assert group in THIRD_SLOT_POOLS[match]
+
+
+def test_allocate_thirds_many_combinations():
+    """Toda combinación muestreada de 8 grupos debe admitir matching válido."""
+    from itertools import combinations as combos
+    groups = list("ABCDEFGHIJKL")
+    rng = np.random.default_rng(7)
+    all_combos = list(combos(groups, 8))
+    for idx in rng.choice(len(all_combos), size=60, replace=False):
+        q = list(all_combos[idx])
+        alloc = allocate_thirds_to_slots(q)
+        assert alloc is not None, f"sin matching para {q}"
+        for match, group in alloc.items():
+            assert group in THIRD_SLOT_POOLS[match]
+
+
+def test_conditional_goal_sampler_consistent_with_outcome():
+    sampler = build_goal_sampler({})
+    rng = np.random.default_rng(0)
+    for outcome, check in [(2, lambda a, b: a > b),
+                           (1, lambda a, b: a == b),
+                           (0, lambda a, b: a < b)]:
+        for _ in range(200):
+            g1, g2 = sampler("X", "Y", outcome, rng)
+            assert check(g1, g2), f"outcome={outcome} dio {g1}-{g2}"
+
+
+def test_host_advantage_requires_own_venue():
+    """México solo recibe localía si la sede es México."""
+    def predict(home, away):
+        return np.array([0.7, 0.2, 0.1])  # fuerte ventaja al home
+
+    in_mexico = _host_advantage_probs(predict, "Mexico", "Spain", venue_country="Mexico")
+    in_usa = _host_advantage_probs(predict, "Mexico", "Spain", venue_country="United States")
+    symmetric = (0.7 + 0.1) / 2
+    assert abs(in_mexico[0] - 0.7) < 1e-9          # localía plena
+    assert abs(in_usa[0] - symmetric) < 1e-9       # simétrico: sin localía
+    # Fase de grupos (venue None): el anfitrión juega en casa por calendario.
+    group_stage = _host_advantage_probs(predict, "Mexico", "Spain", venue_country=None)
+    assert abs(group_stage[0] - 0.7) < 1e-9
+
+
+def test_group_tiebreak_uses_rng_not_insertion_order():
+    """Con un predictor 100% empates 0-0, el orden del grupo debe variar entre
+    seeds (sorteo), no quedar fijo al orden de inserción."""
+    def all_draws(home, away):
+        return np.array([0.0, 1.0, 0.0])
+
+    teams = list(GROUPS_2026.values())[5]
+    orders = set()
+    for seed in range(10):
+        rng = np.random.default_rng(seed)
+        table = simulate_group_stage(teams, all_draws, rng=rng)
+        orders.add(tuple(table["team"]))
+    assert len(orders) > 1, "el desempate total no usa el rng"
 
 
 def test_clopper_pearson_basic():

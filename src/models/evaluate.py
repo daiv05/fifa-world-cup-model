@@ -23,12 +23,20 @@ def evaluate_all(
     models: dict,
     X_test,
     y_test: np.ndarray,
+    n_boot: int = 2000,
 ) -> pd.DataFrame:
+    """
+    Log-Loss y Brier por modelo, más el delta de log-loss frente al mejor
+    modelo con IC95 bootstrap pareado por partido (corrección v2: los puntos
+    sin intervalo no permiten afirmar que un modelo "gana").
+    """
     records = []
     X_df = _to_df(X_test)
+    losses: dict[str, np.ndarray] = {}
     for name, model in models.items():
-        proba = model.predict_proba(X_df)
-        ll = log_loss(y_test, proba)
+        proba = np.clip(model.predict_proba(X_df), 1e-15, 1.0)
+        losses[name] = -np.log(proba[np.arange(len(y_test)), y_test])
+        ll = float(losses[name].mean())
         brier = np.mean([
             brier_score_loss(
                 (y_test == cls).astype(int),
@@ -38,7 +46,28 @@ def evaluate_all(
         ])
         records.append({"model": name, "log_loss": round(ll, 4), "brier_score": round(brier, 4)})
 
-    return pd.DataFrame(records).sort_values("log_loss")
+    out = pd.DataFrame(records).sort_values("log_loss").reset_index(drop=True)
+    best = out.iloc[0]["model"]
+    rng = np.random.default_rng(0)
+    n = len(y_test)
+    idx = rng.integers(0, n, size=(n_boot, n))
+    deltas, los, his, sigs = [], [], [], []
+    for name in out["model"]:
+        if name == best:
+            deltas.append(0.0); los.append(0.0); his.append(0.0); sigs.append(False)
+            continue
+        d = losses[name] - losses[best]
+        boots = d[idx].mean(axis=1)
+        lo, hi = np.percentile(boots, [2.5, 97.5])
+        deltas.append(round(float(d.mean()), 4))
+        los.append(round(float(lo), 4))
+        his.append(round(float(hi), 4))
+        sigs.append(bool(lo > 0 or hi < 0))
+    out["delta_ll_vs_best"] = deltas
+    out["delta_ci_low"] = los
+    out["delta_ci_high"] = his
+    out["significant"] = sigs
+    return out
 
 
 def plot_calibration_curves(
@@ -130,22 +159,40 @@ def shap_analysis(model, X_train, feature_names: list[str] | None = None):
     return shap_values
 
 
+def _model_feature_cols(model) -> list[str]:
+    """Features con las que se ajustó el modelo (los modelos se entrenan con
+    DataFrames, así que exponen feature_names_in_)."""
+    names = getattr(model, "feature_names_in_", None)
+    if names is None and hasattr(model, "named_steps"):
+        for step in model.named_steps.values():
+            names = getattr(step, "feature_names_in_", None)
+            if names is not None:
+                break
+    return list(names) if names is not None else list(FEATURE_COLS)
+
+
 def validate_wc2022(
     features_df: pd.DataFrame,
     model_pre2022,
 ) -> pd.DataFrame:
     """
-    Evalúa el modelo `xgboost_pre2022` (entrenado solo con date < 2022)
-    sobre todos los partidos de 2022 - el Mundial 2022 incluido.
+    Evalúa el modelo `xgboost_pre2022` sobre todos los partidos de 2022 (el
+    Mundial 2022 incluido) como prueba out-of-time.
+
+    Corrección v2 (validación honesta): el modelo pre-2022 se entrena SIN las
+    features anacrónicas (xG/squad_value, snapshots de ~2026), de modo que ni
+    el modelo ni su vector de entrada ven información posterior al cutoff. Las
+    columnas a usar se leen del propio modelo (feature_names_in_).
     """
     df = features_df.copy()
     df["date"] = pd.to_datetime(df["date"])
-    wc22 = df[df["date"].dt.year == 2022].dropna(subset=FEATURE_COLS + ["target"]).copy()
+    cols = _model_feature_cols(model_pre2022)
+    wc22 = df[df["date"].dt.year == 2022].dropna(subset=cols + ["target"]).copy()
     if wc22.empty:
         print("No hay partidos de 2022 en features.csv")
         return pd.DataFrame()
 
-    X = _to_df(wc22[FEATURE_COLS].values.astype(np.float32))
+    X = wc22[cols].astype(np.float32)
     y = wc22["target"].values.astype(int)
     proba = model_pre2022.predict_proba(X)
     preds = proba.argmax(axis=1)
@@ -157,8 +204,9 @@ def validate_wc2022(
     result["confidence"] = proba.max(axis=1).round(3)
 
     accuracy = result["correct"].mean()
-    ll = log_loss(y, proba)
-    print(f"WC/2022 Accuracy (modelo pre-2022): {accuracy:.1%}  |  Log-Loss: {ll:.4f}")
+    ll = log_loss(y, proba, labels=[0, 1, 2])
+    print(f"WC/2022 (modelo pre-2022, {len(cols)} features sin anacrónicas): "
+          f"Accuracy {accuracy:.1%}  |  Log-Loss: {ll:.4f}")
     return result
 
 
@@ -211,3 +259,5 @@ if __name__ == "__main__":
         wc22_results = validate_wc2022(df, xgb_pre22)
         if not wc22_results.empty:
             print(wc22_results.head(10).to_string(index=False))
+            wc22_results.to_csv(PROCESSED_DIR / "wc2022_validation.csv", index=False)
+            print(f"Guardado en {PROCESSED_DIR / 'wc2022_validation.csv'}")

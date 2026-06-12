@@ -43,6 +43,29 @@ def test_herfindahl_single_vs_two_scorers():
     assert abs(b_last["striker_concentration"] - 0.5) < 1e-9
 
 
+def test_herfindahl_window_expires_old_scorers():
+    """
+    Con la ventana de 4 años, los goleadores antiguos dejan de contar: a1 anota
+    en 2010 y a2 en 2020 -> en 2020 la ventana solo ve a a2 (H=1.0), mientras
+    que el acumulado de por vida daría 0.5.
+    """
+    g = pd.DataFrame({
+        "date": pd.to_datetime(["2010-01-01", "2010-02-01",
+                                 "2020-01-01", "2020-02-01"]),
+        "home_team": ["A"] * 4,
+        "away_team": ["X"] * 4,
+        "team": ["A"] * 4,
+        "scorer": ["a1", "a1", "a2", "a2"],
+        "minute": [10, 20, 10, 20],
+        "own_goal": [False] * 4,
+        "penalty": [False] * 4,
+    })
+    win = compute_team_goal_stats_asof(g)  # ventana default 4 años
+    cum = compute_team_goal_stats_asof(g, herfindahl_window_days=None)
+    assert abs(win[win["team"] == "A"].iloc[-1]["striker_concentration"] - 1.0) < 1e-9
+    assert abs(cum[cum["team"] == "A"].iloc[-1]["striker_concentration"] - 0.5) < 1e-9
+
+
 def test_goal_stats_asof_is_strictly_prior():
     """
     El estado para un partido en fecha D NO debe incluir los goles de D.
